@@ -1,0 +1,57 @@
+{
+ "environment": {
+  "cpu": "x86_64",
+  "cpus": 2,
+  "ram_gb": 7.8,
+  "python": "3.13.18",
+  "cpu_model": "Intel(R) Xeon(R) Processor @ 2.10GHz"
+ },
+ "runs": [
+  {
+   "input_minutes": 10.0,
+   "input_format": "wav 16-bit 44.1 kHz stereo",
+   "input_bytes": 105840044,
+   "wall_seconds": 24.4,
+   "realtime_factor": 24.6,
+   "cpu_seconds_python": 16.5,
+   "cpu_seconds_ffmpeg": 8.2,
+   "peak_rss_pipeline_mb": 265.4,
+   "peak_rss_ffmpeg_mb": 265.4,
+   "true_peak_master_dbtp": -12.233,
+   "beat_hz": 10.0,
+   "master_bytes": 172800044,
+   "delivery_flac_bytes": 131049320
+  },
+  {
+   "input_minutes": 60.0,
+   "input_format": "wav 16-bit 44.1 kHz stereo",
+   "input_bytes": 635040044,
+   "wall_seconds": 128.8,
+   "realtime_factor": 28.0,
+   "cpu_seconds_python": 87.0,
+   "cpu_seconds_ffmpeg": 44.5,
+   "peak_rss_pipeline_mb": 275.2,
+   "peak_rss_ffmpeg_mb": 275.2,
+   "true_peak_master_dbtp": -11.726,
+   "beat_hz": 10.0,
+   "master_bytes": 1036800044,
+   "delivery_flac_bytes": 786271992
+  },
+  {
+   "input_minutes": 10.0,
+   "input_format": "mp3 192k",
+   "input_bytes": 14401454,
+   "wall_seconds": 22.9,
+   "realtime_factor": 26.2,
+   "cpu_seconds_python": 15.3,
+   "cpu_seconds_ffmpeg": 7.9,
+   "peak_rss_pipeline_mb": 264.3,
+   "peak_rss_ffmpeg_mb": 264.3,
+   "true_peak_master_dbtp": -12.376,
+   "beat_hz": 10.0,
+   "master_bytes": 172800044,
+   "delivery_flac_bytes": 126986617
+  }
+ ],
+ "notes": "Synthesized stereo input; profile alpha-demo-v1; one conversion at a time; conversion runs in a fresh process. peak_rss_ffmpeg_mb is ru_maxrss of children and includes the image inherited at fork, so it is an upper bound, not an isolated ffmpeg peak."
+}

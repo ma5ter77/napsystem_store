@@ -1,0 +1,29 @@
+[ru] digital scenario
+  ok   create app (196 ms)
+  ok   upload + real conversion (2318 ms)
+  ok   details, program, price, submit (763 ms)
+  ok   moderator approves (1528 ms)
+  ok   author publishes (500 ms)
+  ok   buyer purchases via test checkout (783 ms)
+  ok   session: precheck, questionnaire, play, offline stop + sync (4184 ms)
+  ok   language switch keeps page, session and cart (718 ms)
+[ru] hardware scenario
+  ok   kit builder adds missing parts; checkout (1341 ms)
+  ok   international address, rate, payment (652 ms)
+  ok   supplier: accept, pack, label, hand over (1728 ms)
+  ok   buyer sees shipment and tracking (453 ms)
+[en] digital scenario
+  ok   create app (204 ms)
+  ok   upload + real conversion (2251 ms)
+  ok   details, program, price, submit (757 ms)
+  ok   moderator approves (1428 ms)
+  ok   author publishes (524 ms)
+  ok   buyer purchases via test checkout (660 ms)
+  ok   session: precheck, questionnaire, play, offline stop + sync (3995 ms)
+  ok   language switch keeps page, session and cart (645 ms)
+[en] hardware scenario
+  ok   kit builder adds missing parts; checkout (1217 ms)
+  ok   international address, rate, payment (636 ms)
+  ok   supplier: accept, pack, label, hand over (2148 ms)
+  ok   buyer sees shipment and tracking (468 ms)
+{"ru":"passed","en":"passed"}

@@ -1,0 +1,115 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { api, ApiError } from "@/lib/api";
+import { money } from "@/lib/i18n";
+import { useApp } from "./Providers";
+
+export function Price({ minor, currency }: { minor: number | null | undefined; currency: string }) {
+  const { locale } = useApp();
+  return <span className="price">{money(minor, currency, locale)}</span>;
+}
+
+export function ErrorBox({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
+  const { t } = useApp();
+  if (!error) return null;
+  const e = error as ApiError;
+  return (
+    <div className="notice bad" role="alert">
+      <div>{e.message || t("common.error")}</div>
+      {e.details?.fields && Array.isArray(e.details.fields) && typeof e.details.fields[0] === "string" && (
+        <div className="hint">{t("common.fields")}: {e.details.fields.map((f: string) => t(`fields.${f}`)).join(", ")}</div>
+      )}
+      {e.details?.reasons && <div className="hint">{e.details.reasons.map((r: string) => t(`reasons.${r.split(":")[0]}`, { cap: r.split(":")[1] ?? "" })).join("; ")}</div>}
+      {e.requestId && <div className="hint">{t("common.request_id")}: {e.requestId}</div>}
+      {onRetry && <button className="btn small ghost" onClick={onRetry} style={{ marginTop: 8 }}>{t("common.retry")}</button>}
+    </div>
+  );
+}
+
+export function Loading({ lines = 3 }: { lines?: number }) {
+  const { t } = useApp();
+  return (
+    <div className="stack" aria-busy="true" aria-live="polite">
+      <span className="sr-only">{t("common.loading")}</span>
+      {Array.from({ length: lines }, (_, i) => <div key={i} className="skeleton" style={{ width: `${90 - i * 12}%` }} />)}
+    </div>
+  );
+}
+
+export function Empty({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
+  return <div className="panel" style={{ textAlign: "left" }}><p className="muted">{children}</p>{action}</div>;
+}
+
+/** Loads data with loading / error / retry states. */
+export function useLoad<T>(path: string | null, deps: unknown[] = []) {
+  const [data, setData] = useState<T | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  const [loading, setLoading] = useState(true);
+  const load = useCallback(async () => {
+    if (!path) return;
+    setLoading(true);
+    setError(null);
+    try { setData(await api<T>(path)); } catch (e) { setError(e); } finally { setLoading(false); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path, ...deps]);
+  useEffect(() => { load(); }, [load]);
+  return { data, error, loading, reload: load, setData };
+}
+
+/** Runs an action, exposing pending + error (for "незавершённая операция"). */
+export function useAction() {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const run = useCallback(async <R,>(fn: () => Promise<R>): Promise<R | undefined> => {
+    setPending(true);
+    setError(null);
+    try { return await fn(); } catch (e) { setError(e); return undefined; } finally { setPending(false); }
+  }, []);
+  return { pending, error, run, setError };
+}
+
+export function RequireAuth({ role, children }: { role?: string | string[]; children: React.ReactNode }) {
+  const { me, t, locale } = useApp();
+  if (me === undefined) return <Loading />;
+  if (me === null) {
+    return <Empty action={<a className="btn" href={`/${locale}/login?next=${encodeURIComponent(typeof window !== "undefined" ? location.pathname : "/")}`}>{t("nav.login")}</a>}>{t("common.login_required")}</Empty>;
+  }
+  const roles = Array.isArray(role) ? role : role ? [role] : [];
+  if (roles.length && !roles.some((r) => me.roles.includes(r))) return <Empty>{t("common.no_role")}</Empty>;
+  return <>{children}</>;
+}
+
+/** Form draft kept in sessionStorage (safe fields only) so switching language does not lose input. */
+export function useDraft<T extends object>(key: string, initial: T): [T, (v: T) => void, () => void] {
+  const [v, setV] = useState<T>(initial);
+  const loaded = useRef(false);
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(`draft:${key}`);
+      if (raw) setV({ ...initial, ...JSON.parse(raw) });
+    } catch { /* storage unavailable */ }
+    loaded.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  const set = (nv: T) => {
+    setV(nv);
+    try { sessionStorage.setItem(`draft:${key}`, JSON.stringify(nv)); } catch { /* */ }
+  };
+  const clear = () => { try { sessionStorage.removeItem(`draft:${key}`); } catch { /* */ } };
+  return [v, set, clear];
+}
+
+export function StatusBadge({ ns, value }: { ns: string; value: string | null | undefined }) {
+  const { t } = useApp();
+  if (!value) return null;
+  const tone = /completed|paid|published|delivered|approved|active|verified|ok|passed|confirmed|shipped|closed/.test(value) ? "ok"
+    : /fail|reject|exception|cancel|incompatible|refunded|expired|revoked/.test(value) ? "bad"
+    : /pending|queued|awaiting|submitted|processing|vendor|partial|past_due|draft|requested/.test(value) ? "warn" : "gray";
+  return <span className={`badge ${tone}`}>{t(`${ns}.${value}`)}</span>;
+}
+
+export function TestModeBanner() {
+  const { t } = useApp();
+  return <div className="notice test" role="note">{t("common.test_mode")}</div>;
+}

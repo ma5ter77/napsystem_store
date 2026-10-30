@@ -1,0 +1,20 @@
+draft app sdk-demo-mvvliqal fa406e81-e837-4d6a-b3c4-3934ab749928 version ec864b55-bf3d-43ee-8db6-fe7267e684c5
+uploaded 0e2af8be-0947-4502-94d8-d3ea84ecf158 544ded85282555fcb78109759c521a232b952965fda04a54fc89a068cd635efc {
+  format_name: 'wav',
+  codec: 'pcm_s16le',
+  channels: 2,
+  sample_rate: 48000,
+  duration: 4,
+  bit_rate: 1536088
+}
+  validating 0
+  completed 1
+completed: {
+  left_hz: 250,
+  right_hz: 260,
+  beat_hz: 10,
+  true_peak_dbtp: -17.601,
+  master_sha256: 'fbeb4e8b5dc2a447d47bfaa08212b1842feb67e38c082118255edd54fdf28a15'
+}
+program set: 1 session(s); draft stays a draft until you submit it.
+compatible kits for quiet-harbor: [ 'nap-starter-kit', 'nap-travel-kit-boxed' ]

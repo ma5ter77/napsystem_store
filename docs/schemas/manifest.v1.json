@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nap.store/schemas/manifest.v1.json",
+  "title": "NAP Store app package manifest v1",
+  "description": "Declarative package executed by the trusted NAP player. No scripts, hardware commands or server-side download URLs are allowed. Prices and access rights are defined by the server, not by the manifest.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "app_id", "app_version", "version_number", "author", "metadata", "content_language", "device", "playback", "sessions", "dsp", "questionnaires"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "app_id": {"type": "string", "format": "uuid"},
+    "app_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"},
+    "version_number": {"type": "integer", "minimum": 1},
+    "author": {
+      "type": "object", "additionalProperties": false, "required": ["name", "developer_id"],
+      "properties": {"name": {"type": "string", "minLength": 1, "maxLength": 120}, "developer_id": {"type": "string", "format": "uuid"}}
+    },
+    "metadata": {
+      "type": "object", "additionalProperties": false, "minProperties": 1,
+      "properties": {"ru": {"$ref": "#/$defs/meta"}, "en": {"$ref": "#/$defs/meta"}}
+    },
+    "category": {"type": ["string", "null"], "maxLength": 64},
+    "content_language": {"type": "string", "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$|^none$"},
+    "device": {
+      "type": "object", "additionalProperties": false, "required": ["min_api_version", "required_capabilities"],
+      "properties": {
+        "min_api_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+$"},
+        "required_capabilities": {"type": "array", "uniqueItems": true, "items": {"enum": ["stereo_output", "stereo_separation", "vibroacoustic_output", "heart_rate_sensor", "hrv_sensor"]}}
+      }
+    },
+    "playback": {
+      "type": "object", "additionalProperties": false, "required": ["delivery_format", "sample_rate", "channels", "requires_channel_separation"],
+      "properties": {
+        "delivery_format": {"enum": ["flac", "wav"]},
+        "sample_rate": {"const": 48000},
+        "channels": {"const": 2},
+        "requires_channel_separation": {"type": "boolean"}
+      }
+    },
+    "dsp": {
+      "type": "object", "additionalProperties": false, "required": ["profile", "profile_version", "engine_version"],
+      "properties": {"profile": {"type": "string"}, "profile_version": {"type": "integer"}, "engine_version": {"type": "string"}}
+    },
+    "sessions": {
+      "type": "array", "minItems": 1, "maxItems": 200,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "position", "title", "asset_id", "sha256", "duration_seconds", "dsp_profile", "dsp_profile_version"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"},
+          "position": {"type": "integer", "minimum": 1},
+          "title": {"type": "object", "additionalProperties": false, "minProperties": 1,
+                    "properties": {"ru": {"type": "string", "maxLength": 200}, "en": {"type": "string", "maxLength": 200}}},
+          "asset_id": {"type": "string", "format": "uuid"},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "duration_seconds": {"type": "number", "exclusiveMinimum": 0},
+          "dsp_profile": {"type": "string"},
+          "dsp_profile_version": {"type": "integer"}
+        }
+      }
+    },
+    "questionnaires": {
+      "type": "object", "additionalProperties": false, "required": ["pre", "post"],
+      "properties": {"pre": {"type": ["string", "null"]}, "post": {"type": ["string", "null"]}}
+    }
+  },
+  "$defs": {
+    "meta": {
+      "type": "object", "additionalProperties": false, "required": ["title"],
+      "properties": {
+        "title": {"type": "string", "minLength": 1, "maxLength": 120},
+        "subtitle": {"type": "string", "maxLength": 200},
+        "description": {"type": "string", "maxLength": 8000}
+      }
+    }
+  }
+}

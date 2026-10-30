@@ -1,0 +1,7 @@
+..........s....................................s....................     [100%]
+=============================== warnings summary ===============================
+tests/test_billing.py::test_30_70_and_refund_4000_example
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_billing.py:278: not run: NAP_STRIPE_SECRET_KEY not configured
+SKIPPED [1] tests/test_hardware.py:401: not run: NAP_EASYPOST_API_KEY not configured
+66 passed, 2 skipped, 1 warning in 56.64s

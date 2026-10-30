@@ -1,0 +1,322 @@
+"use client";
+
+import Link from "next/link";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { Fragment, Suspense, useEffect, useState } from "react";
+import { useApp } from "@/components/Providers";
+import { ErrorBox, Loading, Price, RequireAuth, StatusBadge, useAction, useLoad } from "@/components/ui";
+import { api, uid, uploadWithProgress } from "@/lib/api";
+import { date, duration } from "@/lib/i18n";
+
+const TABS = ["details", "audio", "program", "price", "versions"] as const;
+const CAPS = ["stereo_output", "stereo_separation", "vibroacoustic_output", "heart_rate_sensor", "hrv_sensor"];
+
+function Details({ app, v, reload }: { app: any; v: any; reload: () => void }) {
+  const { t } = useApp();
+  const cats = useLoad<any>("/categories?kind=app");
+  const [m, setM] = useState<any>(v.metadata);
+  const [lang, setLang] = useState(v.content_language);
+  const [caps, setCaps] = useState<string[]>(v.requirements.required_capabilities ?? []);
+  const [api_v, setApiV] = useState(v.requirements.min_api_version ?? "1.0");
+  const [label, setLabel] = useState(v.version_label);
+  const [cat, setCat] = useState("");
+  const [rights, setRights] = useState(v.rights_confirmed);
+  const act = useAction();
+  const editable = v.state === "draft";
+  const field = (loc: string, k: string, area = false) => {
+    const val = m?.[loc]?.[k] ?? "";
+    const on = (e: any) => setM({ ...m, [loc]: { ...(m?.[loc] ?? {}), [k]: e.target.value } });
+    return <label className="field">{t(`dev.f_${k}`)} ({loc.toUpperCase()})
+      {area ? <textarea value={val} onChange={on} disabled={!editable} lang={loc} /> : <input value={val} onChange={on} disabled={!editable} lang={loc} />}</label>;
+  };
+  return (
+    <form className="stack" onSubmit={async (e) => {
+      e.preventDefault();
+      const clean: any = {};
+      for (const loc of ["ru", "en"]) if (m?.[loc]?.title) clean[loc] = Object.fromEntries(Object.entries(m[loc]).filter(([, x]) => x));
+      const body: any = { metadata: clean, content_language: lang, required_capabilities: caps, min_api_version: api_v, version_label: label };
+      if (cat) body.category = cat;
+      if (rights && !v.rights_confirmed) body.confirm_rights = true;
+      if (await act.run(() => api(`/developer/apps/${app.id}/versions/${v.id}`, { method: "PATCH", body }))) reload();
+    }}>
+      {!editable && <div className="notice warn">{t("dev.frozen")}</div>}
+      <div className="two">
+        <div className="panel stack">{field("ru", "title")}{field("ru", "subtitle")}{field("ru", "description", true)}</div>
+        <div className="panel stack">{field("en", "title")}{field("en", "subtitle")}{field("en", "description", true)}</div>
+      </div>
+      <p className="hint">{t("dev.translation_hint")}</p>
+      <div className="panel form wide">
+        <label className="field">{t("app.category")}<select value={cat} onChange={(e) => setCat(e.target.value)} disabled={!editable}><option value="">{t("dev.keep")}</option>{cats.data?.items.map((c: any) => <option key={c.slug} value={c.slug}>{c.name}</option>)}</select></label>
+        <label className="field">{t("app.audio_lang")}<select value={lang} onChange={(e) => setLang(e.target.value)} disabled={!editable}><option value="none">{t("dev.lang_none")}</option><option value="ru">Русский</option><option value="en">English</option></select></label>
+        <label className="field">{t("dev.version_label")}<input value={label} onChange={(e) => setLabel(e.target.value)} disabled={!editable} /></label>
+        <label className="field">{t("dev.min_api")}<input value={api_v} onChange={(e) => setApiV(e.target.value)} disabled={!editable} /></label>
+      </div>
+      <fieldset className="panel" disabled={!editable}><legend>{t("app.compat")}</legend>
+        <div className="row">{CAPS.map((c) => <label key={c} className="check"><input type="checkbox" checked={caps.includes(c)} onChange={() => setCaps(caps.includes(c) ? caps.filter((x) => x !== c) : [...caps, c])} /> {t(`caps.${c}`)}</label>)}</div>
+        <p className="hint">{t("dev.caps_hint")}</p>
+      </fieldset>
+      <label className="check panel flat"><input type="checkbox" checked={rights} disabled={!editable || v.rights_confirmed} onChange={(e) => setRights(e.target.checked)} /> {t("dev.rights")}</label>
+      <ErrorBox error={act.error} />
+      {editable && <div><button className="btn" disabled={act.pending}>{t("common.save")}</button></div>}
+    </form>
+  );
+}
+
+function JobCard({ job, onChange }: { job: any; onChange: () => void }) {
+  const { t, locale } = useApp();
+  const [detail, setDetail] = useState<any>(null);
+  const act = useAction();
+  useEffect(() => {
+    if (!["completed", "failed", "canceled"].includes(job.state)) return;
+    if (detail?.id === job.id && detail.state === job.state) return;
+    api(`/developer/conversions/${job.id}`).then(setDetail).catch(() => {});
+  }, [job.id, job.state, detail]);
+  const running = !["completed", "failed", "canceled"].includes(job.state);
+  const qa = detail?.report;
+  return (
+    <div className="panel flat stack">
+      <div className="spread">
+        <div><strong>{job.source.name}</strong> <span className="hint">· {job.profile.slug} v{job.profile.version} · {date(job.created_at, locale, true)}</span></div>
+        <StatusBadge ns="job_state" value={job.state} />
+      </div>
+      {running && <>
+        <div className="progress" aria-label={t(`job_state.${job.state}`)}><i style={{ width: `${Math.round(job.stage_progress * 100)}%` }} /></div>
+        <div className="row"><span className="hint">{t(`job_state.${job.state}`)} {Math.round(job.stage_progress * 100)}% · {t("dev.attempt", { n: job.attempt, max: job.max_attempts })}</span>
+          <button className="btn ghost small" onClick={async () => { if (await act.run(() => api(`/developer/conversions/${job.id}/cancel`, { method: "POST" }))) onChange(); }}>{t("dev.cancel")}</button></div>
+      </>}
+      {job.state === "failed" && <div className="notice bad">{t(`job_errors.${job.error_code}`)}</div>}
+      {["failed", "canceled"].includes(job.state) && <div><button className="btn ghost small" onClick={async () => { if (await act.run(() => api(`/developer/conversions/${job.id}/retry`, { method: "POST" }))) onChange(); }}>{t("dev.retry")}</button></div>}
+      {job.state === "completed" && detail?.urls && (
+        <div className="stack">
+          <div className="lr">
+            <div><div className="hint">{t("dev.source")}</div><audio controls preload="none" src={detail.urls.source} style={{ width: "100%" }} /></div>
+            <div><div className="hint">{t("dev.result")}</div><audio controls preload="none" src={detail.urls.delivery} style={{ width: "100%" }} /></div>
+          </div>
+          <dl className="kv">
+            <dt>{t("qa.carriers")}</dt><dd>{typeof qa.layer === "object" ? `${qa.layer.left_hz} / ${qa.layer.right_hz} Hz, Δ ${qa.layer.beat_hz} Hz` : t(`qa.${qa.layer}`)}</dd>
+            {typeof qa.layer === "object" && <><dt>{t("qa.separation")}</dt><dd>{String(qa.layer.opposite_suppression_db.left)} / {String(qa.layer.opposite_suppression_db.right)} dB</dd></>}
+            <dt>{t("qa.lufs")}</dt><dd>{String(qa.levels.source_integrated_lufs)} → {String(qa.levels.output_integrated_lufs)} LUFS</dd>
+            <dt>{t("qa.tp")}</dt><dd>{String(qa.levels.true_peak_master_dbtp)} dBTP ({t("qa.ceiling", { c: qa.levels.true_peak_ceiling_dbtp, tol: qa.levels.true_peak_tolerance_db })})</dd>
+            <dt>{t("qa.gain")}</dt><dd>{qa.levels.common_gain_db} dB</dd>
+            <dt>{t("qa.duration")}</dt><dd>{duration(detail.params.output.duration_seconds, locale)} · {detail.params.output.frames} frames · 48 kHz / 24 bit</dd>
+          </dl>
+          <details><summary>{t("dev.advanced")}</summary>
+            <dl className="kv hint">
+              {Object.entries(detail.params.profile).map(([k, val]) => <Fragment key={k}><dt>{k}</dt><dd>{String(val)}</dd></Fragment>)}
+              <dt>engine</dt><dd>{detail.params.engine_version}</dd>
+              <dt>input sha256</dt><dd><code>{detail.params.input.sha256.slice(0, 16)}…</code></dd>
+              <dt>master sha256</dt><dd><code>{detail.params.output.master_sha256.slice(0, 16)}…</code></dd>
+            </dl>
+            <div className="row"><a href={detail.urls.master}>{t("dev.dl_master")}</a><a href={detail.urls.qa_report}>{t("dev.dl_report")}</a><a href={detail.urls.params}>{t("dev.dl_params")}</a></div>
+          </details>
+          <p className="hint">{qa.disclaimer}</p>
+        </div>
+      )}
+      <ErrorBox error={act.error} />
+    </div>
+  );
+}
+
+function Audio({ app }: { app: any }) {
+  const { t, locale } = useApp();
+  const limits = useLoad<any>("/converter/limits");
+  const profiles = useLoad<any>("/developer/profiles");
+  const assets = useLoad<any>(`/developer/apps/${app.id}/assets`);
+  const jobs = useLoad<any>(`/developer/conversions?app_id=${app.id}`);
+  const [uploads, setUploads] = useState<Record<string, { p: number; err?: string; done?: boolean }>>({});
+  const [profile, setProfile] = useState("");
+  const act = useAction();
+  useEffect(() => { if (profiles.data && !profile) setProfile(profiles.data.items.find((p: any) => p.slug === "alpha-demo-v1")?.id ?? profiles.data.items[0]?.id); }, [profiles.data, profile]);
+  useEffect(() => {
+    const active = jobs.data?.items?.some((j: any) => !["completed", "failed", "canceled"].includes(j.state));
+    if (!active) return;
+    const iv = setInterval(jobs.reload, 1500); // polling; state is durable in PostgreSQL
+    return () => clearInterval(iv);
+  }, [jobs.data, jobs.reload]);
+
+  async function onFiles(files: FileList | null) {
+    if (!files) return;
+    await Promise.all(Array.from(files).map(async (file) => {
+      setUploads((u) => ({ ...u, [file.name]: { p: 0 } }));
+      try {
+        const sha = await import("@/lib/api").then((m) => file.arrayBuffer().then(m.sha256Hex));
+        const tk = await api(`/developer/apps/${app.id}/uploads`, { body: { filename: file.name, size_bytes: file.size, sha256: sha } });
+        await uploadWithProgress(tk.upload_url, file, (p) => setUploads((u) => ({ ...u, [file.name]: { p } })));
+        setUploads((u) => ({ ...u, [file.name]: { p: 1, done: true } }));
+      } catch (e: any) {
+        setUploads((u) => ({ ...u, [file.name]: { p: 0, err: e.message } }));
+      }
+    }));
+    assets.reload();
+  }
+
+  const lim = limits.data;
+  const prof = profiles.data?.items.find((p: any) => p.id === profile);
+  return (
+    <div className="stack">
+      <div className="panel stack">
+        <h2>{t("dev.upload")}</h2>
+        {lim && <p className="hint">{t("dev.limits", { gb: (lim.max_upload_bytes / 1024 ** 3).toFixed(0), min: lim.max_duration_seconds / 60, formats: lim.accepted.join(", ").toUpperCase() })}</p>}
+        <input type="file" multiple accept=".wav,.flac,.mp3,.m4a,audio/*" onChange={(e) => onFiles(e.target.files)} aria-label={t("dev.upload")} />
+        {Object.entries(uploads).map(([n, u]) => (
+          <div key={n}><div className="spread hint"><span>{n}</span><span>{u.err ? <span className="err-text">{u.err}</span> : u.done ? t("dev.uploaded") : `${Math.round(u.p * 100)}%`}</span></div>
+            <div className="progress"><i style={{ width: `${u.p * 100}%` }} /></div></div>
+        ))}
+      </div>
+      <div className="panel stack">
+        <h2>{t("dev.convert")}</h2>
+        <label className="field">{t("dev.profile")}
+          <select value={profile} onChange={(e) => setProfile(e.target.value)}>{profiles.data?.items.map((p: any) => <option key={p.id} value={p.id}>{p.name} · v{p.version}</option>)}</select></label>
+        {prof && <p className="hint">{prof.description}</p>}
+        {prof && <details><summary>{t("dev.advanced")}</summary><dl className="kv hint">{Object.entries(prof.params).map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{String(v)}</dd></Fragment>)}</dl><p className="hint">{t("dev.profile_locked")}</p></details>}
+        {assets.data?.items?.length ? (
+          <table><thead><tr><th>{t("dev.file")}</th><th>{t("dev.format")}</th><th>{t("account.status")}</th><th></th></tr></thead>
+            <tbody>{assets.data.items.map((a: any) => (
+              <tr key={a.id}><td>{a.name}</td><td className="hint">{a.probe?.format_name ? `${a.probe.codec}, ${a.probe.channels} ch, ${a.probe.sample_rate} Hz, ${duration(a.probe.duration, locale)}` : (a.probe?.error ? t(`job_errors.${a.probe.error}`) : "—")}</td>
+                <td><StatusBadge ns="asset_status" value={a.status} /></td>
+                <td>{a.status === "uploaded" && <button className="btn small" disabled={act.pending} onClick={async () => {
+                  if (await act.run(() => api("/developer/conversions", { body: { app_id: app.id, source_asset_id: a.id, profile_id: profile }, headers: { "Idempotency-Key": uid() } }))) jobs.reload();
+                }}>{t("dev.start_conversion")}</button>}</td></tr>))}</tbody></table>
+        ) : <p className="muted">{t("dev.no_assets")}</p>}
+        <ErrorBox error={act.error} />
+      </div>
+      <div className="stack">
+        <h2>{t("dev.jobs")}</h2>
+        {jobs.error && <ErrorBox error={jobs.error} onRetry={jobs.reload} />}
+        {jobs.data?.items?.length ? jobs.data.items.map((j: any) => <JobCard key={j.id} job={j} onChange={jobs.reload} />) : <p className="muted">{t("dev.no_jobs")}</p>}
+      </div>
+    </div>
+  );
+}
+
+function Program({ app, v, reload }: { app: any; v: any; reload: () => void }) {
+  const { t } = useApp();
+  const jobs = useLoad<any>(`/developer/conversions?app_id=${app.id}`);
+  const [rows, setRows] = useState<any[]>(v.sessions.map((s: any) => ({ key: s.key, ru: s.titles.ru ?? "", en: s.titles.en ?? "", job: s.conversion_job_id })));
+  const act = useAction();
+  const done = (jobs.data?.items ?? []).filter((j: any) => j.state === "completed");
+  const editable = v.state === "draft";
+  const move = (i: number, d: number) => { const r = [...rows]; [r[i], r[i + d]] = [r[i + d], r[i]]; setRows(r); };
+  return (
+    <div className="stack">
+      {!editable && <div className="notice warn">{t("dev.frozen")}</div>}
+      <p className="hint">{t("dev.program_hint")}</p>
+      {rows.map((r, i) => (
+        <fieldset key={i} className="panel flat form wide" disabled={!editable}>
+          <legend>{t("dev.session_n", { n: i + 1 })}</legend>
+          <label className="field">{t("dev.key")}<input value={r.key} onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, key: e.target.value } : x))} /></label>
+          <label className="field">{t("dev.title_ru")}<input value={r.ru} onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, ru: e.target.value } : x))} /></label>
+          <label className="field">{t("dev.title_en")}<input value={r.en} onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, en: e.target.value } : x))} /></label>
+          <label className="field">{t("dev.track")}<select value={r.job} onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, job: e.target.value } : x))}>
+            <option value="">—</option>{done.map((j: any) => <option key={j.id} value={j.id}>{j.source.name} · {j.profile.slug}</option>)}</select></label>
+          <div className="row">
+            <button type="button" className="btn ghost small" disabled={i === 0} onClick={() => move(i, -1)} aria-label={t("dev.up")}>↑</button>
+            <button type="button" className="btn ghost small" disabled={i === rows.length - 1} onClick={() => move(i, 1)} aria-label={t("dev.down")}>↓</button>
+            <button type="button" className="btn ghost small" onClick={() => setRows(rows.filter((_, j) => j !== i))}>{t("dev.remove")}</button>
+          </div>
+        </fieldset>
+      ))}
+      {editable && <div className="row">
+        <button className="btn ghost" onClick={() => setRows([...rows, { key: `s${rows.length + 1}`, ru: "", en: "", job: done[0]?.id ?? "" }])}>{t("dev.add_session")}</button>
+        <button className="btn" disabled={act.pending} onClick={async () => {
+          const sessions = rows.map((r) => ({ key: r.key, titles: Object.fromEntries([["ru", r.ru], ["en", r.en]].filter(([, x]) => x)), conversion_job_id: r.job }));
+          if (await act.run(() => api(`/developer/apps/${app.id}/versions/${v.id}/program`, { method: "PUT", body: { sessions } }))) reload();
+        }}>{t("dev.save_program")}</button>
+      </div>}
+      <ErrorBox error={act.error} />
+    </div>
+  );
+}
+
+function PriceTab({ app, reload }: { app: any; reload: () => void }) {
+  const { t } = useApp();
+  const cur = app.prices[0];
+  const [kind, setKind] = useState(cur?.kind ?? "one_time");
+  const [amount, setAmount] = useState(cur ? cur.amount_minor / 100 : 4.99);
+  const [currency, setCurrency] = useState(cur?.currency ?? "EUR");
+  const [interval, setInterval] = useState(cur?.interval ?? "month");
+  const act = useAction();
+  return (
+    <form className="panel stack" onSubmit={async (e) => {
+      e.preventDefault();
+      if (await act.run(() => api(`/developer/apps/${app.id}/price`, { method: "PUT", body: { kind, amount_minor: Math.round(amount * 100), currency, interval: kind === "subscription" ? interval : null } }))) reload();
+    }}>
+      {cur && <p>{t("dev.current_price")}: <Price minor={cur.amount_minor} currency={cur.currency} /> ({t(`kinds.${cur.kind}`)}{cur.interval ? `, ${t(`interval.${cur.interval}`)}` : ""})</p>}
+      <div className="form wide">
+        <label className="field">{t("dev.price_kind")}<select value={kind} onChange={(e) => setKind(e.target.value)}><option value="one_time">{t("kinds.one_time")}</option><option value="subscription">{t("kinds.subscription")}</option><option value="free">{t("app.free")}</option></select></label>
+        {kind !== "free" && <label className="field">{t("account.amount")}<input type="number" step="0.01" min="0.5" value={amount} onChange={(e) => setAmount(Number(e.target.value))} /></label>}
+        {kind !== "free" && <label className="field">{t("dev.currency")}<select value={currency} onChange={(e) => setCurrency(e.target.value)}><option>EUR</option><option>USD</option></select></label>}
+        {kind === "subscription" && <label className="field">{t("dev.interval")}<select value={interval} onChange={(e) => setInterval(e.target.value)}><option value="month">{t("interval.month")}</option><option value="year">{t("interval.year")}</option></select></label>}
+      </div>
+      <p className="hint">{t("dev.price_note")}</p>
+      <ErrorBox error={act.error} />
+      <div><button className="btn">{t("common.save")}</button></div>
+    </form>
+  );
+}
+
+function Versions({ app, reload }: { app: any; reload: () => void }) {
+  const { t, locale } = useApp();
+  const act = useAction();
+  const latest = app.versions[0];
+  const jobs = useLoad<any>(`/developer/conversions?app_id=${app.id}`);
+  const go = async (path: string, body?: any) => { if (await act.run(() => api(path, { method: body ? "PUT" : "POST", body }))) reload(); };
+  return (
+    <div className="stack">
+      <div className="row">
+        {latest?.state === "draft" && <button className="btn" onClick={() => go(`/developer/apps/${app.id}/versions/${latest.id}/submit`)}>{t("dev.submit")}</button>}
+        {latest?.state === "approved" && <button className="btn" onClick={() => go(`/developer/apps/${app.id}/versions/${latest.id}/publish`)}>{t("dev.publish")}</button>}
+        {["submitted", "approved"].includes(latest?.state) && <button className="btn ghost" onClick={() => go(`/developer/apps/${app.id}/versions/${latest.id}/withdraw`)}>{t("dev.withdraw_version")}</button>}
+        {!["draft", "submitted"].includes(latest?.state) && <button className="btn ghost" onClick={() => go(`/developer/apps/${app.id}/versions`)}>{t("dev.new_version")}</button>}
+        {app.published_version_id && (app.sales_status === "active"
+          ? <button className="btn ghost" onClick={() => go(`/developer/apps/${app.id}/sales`, { status: "withdrawn" })}>{t("dev.stop_sales")}</button>
+          : <button className="btn ghost" onClick={() => go(`/developer/apps/${app.id}/sales`, { status: "active" })}>{t("dev.resume_sales")}</button>)}
+      </div>
+      {app.sales_status === "withdrawn" && <div className="notice warn">{t("dev.sales_withdrawn")}</div>}
+      <ErrorBox error={act.error} />
+      <div className="panel flat stack">
+        <h3>{t("dev.public_preview")}</h3>
+        <p className="hint">{t("dev.preview_hint")}</p>
+        <div className="row">{(jobs.data?.items ?? []).filter((j: any) => j.state === "completed").slice(0, 5).map((j: any) => (
+          <button key={j.id} className="btn ghost small" onClick={async () => { if (await act.run(() => api(`/developer/apps/${app.id}/public-preview`, { body: { conversion_job_id: j.id } }))) reload(); }}>{j.source.name}</button>))}</div>
+        {app.public_preview && <span className="badge ok">{t("dev.preview_published")}</span>}
+      </div>
+      {app.versions.map((v: any) => (
+        <div key={v.id} className="panel flat stack">
+          <div className="spread"><strong>v{v.version_label} (#{v.number})</strong><StatusBadge ns="version_state" value={v.state} /></div>
+          <div className="hint">{t("dev.sessions_count", { count: v.sessions.length })} · {t("dev.rights_state", { ok: v.rights_confirmed ? t("common.yes") : t("common.no") })}{v.manifest_sha256 ? ` · manifest ${v.manifest_sha256.slice(0, 12)}…` : ""}</div>
+          {v.moderation.map((d: any, i: number) => <div key={i} className="notice"><StatusBadge ns="decision" value={d.decision} /> {d.comment} <span className="hint">{date(d.at, locale, true)}</span></div>)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Editor() {
+  const { id } = useParams<{ id: string }>();
+  const { t, locale } = useApp();
+  const router = useRouter();
+  const tab = (useSearchParams()?.get("tab") as (typeof TABS)[number]) || "details";
+  const { data: app, error, loading, reload } = useLoad<any>(`/developer/apps/${id}`);
+  if (loading && !app) return <Loading />;
+  if (error) return <ErrorBox error={error} onRetry={reload} />;
+  const v = app.versions[0];
+  return (
+    <div className="stack">
+      <div className="spread">
+        <div><Link href={`/${locale}/developer`}>{t("dev.title")}</Link><h1>{v.metadata?.[locale]?.title ?? v.metadata?.ru?.title ?? v.metadata?.en?.title ?? app.slug}</h1></div>
+        <div className="row"><StatusBadge ns="version_state" value={v.state} />{app.published_version_id && <Link href={`/${locale}/apps/${app.slug}`}>{t("dev.open_in_store")}</Link>}</div>
+      </div>
+      <div className="tabs" role="tablist">{TABS.map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => router.replace(`/${locale}/developer/apps/${id}?tab=${x}`)}>{t(`dev.tab_${x}`)}</button>)}</div>
+      {tab === "details" && <Details key={v.id + v.state} app={app} v={v} reload={reload} />}
+      {tab === "audio" && <Audio app={app} />}
+      {tab === "program" && <Program key={v.id + v.sessions.length} app={app} v={v} reload={reload} />}
+      {tab === "price" && <PriceTab app={app} reload={reload} />}
+      {tab === "versions" && <Versions app={app} reload={reload} />}
+    </div>
+  );
+}
+
+export default function EditorPage() {
+  return <div className="section"><RequireAuth role="developer"><Suspense><Editor /></Suspense></RequireAuth></div>;
+}

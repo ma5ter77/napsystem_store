@@ -1,0 +1,512 @@
+[
+ {
+  "app": "focus-course",
+  "job_id": "45f50666-75fd-4f5e-99e0-5fef9c8eaa9c",
+  "qa": {
+   "layer": {
+    "method": "Blackman-Harris-4 window, 8x zero-padded FFT, quadratic log-peak interpolation; opposite carrier: windowed DTFT at the other carrier frequency",
+    "beat_hz": 14.0,
+    "left_hz": 293.0,
+    "expected": {
+     "beat_hz": 14.0,
+     "left_hz": 293.0,
+     "right_hz": 307.0
+    },
+    "right_hz": 307.0,
+    "left_error_hz": 0.0,
+    "right_error_hz": 0.0,
+    "tone_peak_dbfs": {
+     "left": -30.0,
+     "right": -30.0
+    },
+    "segment_seconds": 33.0,
+    "opposite_suppression_db": {
+     "left": ">200",
+     "right": ">200"
+    }
+   },
+   "checks": {
+    "channels": 2,
+    "frames_ok": true,
+    "sample_rate": 48000,
+    "clipped_samples": 0,
+    "delivery_bit_exact": true,
+    "non_finite_samples": 0
+   },
+   "levels": {
+    "note": "dBFS of a digital file is not loudness at the ear; calibration belongs to the hardware path.",
+    "common_gain_db": 0.0,
+    "true_peak_master_dbtp": -17.203,
+    "output_integrated_lufs": -26.7,
+    "source_integrated_lufs": -22.51,
+    "true_peak_ceiling_dbtp": -1.0,
+    "true_peak_tolerance_db": 0.2,
+    "sample_peak_master_dbfs": -17.227,
+    "true_peak_before_gain_dbtp": -17.203
+   },
+   "status": "passed",
+   "disclaimer": "Technical verification of signal parameters only. It does not verify or guarantee any brain state or therapeutic effect."
+  },
+  "params": {
+   "input": {
+    "probe": {
+     "codec": "pcm_s16le",
+     "bit_rate": 1536010,
+     "channels": 2,
+     "duration": 35.0,
+     "format_name": "wav",
+     "sample_rate": 48000
+    },
+    "sha256": "498a4186ab818a690c0a7c16711a100e3a77222bc86584ee2670eb6458c31326",
+    "size_bytes": 6720044
+   },
+   "tools": {
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+    "ffprobe": "ffprobe version 6.1.1-3ubuntu5 Copyright (c) 2007-2023 the FFmpeg developers"
+   },
+   "output": {
+    "bits": 24,
+    "frames": 1680000,
+    "channels": 2,
+    "pcm_sha256": "46b7e3954df78fd95b4e94210e364aada921a2ecf92fefbe07b402f7b6aaef6e",
+    "sample_rate": 48000,
+    "master_sha256": "fe3b75ea748de6ee5c025c3d0175d0f45a2b4e88a13ec5e54793605d93eea023",
+    "preview_sha256": "32814f1f7e1256e3827249386375680ebfd3c227ef72154b49a793daac0684e0",
+    "delivery_sha256": "3142059105db2ced77532a27960f4ef07edd9fa92f91de9b08b5574155f3f12c",
+    "duration_seconds": 35.0
+   },
+   "profile": {
+    "slug": "beta-demo-v1",
+    "beat_hz": 14.0,
+    "version": 1,
+    "f_left_hz": 293.0,
+    "f_right_hz": 307.0,
+    "source_gain_db": -6.0,
+    "tone_gain_dbfs": -30.0,
+    "fade_in_seconds": 1.0,
+    "fade_out_seconds": 1.0,
+    "carrier_center_hz": 300.0
+   },
+   "processing": {
+    "dither": "none (deterministic rounding)",
+    "resampler": "soxr precision=28 (ffmpeg aresample)",
+    "block_frames": 65536,
+    "mono_handling": "stereo preserved",
+    "common_gain_db": 0.0,
+    "fade_in_frames": 48000,
+    "fade_out_frames": 48000
+   },
+   "engine_version": "nap-binaural-engine/1.0.0"
+  }
+ },
+ {
+  "app": "focus-course",
+  "job_id": "d58c80eb-7571-409f-a401-f67992d27284",
+  "qa": {
+   "layer": {
+    "method": "Blackman-Harris-4 window, 8x zero-padded FFT, quadratic log-peak interpolation; opposite carrier: windowed DTFT at the other carrier frequency",
+    "beat_hz": 14.0,
+    "left_hz": 293.0,
+    "expected": {
+     "beat_hz": 14.0,
+     "left_hz": 293.0,
+     "right_hz": 307.0
+    },
+    "right_hz": 307.0,
+    "left_error_hz": 0.0,
+    "right_error_hz": 0.0,
+    "tone_peak_dbfs": {
+     "left": -30.0,
+     "right": -30.0
+    },
+    "segment_seconds": 33.0,
+    "opposite_suppression_db": {
+     "left": ">200",
+     "right": ">200"
+    }
+   },
+   "checks": {
+    "channels": 2,
+    "frames_ok": true,
+    "sample_rate": 48000,
+    "clipped_samples": 0,
+    "delivery_bit_exact": true,
+    "non_finite_samples": 0
+   },
+   "levels": {
+    "note": "dBFS of a digital file is not loudness at the ear; calibration belongs to the hardware path.",
+    "common_gain_db": 0.0,
+    "true_peak_master_dbtp": -16.381,
+    "output_integrated_lufs": -26.67,
+    "source_integrated_lufs": -22.43,
+    "true_peak_ceiling_dbtp": -1.0,
+    "true_peak_tolerance_db": 0.2,
+    "sample_peak_master_dbfs": -16.381,
+    "true_peak_before_gain_dbtp": -16.381
+   },
+   "status": "passed",
+   "disclaimer": "Technical verification of signal parameters only. It does not verify or guarantee any brain state or therapeutic effect."
+  },
+  "params": {
+   "input": {
+    "probe": {
+     "codec": "pcm_s16le",
+     "bit_rate": 1411210,
+     "channels": 2,
+     "duration": 35.0,
+     "format_name": "wav",
+     "sample_rate": 44100
+    },
+    "sha256": "3f22bd147f5978e07135e9dbec8ab8d5c36e3f5f8870f60a730665a7ca27f35e",
+    "size_bytes": 6174044
+   },
+   "tools": {
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+    "ffprobe": "ffprobe version 6.1.1-3ubuntu5 Copyright (c) 2007-2023 the FFmpeg developers"
+   },
+   "output": {
+    "bits": 24,
+    "frames": 1680000,
+    "channels": 2,
+    "pcm_sha256": "e86d48995e22bfa8986f7755c61e625f0874ac52fe8263550bbeb87c822e83ad",
+    "sample_rate": 48000,
+    "master_sha256": "7ce199b12c22b1b9b3fad38ea08d86ef3fa4ea96b0afd6484a531fe18a4a6684",
+    "preview_sha256": "33813d5038352752567057545da7eb74332bc9ebcdee7fe97b60bc1f5304c19b",
+    "delivery_sha256": "31d8e210acd338a3d1795a0d666cc77938d50a37e458710d54d8e934e2000559",
+    "duration_seconds": 35.0
+   },
+   "profile": {
+    "slug": "beta-demo-v1",
+    "beat_hz": 14.0,
+    "version": 1,
+    "f_left_hz": 293.0,
+    "f_right_hz": 307.0,
+    "source_gain_db": -6.0,
+    "tone_gain_dbfs": -30.0,
+    "fade_in_seconds": 1.0,
+    "fade_out_seconds": 1.0,
+    "carrier_center_hz": 300.0
+   },
+   "processing": {
+    "dither": "none (deterministic rounding)",
+    "resampler": "soxr precision=28 (ffmpeg aresample)",
+    "block_frames": 65536,
+    "mono_handling": "stereo preserved",
+    "common_gain_db": 0.0,
+    "fade_in_frames": 48000,
+    "fade_out_frames": 48000
+   },
+   "engine_version": "nap-binaural-engine/1.0.0"
+  }
+ },
+ {
+  "app": "night-stories",
+  "job_id": "0bed1051-ad91-4681-8828-8117664219e0",
+  "qa": {
+   "layer": {
+    "method": "Blackman-Harris-4 window, 8x zero-padded FFT, quadratic log-peak interpolation; opposite carrier: windowed DTFT at the other carrier frequency",
+    "beat_hz": 6.0,
+    "left_hz": 197.0,
+    "expected": {
+     "beat_hz": 6.0,
+     "left_hz": 197.0,
+     "right_hz": 203.0
+    },
+    "right_hz": 203.0,
+    "left_error_hz": 0.0,
+    "right_error_hz": 0.0,
+    "tone_peak_dbfs": {
+     "left": -32.0,
+     "right": -32.0
+    },
+    "segment_seconds": 26.0,
+    "opposite_suppression_db": {
+     "left": ">200",
+     "right": ">200"
+    }
+   },
+   "checks": {
+    "channels": 2,
+    "frames_ok": true,
+    "sample_rate": 48000,
+    "clipped_samples": 0,
+    "delivery_bit_exact": true,
+    "non_finite_samples": 0
+   },
+   "levels": {
+    "note": "dBFS of a digital file is not loudness at the ear; calibration belongs to the hardware path.",
+    "common_gain_db": 0.0,
+    "true_peak_master_dbtp": -17.884,
+    "output_integrated_lufs": -28.04,
+    "source_integrated_lufs": -23.65,
+    "true_peak_ceiling_dbtp": -1.0,
+    "true_peak_tolerance_db": 0.2,
+    "sample_peak_master_dbfs": -17.884,
+    "true_peak_before_gain_dbtp": -17.884
+   },
+   "status": "passed",
+   "disclaimer": "Technical verification of signal parameters only. It does not verify or guarantee any brain state or therapeutic effect."
+  },
+  "params": {
+   "input": {
+    "probe": {
+     "codec": "pcm_s16le",
+     "bit_rate": 1536011,
+     "channels": 2,
+     "duration": 30.0,
+     "format_name": "wav",
+     "sample_rate": 48000
+    },
+    "sha256": "fed3df641c5d4c6d3fbb9213d14f1070c529cc301402cc28434da51b56be3976",
+    "size_bytes": 5760044
+   },
+   "tools": {
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+    "ffprobe": "ffprobe version 6.1.1-3ubuntu5 Copyright (c) 2007-2023 the FFmpeg developers"
+   },
+   "output": {
+    "bits": 24,
+    "frames": 1440000,
+    "channels": 2,
+    "pcm_sha256": "108cc38e98a9f809096105dc790d7731c4c612a5a436d5b233be4d4cd19a74dc",
+    "sample_rate": 48000,
+    "master_sha256": "858ae6257e6627a846e428a3ae87cfd983419a5cd08fc0a961351d5f015275ee",
+    "preview_sha256": "d5b988f7b269d74b07e1e9c2c6e2c0591e3f101be37d143de7138eae53dd375a",
+    "delivery_sha256": "d5b988f7b269d74b07e1e9c2c6e2c0591e3f101be37d143de7138eae53dd375a",
+    "duration_seconds": 30.0
+   },
+   "profile": {
+    "slug": "theta-demo-v1",
+    "beat_hz": 6.0,
+    "version": 1,
+    "f_left_hz": 197.0,
+    "f_right_hz": 203.0,
+    "source_gain_db": -6.0,
+    "tone_gain_dbfs": -32.0,
+    "fade_in_seconds": 2.0,
+    "fade_out_seconds": 2.0,
+    "carrier_center_hz": 200.0
+   },
+   "processing": {
+    "dither": "none (deterministic rounding)",
+    "resampler": "soxr precision=28 (ffmpeg aresample)",
+    "block_frames": 65536,
+    "mono_handling": "stereo preserved",
+    "common_gain_db": 0.0,
+    "fade_in_frames": 96000,
+    "fade_out_frames": 96000
+   },
+   "engine_version": "nap-binaural-engine/1.0.0"
+  }
+ },
+ {
+  "app": "quiet-harbor",
+  "job_id": "2d523257-6868-47db-bda6-b3bcd8fffd0d",
+  "qa": {
+   "layer": {
+    "method": "Blackman-Harris-4 window, 8x zero-padded FFT, quadratic log-peak interpolation; opposite carrier: windowed DTFT at the other carrier frequency",
+    "beat_hz": 10.0,
+    "left_hz": 250.0,
+    "expected": {
+     "beat_hz": 10.0,
+     "left_hz": 250.0,
+     "right_hz": 260.0
+    },
+    "right_hz": 260.0,
+    "left_error_hz": 0.0,
+    "right_error_hz": 0.0,
+    "tone_peak_dbfs": {
+     "left": -30.0,
+     "right": -30.0
+    },
+    "segment_seconds": 39.0,
+    "opposite_suppression_db": {
+     "left": ">200",
+     "right": ">200"
+    }
+   },
+   "checks": {
+    "channels": 2,
+    "frames_ok": true,
+    "sample_rate": 48000,
+    "clipped_samples": 0,
+    "delivery_bit_exact": true,
+    "non_finite_samples": 0
+   },
+   "levels": {
+    "note": "dBFS of a digital file is not loudness at the ear; calibration belongs to the hardware path.",
+    "common_gain_db": 0.0,
+    "true_peak_master_dbtp": -17.421,
+    "output_integrated_lufs": -26.86,
+    "source_integrated_lufs": -22.62,
+    "true_peak_ceiling_dbtp": -1.0,
+    "true_peak_tolerance_db": 0.2,
+    "sample_peak_master_dbfs": -17.429,
+    "true_peak_before_gain_dbtp": -17.421
+   },
+   "status": "passed",
+   "disclaimer": "Technical verification of signal parameters only. It does not verify or guarantee any brain state or therapeutic effect."
+  },
+  "params": {
+   "input": {
+    "probe": {
+     "codec": "pcm_s16le",
+     "bit_rate": 1411208,
+     "channels": 2,
+     "duration": 40.0,
+     "format_name": "wav",
+     "sample_rate": 44100
+    },
+    "sha256": "72a9b9f6c6ec78aa38e3bfd1cd4f7041d1afc02a60a2b3b143fc262b19642ba9",
+    "size_bytes": 7056044
+   },
+   "tools": {
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+    "ffprobe": "ffprobe version 6.1.1-3ubuntu5 Copyright (c) 2007-2023 the FFmpeg developers"
+   },
+   "output": {
+    "bits": 24,
+    "frames": 1920000,
+    "channels": 2,
+    "pcm_sha256": "503681f00cdfb65845184d12eb8f5cf4850f18533e0a52565e9f5386d6dabe99",
+    "sample_rate": 48000,
+    "master_sha256": "61611b5a90b1e901679904e5abb095068f422dc8257f39c127ccb44dc25f2fa7",
+    "preview_sha256": "725d5bf7ca354886921062583e46b9e5fbfc00f977b5c8e6078af3048d0b34c7",
+    "delivery_sha256": "17b7c61454316271d892ddf8e876b9a1095f1f1f46710dadba9b38e033812be9",
+    "duration_seconds": 40.0
+   },
+   "profile": {
+    "slug": "alpha-demo-v1",
+    "beat_hz": 10.0,
+    "version": 1,
+    "f_left_hz": 250.0,
+    "f_right_hz": 260.0,
+    "source_gain_db": -6.0,
+    "tone_gain_dbfs": -30.0,
+    "fade_in_seconds": 0.5,
+    "fade_out_seconds": 0.5,
+    "carrier_center_hz": 255.0
+   },
+   "processing": {
+    "dither": "none (deterministic rounding)",
+    "resampler": "soxr precision=28 (ffmpeg aresample)",
+    "block_frames": 65536,
+    "mono_handling": "stereo preserved",
+    "common_gain_db": 0.0,
+    "fade_in_frames": 24000,
+    "fade_out_frames": 24000
+   },
+   "engine_version": "nap-binaural-engine/1.0.0"
+  }
+ },
+ {
+  "app": "quiet-harbor",
+  "job_id": "1503def7-d659-4b82-bf4f-8418cb2d8330",
+  "qa": {
+   "layer": {
+    "method": "Blackman-Harris-4 window, 8x zero-padded FFT, quadratic log-peak interpolation; opposite carrier: windowed DTFT at the other carrier frequency",
+    "beat_hz": 10.0,
+    "left_hz": 250.0,
+    "expected": {
+     "beat_hz": 10.0,
+     "left_hz": 250.0,
+     "right_hz": 260.0
+    },
+    "right_hz": 260.0,
+    "left_error_hz": 0.0,
+    "right_error_hz": 0.0,
+    "tone_peak_dbfs": {
+     "left": -30.0,
+     "right": -30.0
+    },
+    "segment_seconds": 49.0,
+    "opposite_suppression_db": {
+     "left": ">200",
+     "right": ">200"
+    }
+   },
+   "checks": {
+    "channels": 2,
+    "frames_ok": true,
+    "sample_rate": 48000,
+    "clipped_samples": 0,
+    "delivery_bit_exact": true,
+    "non_finite_samples": 0
+   },
+   "levels": {
+    "note": "dBFS of a digital file is not loudness at the ear; calibration belongs to the hardware path.",
+    "common_gain_db": 0.0,
+    "true_peak_master_dbtp": -16.215,
+    "output_integrated_lufs": -26.72,
+    "source_integrated_lufs": -22.47,
+    "true_peak_ceiling_dbtp": -1.0,
+    "true_peak_tolerance_db": 0.2,
+    "sample_peak_master_dbfs": -16.222,
+    "true_peak_before_gain_dbtp": -16.215
+   },
+   "status": "passed",
+   "disclaimer": "Technical verification of signal parameters only. It does not verify or guarantee any brain state or therapeutic effect."
+  },
+  "params": {
+   "input": {
+    "probe": {
+     "codec": "pcm_s16le",
+     "bit_rate": 768007,
+     "channels": 1,
+     "duration": 50.0,
+     "format_name": "wav",
+     "sample_rate": 48000
+    },
+    "sha256": "8d0d61fcb25a6b1582ec706348bc860b6126658e7f1cb5a60cf62b3cedab9e50",
+    "size_bytes": 4800044
+   },
+   "tools": {
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+    "ffprobe": "ffprobe version 6.1.1-3ubuntu5 Copyright (c) 2007-2023 the FFmpeg developers"
+   },
+   "output": {
+    "bits": 24,
+    "frames": 2400000,
+    "channels": 2,
+    "pcm_sha256": "a5adebce32d7b62b31c3898c374c01d910efa897195f49edf7e04e8107968d95",
+    "sample_rate": 48000,
+    "master_sha256": "86a9a486bdf5152ff8b56e5b935ccb2ca4f1afca28e3b86bfc0e77020cc9d6aa",
+    "preview_sha256": "42d06e3b876d169c6eb10e131b32f0fc59c9021f005d7e7716d973ca368a9f10",
+    "delivery_sha256": "fc9893a204c88de6c173d6a94ddaade347444bc85cd3123252b80b357fda35a4",
+    "duration_seconds": 50.0
+   },
+   "profile": {
+    "slug": "alpha-demo-v1",
+    "beat_hz": 10.0,
+    "version": 1,
+    "f_left_hz": 250.0,
+    "f_right_hz": 260.0,
+    "source_gain_db": -6.0,
+    "tone_gain_dbfs": -30.0,
+    "fade_in_seconds": 0.5,
+    "fade_out_seconds": 0.5,
+    "carrier_center_hz": 255.0
+   },
+   "processing": {
+    "dither": "none (deterministic rounding)",
+    "resampler": "soxr precision=28 (ffmpeg aresample)",
+    "block_frames": 65536,
+    "mono_handling": "duplicated to L and R",
+    "common_gain_db": 0.0,
+    "fade_in_frames": 24000,
+    "fade_out_frames": 24000
+   },
+   "engine_version": "nap-binaural-engine/1.0.0"
+  }
+ }
+]
