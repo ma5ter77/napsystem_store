@@ -7,3 +7,4 @@ backend/var/
 backups/*.dump
 sdk/dist/
 *.tsbuildinfo
+dump.rdb

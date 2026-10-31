@@ -10,16 +10,34 @@ export function Price({ minor, currency }: { minor: number | null | undefined; c
   return <span className="price">{money(minor, currency, locale)}</span>;
 }
 
+const FIELD_LOC_SKIP = new Set(["body", "query", "path", "header"]);
+
+/** Field names named by an API error: `details.field` (service checks) or `details.fields`
+ *  as strings or as FastAPI items `{loc: ["body", "slug"], type}`. */
+export function errorFields(error: unknown): string[] {
+  const d = (error as ApiError | null)?.details;
+  if (!d) return [];
+  const out: string[] = [];
+  if (typeof d.field === "string") out.push(d.field);
+  if (Array.isArray(d.fields)) for (const f of d.fields) {
+    if (typeof f === "string") out.push(f);
+    else if (f && Array.isArray(f.loc)) {
+      const name = [...f.loc].reverse().find((x: unknown) => typeof x === "string" && !FIELD_LOC_SKIP.has(x) && !/^\d+$/.test(x));
+      if (name) out.push(name as string);
+    }
+  }
+  return [...new Set(out)];
+}
+
 export function ErrorBox({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   const { t } = useApp();
   if (!error) return null;
   const e = error as ApiError;
+  const fields = errorFields(error).map((f) => { const k = `fields.${f}`; const s = t(k); return s === k ? f : s; });
   return (
     <div className="notice bad" role="alert">
       <div>{e.message || t("common.error")}</div>
-      {e.details?.fields && Array.isArray(e.details.fields) && typeof e.details.fields[0] === "string" && (
-        <div className="hint">{t("common.fields")}: {e.details.fields.map((f: string) => t(`fields.${f}`)).join(", ")}</div>
-      )}
+      {fields.length > 0 && <div className="hint">{t("common.fields")}: {fields.join(", ")}</div>}
       {e.details?.reasons && <div className="hint">{e.details.reasons.map((r: string) => t(`reasons.${r.split(":")[0]}`, { cap: r.split(":")[1] ?? "" })).join("; ")}</div>}
       {e.requestId && <div className="hint">{t("common.request_id")}: {e.requestId}</div>}
       {onRetry && <button className="btn small ghost" onClick={onRetry} style={{ marginTop: 8 }}>{t("common.retry")}</button>}

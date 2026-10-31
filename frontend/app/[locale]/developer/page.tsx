@@ -5,9 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { BeatCover } from "@/components/Art";
 import { useApp } from "@/components/Providers";
-import { Empty, ErrorBox, Loading, Price, RequireAuth, StatusBadge, useAction, useDraft, useLoad } from "@/components/ui";
+import { Empty, ErrorBox, errorFields, Loading, Price, RequireAuth, StatusBadge, useAction, useDraft, useLoad } from "@/components/ui";
 import { api } from "@/lib/api";
 import { date } from "@/lib/i18n";
+import { normalizeSlug, SLUG_PATTERN } from "@/lib/slug";
 
 const TABS = ["apps", "finance", "analytics", "keys"] as const;
 
@@ -16,6 +17,7 @@ function NewApp({ onCreated }: { onCreated: (id: string) => void }) {
   const cats = useLoad<any>("/categories?kind=app");
   const [f, setF, clear] = useDraft("new-app", { slug: "", author_name: "", category: "meditation", title_ru: "", title_en: "", content_language: "none" });
   const act = useAction();
+  const bad = new Set(errorFields(act.error));
   return (
     <form className="panel stack" onSubmit={async (e) => {
       e.preventDefault();
@@ -27,9 +29,11 @@ function NewApp({ onCreated }: { onCreated: (id: string) => void }) {
     }}>
       <h2>{t("dev.new_app")}</h2>
       <div className="form wide">
-        <label className="field">{t("dev.slug")}<input required pattern="[a-z0-9][a-z0-9-]{2,79}" value={f.slug} onChange={(e) => setF({ ...f, slug: e.target.value })} /><span className="hint">{t("dev.slug_hint")}</span></label>
-        <label className="field">{t("dev.author")}<input required value={f.author_name} onChange={(e) => setF({ ...f, author_name: e.target.value })} /></label>
-        <label className="field">{t("app.category")}<select value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>{cats.data?.items.map((c: any) => <option key={c.slug} value={c.slug}>{c.name}</option>)}</select></label>
+        <label className="field">{t("dev.slug")}<input required pattern={SLUG_PATTERN} minLength={3} maxLength={80} title={t("dev.slug_hint")}
+          autoCapitalize="none" autoCorrect="off" spellCheck={false} aria-invalid={bad.has("slug") || undefined} aria-describedby="slug-hint"
+          value={f.slug} onChange={(e) => setF({ ...f, slug: normalizeSlug(e.target.value) })} /><span className="hint" id="slug-hint">{t("dev.slug_hint")}</span></label>
+        <label className="field">{t("dev.author")}<input required maxLength={120} aria-invalid={bad.has("author_name") || undefined} value={f.author_name} onChange={(e) => setF({ ...f, author_name: e.target.value })} /></label>
+        <label className="field">{t("app.category")}<select aria-invalid={bad.has("category") || undefined} value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>{cats.data?.items.map((c: any) => <option key={c.slug} value={c.slug}>{c.name}</option>)}</select></label>
         <label className="field">{t("dev.title_ru")}<input value={f.title_ru} onChange={(e) => setF({ ...f, title_ru: e.target.value })} /></label>
         <label className="field">{t("dev.title_en")}<input value={f.title_en} onChange={(e) => setF({ ...f, title_en: e.target.value })} /></label>
         <label className="field">{t("app.audio_lang")}<select value={f.content_language} onChange={(e) => setF({ ...f, content_language: e.target.value })}>

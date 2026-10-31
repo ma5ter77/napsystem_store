@@ -71,10 +71,23 @@ async function run(L) {
   CUR = d;
   await step("create app", async () => {
     await d.getByRole("button", { name: t("dev.new_app") }).first().click();
-    await d.getByLabel(t("dev.slug")).fill(slug);
+    const slugInput = d.getByLabel(t("dev.slug"));
     await d.getByLabel(t("dev.author")).fill("E2E Studio");
     await d.getByLabel(t("dev.title_ru")).fill("Тестовая медитация");
     await d.getByLabel(t("dev.title_en")).fill("Test meditation");
+    // NAP-067: a non-Latin address is stopped in the browser, no request is sent
+    await slugInput.fill("медитация");
+    let posted = 0;
+    const count = (r) => { if (r.method() === "POST" && r.url().endsWith("/api/v1/developer/apps")) posted++; };
+    d.on("request", count);
+    await d.getByRole("button", { name: t("dev.create") }).click();
+    await d.waitForTimeout(300);
+    if (await slugInput.evaluate((el) => el.validity.valid)) throw new Error("non-Latin slug passed browser validation");
+    if (posted) throw new Error("form was submitted with an invalid slug");
+    d.off("request", count);
+    // underscores, capitals and spaces are normalised while typing
+    await slugInput.fill(slug.toUpperCase().replace(/-/g, "_"));
+    if ((await slugInput.inputValue()) !== slug) throw new Error(`slug not normalised: ${await slugInput.inputValue()}`);
     await d.getByRole("button", { name: t("dev.create") }).click();
     await d.waitForURL("**/developer/apps/**");
   });

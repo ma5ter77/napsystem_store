@@ -68,7 +68,7 @@ small, .muted { color: var(--muted); }
 .btn.small { min-height: 32px; padding: 0 12px; font-size: .85rem; }
 .btn.danger { background: var(--bad); border-color: var(--bad); }
 .btn[disabled] { opacity: .5; cursor: not-allowed; }
-label.field { display: grid; gap: 6px; font-weight: 500; font-size: .92rem; }
+label.field { display: grid; gap: 6px; align-content: start; font-weight: 500; font-size: .92rem; }
 input, select, textarea { font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm);
   background: #fff; color: var(--slate); width: 100%; }
 textarea { min-height: 90px; resize: vertical; }
@@ -79,6 +79,7 @@ input[type="range"] { padding: 0; accent-color: var(--left); }
 .form.wide { max-width: none; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .hint { font-size: .85rem; color: var(--muted); font-weight: 400; }
 .err-text { color: var(--bad); font-size: .85rem; }
+[aria-invalid="true"], input:user-invalid, select:user-invalid { border-color: var(--bad) !important; box-shadow: 0 0 0 2px #f3d2d2; }
 
 /* surfaces */
 .panel { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 22px; }

@@ -1,6 +1,6 @@
 {
   "product": "NAP Store",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "stage": "MVP для тестирования",
   "released": "2026-10-31",
   "spec": {
@@ -253,6 +253,15 @@
     }
   ],
   "releases": [
+    {
+      "version": "0.2.1",
+      "date": "2026-10-31",
+      "spec": "1.0",
+      "summary": {
+        "ru": "Исправлена форма нового приложения: проверка адреса и понятная ошибка (NAP-067)",
+        "en": "New app form fixed: address validation and a clear error (NAP-067)"
+      }
+    },
     {
       "version": "0.2.0",
       "date": "2026-10-31",

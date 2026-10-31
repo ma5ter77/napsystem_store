@@ -399,7 +399,7 @@
   "become": "Enable developer cabinet",
   "new_app": "New app",
   "slug": "Address (Latin)",
-  "slug_hint": "Lowercase letters, digits and hyphens.",
+  "slug_hint": "Lowercase Latin letters, digits and hyphens only, 3 to 80 characters. Underscores and spaces become hyphens. Example: nidra-ocean-60min",
   "author": "Author shown in store",
   "title_ru": "Title (RU)",
   "title_en": "Title (EN)",
@@ -604,7 +604,13 @@
   "phone": "Phone",
   "name_latin": "Recipient in Latin",
   "line1_latin": "Address in Latin",
-  "city_latin": "City in Latin"
+  "city_latin": "City in Latin",
+  "slug": "Address (Latin)",
+  "author_name": "Author on the storefront",
+  "category": "Category",
+  "metadata": "Title and description",
+  "content_language": "Audio language",
+  "version_label": "Version label"
  },
  "caps": {
   "stereo_output": "stereo output",
