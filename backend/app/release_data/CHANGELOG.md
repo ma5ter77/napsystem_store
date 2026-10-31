@@ -2,6 +2,12 @@
 
 Формат: [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), нумерация [SemVer](https://semver.org/lang/ru/). До 1.0.0 продукт — MVP для тестирования; 1.0.0 — первый production-релиз. Каждая запись указывает версию ТЗ, которую реализует релиз, и задачи бэклога (`NAP-###`).
 
+## [0.7.1] — 2026-10-31 · реализует ТЗ v1.0 (черновик v1.1 на утверждении)
+
+### Добавлено
+- Публикация на поддомене store.napsystem.com рядом с существующим nginx (NAP-085): `ops/cohost/` — override compose (сайт только на 127.0.0.1:3100, общие бэкапы и .env в `/srv/nap-store/shared`), отдельный файл сайта nginx, `deploy-cohost.sh` (выкладка ровно одного коммита в `releases/<sha>`, журнал выпусков), `rollback-cohost.sh`; инструкция `docs/deployment-store.md` и шаблон записи о выпуске `docs/deployments/TEMPLATE.md`; CI проверяет override.
+- `ops/cohost/import-into-monorepo.sh` — перенос магазина в BrothersB/nap-trainer (`apps/store`, ветка `codex/store-development`) с сохранением истории, без push и без изменения других веток.
+
 ## [0.7.0] — 2026-10-31 · реализует ТЗ v1.0 (черновик v1.1 на утверждении)
 
 ### Добавлено
