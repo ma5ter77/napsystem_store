@@ -560,6 +560,29 @@ M.update({
 })
 
 
+M.update({  # NAP-024: refund requests
+"refund.request": ("Запросить возврат", "Request a refund"),
+"refund.reason": ("Почему вы хотите вернуть покупку?", "Why do you want a refund?"),
+"refund.reason_hint": ("Не меньше 10 символов. Решение принимает администратор; деньги вернутся тем же способом оплаты.", "At least 10 characters. An administrator decides; the money goes back to the same payment method."),
+"refund.send": ("Отправить запрос", "Send request"), "refund.cancel": ("Отмена", "Cancel"),
+"refund.sent": ("Запрос отправлен. Решение придёт в уведомлениях и появится здесь.", "Request sent. The decision arrives in notifications and appears here."),
+"refund.answer": ("Ответ", "Answer"),
+"refund_status.requested": ("возврат: на рассмотрении", "refund: under review"),
+"refund_status.pending": ("возврат одобрен, ждём платёжную систему", "refund approved, waiting for the payment provider"),
+"refund_status.succeeded": ("возврат выполнен", "refund completed"),
+"refund_status.failed": ("возврат не прошёл — администратор свяжется с вами", "refund failed — an administrator will contact you"),
+"refund_status.rejected": ("возврат отклонён", "refund declined"),
+"admin.tab_refunds": ("Возвраты", "Refunds"),
+"admin.refunds_empty": ("Запросов нет.", "No requests."),
+"admin.refund_filter": ("Показать", "Show"), "admin.refund_all": ("все", "all"),
+"admin.refund_buyer": ("Покупатель", "Buyer"), "admin.refund_reason": ("Причина покупателя", "Buyer's reason"),
+"admin.refund_amount": ("Сумма возврата", "Refund amount"),
+"admin.refund_note": ("Комментарий для покупателя", "Note for the buyer"),
+"admin.refund_note_hint": ("Обязателен при отказе.", "Required when declining."),
+"admin.refund_approve": ("Одобрить и вернуть", "Approve and refund"), "admin.refund_reject": ("Отклонить", "Decline"),
+"admin.refund_paid": ("Оплачено", "Paid"),
+})
+
 def nest(lang):
     out = {}
     for key, pair in M.items():

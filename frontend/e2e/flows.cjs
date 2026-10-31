@@ -232,6 +232,24 @@ async function run(L) {
     await b.reload();
     await b.locator("article.review", { hasText: text }).getByText(t("rev.dev_reply")).waitFor();
   });
+  await step("refund request from the profile, admin declines with a reason (NAP-024)", async () => {
+    await b.goto(`${BASE}/${L}/account?tab=purchases`);
+    await b.getByRole("button", { name: t("refund.request") }).first().click();
+    await b.getByLabel(t("refund.reason")).fill("E2E: проверка запроса возврата");
+    await b.getByRole("button", { name: t("refund.send") }).click();
+    await b.getByText(t("refund.sent")).waitFor();
+    await b.locator(".badge", { hasText: t("refund_status.requested") }).first().waitFor();
+    const a = await login(browser, L, t, "admin@nap.demo");
+    await a.p.goto(`${BASE}/${L}/admin?tab=refunds`);
+    const card = a.p.getByTestId("refund-request").filter({ hasText: "E2E: проверка запроса возврата" }).first();
+    await card.getByLabel(t("admin.refund_note")).fill("E2E decline");
+    await card.getByRole("button", { name: t("admin.refund_reject") }).click();
+    await a.p.getByTestId("refund-request").filter({ hasText: "E2E: проверка запроса возврата" }).first().waitFor({ state: "detached" });
+    await a.ctx.close();
+    await b.reload();
+    await b.locator(".badge", { hasText: t("refund_status.rejected") }).first().waitFor();
+    await b.getByText("E2E decline").waitFor();
+  });
   console.log(`[${L}] hardware scenario`);
   let orderNumber = "";
   await step("kit builder adds missing parts; checkout", async () => {

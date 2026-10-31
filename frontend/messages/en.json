@@ -79,7 +79,19 @@
   "unprocessed": "Unprocessed webhooks",
   "outbox": "Outbox items",
   "run_ops": "Process queues now",
-  "i18n_missing": "Missing dictionary keys: RU {ru}, EN {en}"
+  "i18n_missing": "Missing dictionary keys: RU {ru}, EN {en}",
+  "tab_refunds": "Refunds",
+  "refunds_empty": "No requests.",
+  "refund_filter": "Show",
+  "refund_all": "all",
+  "refund_buyer": "Buyer",
+  "refund_reason": "Buyer's reason",
+  "refund_amount": "Refund amount",
+  "refund_note": "Note for the buyer",
+  "refund_note_hint": "Required when declining.",
+  "refund_approve": "Approve and refund",
+  "refund_reject": "Decline",
+  "refund_paid": "Paid"
  },
  "dev": {
   "saved_details": "Details saved.",
@@ -1301,5 +1313,21 @@
   "missing": "missing translation: {langs}",
   "new_category": "New category",
   "add": "Add"
+ },
+ "refund": {
+  "request": "Request a refund",
+  "reason": "Why do you want a refund?",
+  "reason_hint": "At least 10 characters. An administrator decides; the money goes back to the same payment method.",
+  "send": "Send request",
+  "cancel": "Cancel",
+  "sent": "Request sent. The decision arrives in notifications and appears here.",
+  "answer": "Answer"
+ },
+ "refund_status": {
+  "requested": "refund: under review",
+  "pending": "refund approved, waiting for the payment provider",
+  "succeeded": "refund completed",
+  "failed": "refund failed — an administrator will contact you",
+  "rejected": "refund declined"
  }
 }

@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useState } from "react";
 import { useApp } from "@/components/Providers";
-import { ErrorBox, Loading, Price, RequireAuth, StatusBadge, useAction, useLoad } from "@/components/ui";
+import { Empty, ErrorBox, Loading, Price, RequireAuth, StatusBadge, useAction, useLoad } from "@/components/ui";
 import { api, uid } from "@/lib/api";
 import { date } from "@/lib/i18n";
 
-const TABS = ["users", "profiles", "finance", "orders", "audit", "ops"] as const;
+const TABS = ["users", "profiles", "finance", "refunds", "orders", "audit", "ops"] as const;
 
 function Users() {
   const { t } = useApp();
@@ -87,6 +87,49 @@ function Finance() {
   );
 }
 
+function RefundRequest({ r, onDone }: { r: any; onDone: () => void }) {  // NAP-024
+  const { t, locale } = useApp();
+  const [amount, setAmount] = useState((r.amount_minor / 100).toFixed(2));
+  const [note, setNote] = useState("");
+  const act = useAction();
+  const decide = (approve: boolean) => act.run(() => api(`/admin/refund-requests/${r.id}/decision`, {
+    body: { approve, note, amount_minor: approve ? Math.round(Number(amount) * 100) : undefined } })).then((x) => { if (x) onDone(); });
+  return <article className="panel flat stack" data-testid="refund-request">
+    <div className="row"><strong>{r.order.app_slug}</strong><StatusBadge ns="refund_status" value={r.status} /></div>
+    <div className="hint">{t("admin.refund_buyer")}: {r.buyer.email} · {t("admin.refund_paid")}: <Price minor={r.order.amount_minor} currency={r.currency} />
+      {r.order.refunded_minor > 0 && <> · {t("account.refunded")}: <Price minor={r.order.refunded_minor} currency={r.currency} /></>} · {date(r.created_at, locale, true)}</div>
+    <div><span className="hint">{t("admin.refund_reason")}:</span> {r.reason}</div>
+    {r.note && <div><span className="hint">{t("refund.answer")}:</span> {r.note}</div>}
+    {r.status === "requested" && <div className="stack">
+      <div className="form wide">
+        <label className="field">{t("admin.refund_amount")} ({r.currency})
+          <input type="number" step="0.01" min="0.01" max={(r.amount_minor / 100).toFixed(2)} value={amount} onChange={(e) => setAmount(e.target.value)} /></label>
+        <label className="field">{t("admin.refund_note")}
+          <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} /></label>
+      </div>
+      <p className="hint">{t("admin.refund_note_hint")}</p>
+      <ErrorBox error={act.error} />
+      <div className="row"><button type="button" className="btn small" disabled={act.pending} onClick={() => decide(true)}>{t("admin.refund_approve")}</button>
+        <button type="button" className="btn ghost small" disabled={act.pending || note.trim().length < 3} onClick={() => decide(false)}>{t("admin.refund_reject")}</button></div>
+    </div>}
+  </article>;
+}
+
+function Refunds() {
+  const { t } = useApp();
+  const [status, setStatus] = useState("requested");
+  const { data, reload } = useLoad<any>(`/admin/refund-requests?status=${status}`);
+  return <div className="stack">
+    <label className="field">{t("admin.refund_filter")}
+      <select value={status} onChange={(e) => setStatus(e.target.value)}>
+        {["requested", "pending", "succeeded", "failed", "rejected"].map((s) => <option key={s} value={s}>{t(`refund_status.${s}`)}</option>)}
+        <option value="all">{t("admin.refund_all")}</option>
+      </select></label>
+    {!data ? <Loading /> : !data.items.length ? <Empty>{t("admin.refunds_empty")}</Empty>
+      : data.items.map((r: any) => <RefundRequest key={r.id} r={r} onDone={reload} />)}
+  </div>;
+}
+
 function Orders() {
   const { t, locale } = useApp();
   const { data } = useLoad<any>("/admin/orders");
@@ -133,7 +176,7 @@ function Admin() {
     <div className="stack">
       <h1>{t("admin.title")}</h1>
       <div className="tabs" role="tablist">{TABS.map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => router.replace(`/${locale}/admin?tab=${x}`)}>{t(`admin.tab_${x}`)}</button>)}</div>
-      {tab === "users" && <Users />}{tab === "profiles" && <Profiles />}{tab === "finance" && <Finance />}
+      {tab === "users" && <Users />}{tab === "profiles" && <Profiles />}{tab === "finance" && <Finance />}{tab === "refunds" && <Refunds />}
       {tab === "orders" && <Orders />}{tab === "audit" && <Audit />}{tab === "ops" && <Ops />}
     </div>
   );
