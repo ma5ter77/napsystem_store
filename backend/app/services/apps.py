@@ -158,14 +158,34 @@ def set_program(db: Session, app: App, v: AppVersion, sessions: list[dict], acto
             raise ApiError("not_found", 404, entity="conversion")
         if job.state != "completed" or not job.result:
             raise ApiError("conversion_not_completed", 409)
-        delivery = db.get(Asset, uuid.UUID(job.result["delivery"]))
-        new.append(ProgramSession(position=i, key=key, titles=titles, conversion_job_id=job.id,
-                                  delivery_asset_id=delivery.id, master_asset_id=uuid.UUID(job.result["master"]),
-                                  duration_seconds=job.result["duration_seconds"], sha256=delivery.sha256))
+        new.append(_session_from_job(db, job, i, key, titles))
     v.sessions.clear()
     db.flush()
     v.sessions.extend(new)
     audit(db, actor_id, "version.program_set", "app_version", v.id, {"sessions": len(new)})
+    return v
+
+
+def _session_from_job(db: Session, job: ConversionJob, position: int, key: str, titles: dict) -> ProgramSession:
+    delivery = db.get(Asset, uuid.UUID(job.result["delivery"]))
+    return ProgramSession(position=position, key=key, titles=titles, conversion_job_id=job.id,
+                          delivery_asset_id=delivery.id, master_asset_id=uuid.UUID(job.result["master"]),
+                          duration_seconds=job.result["duration_seconds"], sha256=delivery.sha256)
+
+
+def autofill_program(db: Session, job: ConversionJob) -> AppVersion | None:
+    """NAP-069: the first completed track becomes session 1 of an empty draft program, titled like the app,
+    so a single-track meditation needs no manual program step. The author can still edit or extend it."""
+    v = latest_version(db, job.app_id)
+    if v is None or v.state != "draft" or v.sessions:
+        return None
+    titles = {loc: str(m["title"]).strip() for loc, m in (v.metadata_ or {}).items()
+              if loc in ("ru", "en") and isinstance(m, dict) and str(m.get("title") or "").strip()}
+    if not titles:
+        app = db.get(App, job.app_id)
+        titles = {"ru": app.slug}
+    v.sessions.append(_session_from_job(db, job, 1, "s1", titles))
+    audit(db, job.owner_id, "version.program_autofilled", "app_version", v.id, {"conversion_job_id": str(job.id)})
     return v
 
 

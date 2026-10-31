@@ -192,6 +192,8 @@ def _complete(job_id: uuid.UUID, worker: str, out) -> str:
         job.finished_at = utcnow()
         job.lease_owner = None
         audit(db, owner, "conversion.completed", "conversion_job", job.id, {"frames": o["frames"]})
+        from .apps import autofill_program  # local import: apps <-> conversion
+        autofill_program(db, job)
         return "completed"
 
 

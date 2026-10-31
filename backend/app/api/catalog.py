@@ -111,7 +111,9 @@ def converter_limits():
 
 @router.put("/uploads/{token}")
 async def upload(token: str, request: Request, db=DB):
-    a = await receive_upload(db, token, request.stream())
+    a = await receive_upload(db, token, request.stream(), request.headers.get("content-range"))
+    if isinstance(a, dict):  # chunk accepted, more to come
+        return a
     return {"asset_id": str(a.id), "size_bytes": a.size_bytes, "sha256": a.sha256, "status": a.status,
             "probe": a.probe}
 

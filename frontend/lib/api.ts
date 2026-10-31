@@ -45,13 +45,17 @@ export async function api<T = any>(path: string, init: { method?: string; body?:
   return json as T;
 }
 
-export function uploadWithProgress(url: string, file: Blob, onProgress: (p: number) => void): Promise<any> {
+/** Upload chunk size: below the 10 MB request-body limit of the Next.js proxy and typical CDN limits (NAP-069). */
+export const UPLOAD_CHUNK = 8 * 1024 * 1024;
+
+function putChunk(url: string, blob: Blob, first: number, total: number, onLoaded: (n: number) => void): Promise<any> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", url);
     xhr.setRequestHeader("content-type", "application/octet-stream");
+    xhr.setRequestHeader("content-range", `bytes ${first}-${first + blob.size - 1}/${total}`);
     xhr.setRequestHeader("x-locale", locale());
-    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
+    xhr.upload.onprogress = (e) => onLoaded(e.loaded);
     xhr.onload = () => {
       let json: any = {};
       try { json = JSON.parse(xhr.responseText); } catch { /* */ }
@@ -60,8 +64,32 @@ export function uploadWithProgress(url: string, file: Blob, onProgress: (p: numb
                                json.error?.request_id, json.error?.details));
     };
     xhr.onerror = () => reject(new ApiError(0, "network_error", "Network error"));
-    xhr.send(file);
+    xhr.send(blob);
   });
+}
+
+/** Uploads a file in ordered chunks with resume: a lost or repeated chunk is re-synced from the server offset. */
+export async function uploadWithProgress(url: string, file: Blob, onProgress: (p: number) => void): Promise<any> {
+  const total = file.size;
+  let offset = 0, retries = 0, resyncs = 0, last: any = {};
+  while (offset < total) {
+    const end = Math.min(offset + UPLOAD_CHUNK, total);
+    const start = offset;
+    try {
+      last = await putChunk(url, file.slice(start, end), start, total, (n) => onProgress(Math.min(1, (start + n) / total)));
+      offset = end; retries = 0; resyncs = 0;
+    } catch (e: any) {
+      if (e instanceof ApiError && e.status === 409 && typeof e.details?.offset === "number" && ++resyncs <= 5) {
+        offset = e.details.offset; continue;
+      }
+      if (e instanceof ApiError && (e.status === 0 || e.status === 502 || e.status === 503 || e.status === 504) && ++retries <= 4) {
+        await new Promise((r) => setTimeout(r, 1000 * retries)); continue;
+      }
+      throw e;
+    }
+  }
+  onProgress(1);
+  return last;
 }
 
 export async function sha256Hex(buf: ArrayBuffer): Promise<string> {

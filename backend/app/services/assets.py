@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import secrets
 import tempfile
 import uuid
@@ -68,64 +69,135 @@ def _ctype(ext: str) -> str:
             "json": "application/json", "pdf": "application/pdf"}.get(ext, "application/octet-stream")
 
 
-async def receive_upload(db: Session, token: str, body_iter) -> Asset:
+CHUNK_GRACE = timedelta(hours=6)  # a chunked upload started in time may finish later
+_RANGE_RE = re.compile(r"^bytes (\d+)-(\d+)/(\d+)$")
+
+
+def _part_path(asset_id: uuid.UUID) -> str:
+    d = os.path.join(get_settings().job_workdir, "uploads")
+    os.makedirs(d, exist_ok=True)
+    return os.path.join(d, f"{asset_id}.part")
+
+
+def _open_ticket(db: Session, token: str, started: bool) -> tuple[UploadTicket, Asset]:
     ticket = db.scalar(select(UploadTicket).where(UploadTicket.token_hash == sha256_hex(token)).with_for_update())
-    if not ticket or ticket.used_at is not None or ticket.expires_at < utcnow():
+    deadline = (ticket.expires_at + CHUNK_GRACE) if ticket and started else (ticket.expires_at if ticket else None)
+    if not ticket or ticket.used_at is not None or deadline < utcnow():
         raise ApiError("upload_link_invalid", 410)
     asset = db.get(Asset, ticket.asset_id, with_for_update=True)
     if asset is None or asset.immutable or asset.status != "pending":
         raise ApiError("upload_link_invalid", 410)
-    h = hashlib.sha256()
-    size = 0
-    tmpdir = get_settings().job_workdir
-    os.makedirs(tmpdir, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=tmpdir, prefix="upload-")
-    try:
-        with os.fdopen(fd, "wb") as fh:
-            async for chunk in body_iter:
-                size += len(chunk)
-                if size > ticket.expected_size:
-                    raise ApiError("upload_size_mismatch", 422)
-                h.update(chunk)
-                fh.write(chunk)
-        digest = h.hexdigest()
-        if size != ticket.expected_size:
-            raise ApiError("upload_size_mismatch", 422)
-        if ticket.expected_sha256 and digest != ticket.expected_sha256:
-            raise ApiError("upload_checksum_mismatch", 422)
-        if asset.kind == "source":
-            try:
-                asset.probe = probe(tmp).to_dict()
-            except MediaError as e:
-                asset.status = "rejected"
-                asset.probe = {"error": e.code}
-                ticket.used_at = utcnow()
-                db.commit()
-                raise ApiError(e.code if e.code in ("unsupported_format", "no_audio_stream") else
-                               "unsupported_or_corrupt", 422)
-            if asset.probe["channels"] > 2:
-                asset.status = "rejected"
-                ticket.used_at = utcnow()
-                db.commit()
-                raise ApiError("too_many_channels", 422)
-            if asset.probe["duration"] > get_settings().max_duration_seconds:
-                asset.status = "rejected"
-                ticket.used_at = utcnow()
-                db.commit()
-                raise ApiError("too_long", 422)
-        get_storage().put_file(asset.storage_key, tmp, asset.content_type)
-        asset.size_bytes = size
-        asset.sha256 = digest
-        asset.status = "uploaded"
-        ticket.used_at = utcnow()
-        audit(db, asset.owner_id, "asset.uploaded", "asset", asset.id, {"size": size, "sha256": digest})
-        db.commit()
-        return asset
-    finally:
+    return ticket, asset
+
+
+async def receive_upload(db: Session, token: str, body_iter, content_range: str | None = None) -> Asset | dict:
+    """Single PUT (whole file) or chunked PUTs with `Content-Range: bytes a-b/total` (NAP-069).
+
+    Chunks keep every request small, so proxies with body limits (Next.js rewrites buffer 10 MB,
+    many CDNs cap at 100 MB) do not cut large audio files. Chunks must arrive in order; a chunk that
+    does not start at the received offset gets 409 with `details.offset` so the client can resume.
+    """
+    if content_range is None:
+        ticket, asset = _open_ticket(db, token, started=False)
+        tmpdir = get_settings().job_workdir
+        os.makedirs(tmpdir, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=tmpdir, prefix="upload-")
         try:
-            os.remove(tmp)
-        except FileNotFoundError:
-            pass
+            size = 0
+            with os.fdopen(fd, "wb") as fh:
+                async for chunk in body_iter:
+                    size += len(chunk)
+                    if size > ticket.expected_size:
+                        raise ApiError("upload_size_mismatch", 422)
+                    fh.write(chunk)
+            return _finalize(db, ticket, asset, tmp)
+        finally:
+            _remove(tmp)
+
+    m = _RANGE_RE.match(content_range.strip())
+    if not m:
+        raise ApiError("validation_failed", 422, details={"field": "content-range"})
+    first, last, total = (int(x) for x in m.groups())
+    ticket, asset = _open_ticket(db, token, started=first > 0)
+    if total != ticket.expected_size or last < first or last >= total:
+        raise ApiError("upload_size_mismatch", 422)
+    part = _part_path(asset.id)
+    have = os.path.getsize(part) if os.path.exists(part) else 0
+    if first == 0 and have:
+        have = 0  # restart from scratch
+        _remove(part)
+    if first != have:
+        raise ApiError("upload_offset_mismatch", 409, details={"offset": have}, offset=have)
+    expected = last - first + 1
+    got = 0
+    try:
+        with open(part, "ab") as fh:
+            async for chunk in body_iter:
+                got += len(chunk)
+                if got > expected:
+                    raise ApiError("upload_size_mismatch", 422)
+                fh.write(chunk)
+        if got != expected:
+            raise ApiError("upload_size_mismatch", 422)
+    except BaseException:
+        with open(part, "ab") as fh:  # drop a partial chunk so the client can resend it
+            fh.truncate(have)
+        raise
+    if last + 1 < total:
+        db.commit()  # releases the ticket row lock
+        return {"status": "partial", "received": last + 1, "size_bytes": total}
+    try:
+        return _finalize(db, ticket, asset, part)
+    finally:
+        _remove(part)
+
+
+def _remove(path: str) -> None:
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
+
+
+def _finalize(db: Session, ticket: UploadTicket, asset: Asset, tmp: str) -> Asset:
+    size = os.path.getsize(tmp)
+    if size != ticket.expected_size:
+        raise ApiError("upload_size_mismatch", 422)
+    h = hashlib.sha256()
+    with open(tmp, "rb") as fh:
+        for block in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(block)
+    digest = h.hexdigest()
+    if ticket.expected_sha256 and digest != ticket.expected_sha256:
+        raise ApiError("upload_checksum_mismatch", 422)
+    if asset.kind == "source":
+        try:
+            asset.probe = probe(tmp).to_dict()
+        except MediaError as e:
+            asset.status = "rejected"
+            asset.probe = {"error": e.code}
+            ticket.used_at = utcnow()
+            db.commit()
+            raise ApiError(e.code if e.code in ("unsupported_format", "no_audio_stream") else
+                           "unsupported_or_corrupt", 422)
+        if asset.probe["channels"] > 2:
+            asset.status = "rejected"
+            ticket.used_at = utcnow()
+            db.commit()
+            raise ApiError("too_many_channels", 422)
+        if asset.probe["duration"] > get_settings().max_duration_seconds:
+            asset.status = "rejected"
+            ticket.used_at = utcnow()
+            db.commit()
+            raise ApiError("too_long", 422)
+    get_storage().put_file(asset.storage_key, tmp, asset.content_type)
+    asset.size_bytes = size
+    asset.sha256 = digest
+    asset.status = "uploaded"
+    ticket.used_at = utcnow()
+    audit(db, asset.owner_id, "asset.uploaded", "asset", asset.id, {"size": size, "sha256": digest})
+    db.commit()
+    return asset
 
 
 def store_generated(db: Session, *, owner_id, app_id, kind: str, path: str, ext: str, sha256: str,

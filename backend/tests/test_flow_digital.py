@@ -204,3 +204,48 @@ def test_program_rejects_bad_sessions_with_field_not_500():
     # a non-object session fails request validation: still 422, with FastAPI field locations
     r = dev.put(url, {"sessions": ["junk"]})
     assert r.status_code == 422 and r.json()["error"]["details"]["fields"][0]["loc"][:2] == ["body", "sessions"]
+
+
+def test_chunked_upload_resume_and_program_autofill():
+    """NAP-069: large files go in Content-Range chunks (proxies cap request bodies); out-of-order chunks are
+    rejected with the server offset; the first finished track becomes session 1 of an empty draft program."""
+    import hashlib
+    from .helpers import convert
+    dev = Client().register(developer=True)
+    a = ok(dev.post("/developer/apps", {"slug": "chunk-" + dev.user_id[:8], "author_name": "A",
+                                        "metadata": {"ru": {"title": "Океан"}, "en": {"title": "Ocean"}}}), 201)
+    data = wav_bytes(2.0)
+    n, step = len(data), 64 * 1024
+    t = ok(dev.post(f"/developer/apps/{a['id']}/uploads", {"filename": "ocean.wav", "size_bytes": n,
+                                                           "sha256": hashlib.sha256(data).hexdigest()}), 201)
+
+    def put(first, last, total=n, body=None):
+        return dev.raw().put(t["upload_url"], content=data[first:last + 1] if body is None else body,
+                             headers=dev._h({"content-type": "application/octet-stream",
+                                             "content-range": f"bytes {first}-{last}/{total}"}))
+    r = put(0, step - 1)
+    assert r.status_code == 200 and r.json() == {"status": "partial", "received": step, "size_bytes": n}
+    r = put(2 * step, 3 * step - 1)  # skipped a chunk
+    assert r.status_code == 409 and r.json()["error"]["details"]["offset"] == step
+    assert r.json()["error"]["code"] == "upload_offset_mismatch" and "{" not in r.json()["error"]["message"]
+    assert put(step, 2 * step - 1, total=n + 1).json()["error"]["code"] == "upload_size_mismatch"
+    off = step
+    while off < n:
+        last = min(off + step, n) - 1
+        r = put(off, last)
+        assert r.status_code == 200, r.text
+        off = last + 1
+    assert r.json()["status"] == "uploaded" and r.json()["sha256"] == hashlib.sha256(data).hexdigest()
+    assert put(0, step - 1).status_code == 410  # ticket is single-use
+    job = convert(dev, a["id"], r.json()["asset_id"])
+    assert job["state"] == "completed"
+    v = ok(dev.get(f"/developer/apps/{a['id']}"))
+    sessions = v["versions"][0]["sessions"] if "versions" in v else v["latest_version"]["sessions"]
+    assert [(s["key"], s["titles"]) for s in sessions] == [("s1", {"ru": "Океан", "en": "Ocean"})]
+    # a second track does not change a program that already has sessions
+    up2 = ok(dev.post(f"/developer/apps/{a['id']}/uploads", {"filename": "b.wav", "size_bytes": n}), 201)
+    dev.raw().put(up2["upload_url"], content=data, headers=dev._h({"content-type": "application/octet-stream"}))
+    convert(dev, a["id"], up2["asset_id"])
+    v = ok(dev.get(f"/developer/apps/{a['id']}"))
+    sessions = v["versions"][0]["sessions"] if "versions" in v else v["latest_version"]["sessions"]
+    assert len(sessions) == 1 and sessions[0]["conversion_job_id"] == job["id"]

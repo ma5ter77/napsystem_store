@@ -8,3 +8,4 @@ backups/*.dump
 sdk/dist/
 *.tsbuildinfo
 dump.rdb
+backend/celerybeat-schedule*

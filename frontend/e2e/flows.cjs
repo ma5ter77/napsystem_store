@@ -93,10 +93,10 @@ async function run(L) {
   });
   await step("upload + real conversion", async () => {
     await d.getByRole("tab", { name: t("dev.tab_audio") }).click();
-    await d.getByLabel(t("dev.upload"), { exact: true }).setInputFiles(wav());
-    await d.getByText(t("dev.uploaded"), { exact: true }).first().waitFor({ timeout: 30000 });
-    await d.getByRole("button", { name: t("dev.start_conversion") }).click();
-    await d.locator(".badge", { hasText: t("job_state.completed") }).first().waitFor({ timeout: 90000 });
+    // NAP-069: 60 s WAV (~11 MB) goes in two chunks through the Next.js proxy; conversion starts by itself
+    await d.getByLabel(t("dev.upload"), { exact: true }).setInputFiles(wav(60));
+    await d.getByText(t("dev.uploaded"), { exact: true }).first().waitFor({ timeout: 60000 });
+    await d.locator(".badge", { hasText: t("job_state.completed") }).first().waitFor({ timeout: 120000 });
     await d.getByText(t("qa.carriers")).waitFor({ timeout: 15000 });
     await d.screenshot({ path: `${out}/${L}-converter.png`, fullPage: true });
   });
@@ -105,7 +105,11 @@ async function run(L) {
     await d.getByLabel(t("dev.rights")).check();
     await d.getByRole("button", { name: t("common.save") }).click();
     await d.getByRole("tab", { name: t("dev.tab_program") }).click();
-    await d.getByRole("button", { name: t("dev.add_session") }).click();
+    // the first finished track is already session 1, titled like the app
+    await d.getByLabel(t("dev.track")).waitFor(); // the Program tab is shown (Details also has title fields)
+    if ((await d.getByLabel(t("dev.title_ru")).inputValue()) !== "Тестовая медитация") throw new Error("program not auto-filled");
+    await d.waitForFunction((lbl) => [...document.querySelectorAll("label")].some((l) => l.textContent.startsWith(lbl) && l.querySelector("select")?.value), t("dev.track"), { timeout: 10000 })
+      .catch(() => { throw new Error("auto-filled session has no track"); });
     await d.getByLabel(t("dev.title_ru")).fill("Сеанс 1");
     await d.getByLabel(t("dev.title_en")).fill("Session 1");
     // NAP-068: a session without a track is stopped in the form with a clear message, no 500

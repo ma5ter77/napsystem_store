@@ -74,6 +74,7 @@
     "upload_checksum_mismatch": "Checksum mismatch — upload the file again.",
     "upload_link_invalid": "The upload link is invalid or already used.",
     "upload_size_mismatch": "The uploaded size does not match the declared size.",
+    "upload_offset_mismatch": "A file chunk arrived out of order. The upload resumes from byte {offset}.",
     "validation_failed": "Please check the entered data.",
     "version_conflict": "The session state changed. Refresh and try again.",
     "version_frozen": "This version was submitted for review — create a new version to make changes."

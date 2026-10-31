@@ -441,7 +441,7 @@
   "no_assets": "Upload at least one file.",
   "jobs": "Conversion jobs",
   "no_jobs": "No jobs yet.",
-  "program_hint": "Build the program from finished tracks. The order is the lesson order.",
+  "program_hint": "The program is the ordered list of sessions the buyer gets. A single meditation needs one session: it is created automatically from the first finished track. Here you can rename it or add more sessions.",
   "session_n": "Session {n}",
   "key": "Key",
   "track": "Track",
@@ -472,7 +472,13 @@
   "track_required": "Choose a track for this session.",
   "tracks_missing": "No track chosen in sessions: {list}. The program can be saved once every session has a track.",
   "no_tracks": "No finished tracks yet: a track appears after you upload audio and a conversion completes.",
-  "go_audio": "Go to Audio & converter"
+  "go_audio": "Go to Audio & converter",
+  "step_profile": "1. Binaural layer profile",
+  "step_upload": "2. Upload audio",
+  "auto_convert": "Convert right after upload with the selected profile",
+  "step_files": "Uploaded files",
+  "files_hint": "To make another version of a track, pick another profile and press Convert next to the file.",
+  "jobs_hint": "3. When a conversion completes, the track appears in the Program tab. The first finished track becomes session 1 automatically."
  },
  "fin": {
   "sales": "One-time sales",

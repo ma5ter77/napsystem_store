@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Fragment, Suspense, useEffect, useState } from "react";
+import { Fragment, Suspense, useEffect, useRef, useState } from "react";
 import { useApp } from "@/components/Providers";
 import { ErrorBox, errorFields, Loading, Price, RequireAuth, StatusBadge, useAction, useLoad } from "@/components/ui";
 import { api, uid, uploadWithProgress } from "@/lib/api";
@@ -117,7 +117,7 @@ function JobCard({ job, onChange }: { job: any; onChange: () => void }) {
   );
 }
 
-function Audio({ app }: { app: any }) {
+function Audio({ app, onTrackReady }: { app: any; onTrackReady?: () => void }) {
   const { t, locale } = useApp();
   const limits = useLoad<any>("/converter/limits");
   const profiles = useLoad<any>("/developer/profiles");
@@ -125,8 +125,20 @@ function Audio({ app }: { app: any }) {
   const jobs = useLoad<any>(`/developer/conversions?app_id=${app.id}`);
   const [uploads, setUploads] = useState<Record<string, { p: number; err?: string; done?: boolean }>>({});
   const [profile, setProfile] = useState("");
+  const [autoConvert, setAutoConvert] = useState(true);
   const act = useAction();
-  useEffect(() => { if (profiles.data && !profile) setProfile(profiles.data.items.find((p: any) => p.slug === "alpha-demo-v1")?.id ?? profiles.data.items[0]?.id); }, [profiles.data, profile]);
+  const pickDefault = (items: any[] | undefined) => items?.find((p: any) => p.slug === "alpha-demo-v1")?.id ?? items?.[0]?.id ?? "";
+  useEffect(() => { if (profiles.data && !profile) setProfile(pickDefault(profiles.data.items)); }, [profiles.data, profile]);
+  // the upload may finish before or after profiles load: read the latest choice when it ends
+  const profileRef = useRef("");
+  profileRef.current = profile || pickDefault(profiles.data?.items);
+  // when a conversion finishes the server may have filled the program: refresh the version shown in other tabs
+  const completedRef = useRef<number | null>(null);
+  useEffect(() => {
+    const n = (jobs.data?.items ?? []).filter((j: any) => j.state === "completed").length;
+    if (completedRef.current !== null && n > completedRef.current) onTrackReady?.();
+    if (jobs.data) completedRef.current = n;
+  }, [jobs.data, onTrackReady]);
   useEffect(() => {
     const active = jobs.data?.items?.some((j: any) => !["completed", "failed", "canceled"].includes(j.state));
     if (!active) return;
@@ -141,8 +153,14 @@ function Audio({ app }: { app: any }) {
       try {
         const sha = await import("@/lib/api").then((m) => file.arrayBuffer().then(m.sha256Hex));
         const tk = await api(`/developer/apps/${app.id}/uploads`, { body: { filename: file.name, size_bytes: file.size, sha256: sha } });
-        await uploadWithProgress(tk.upload_url, file, (p) => setUploads((u) => ({ ...u, [file.name]: { p } })));
+        const res = await uploadWithProgress(tk.upload_url, file, (p) => setUploads((u) => ({ ...u, [file.name]: { p } })));
         setUploads((u) => ({ ...u, [file.name]: { p: 1, done: true } }));
+        // NAP-069: start the conversion right away with the chosen profile, so the next step is not missed
+        if (autoConvert && res?.status === "uploaded") {
+          const pid = profileRef.current || pickDefault((await api<any>("/developer/profiles")).items);
+          await act.run(() => api("/developer/conversions", { body: { app_id: app.id, source_asset_id: res.asset_id ?? tk.asset_id, profile_id: pid }, headers: { "Idempotency-Key": uid() } }));
+          jobs.reload();
+        }
       } catch (e: any) {
         setUploads((u) => ({ ...u, [file.name]: { p: 0, err: e.message } }));
       }
@@ -155,8 +173,16 @@ function Audio({ app }: { app: any }) {
   return (
     <div className="stack">
       <div className="panel stack">
-        <h2>{t("dev.upload")}</h2>
+        <h2>{t("dev.step_profile")}</h2>
+        <label className="field">{t("dev.profile")}
+          <select value={profile} onChange={(e) => setProfile(e.target.value)}>{profiles.data?.items.map((p: any) => <option key={p.id} value={p.id}>{p.name} · v{p.version}</option>)}</select></label>
+        {prof && <p className="hint">{prof.description}</p>}
+        {prof && <details><summary>{t("dev.advanced")}</summary><dl className="kv hint">{Object.entries(prof.params).map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{String(v)}</dd></Fragment>)}</dl><p className="hint">{t("dev.profile_locked")}</p></details>}
+      </div>
+      <div className="panel stack">
+        <h2>{t("dev.step_upload")}</h2>
         {lim && <p className="hint">{t("dev.limits", { gb: (lim.max_upload_bytes / 1024 ** 3).toFixed(0), min: lim.max_duration_seconds / 60, formats: lim.accepted.join(", ").toUpperCase() })}</p>}
+        <label className="row hint"><input type="checkbox" checked={autoConvert} onChange={(e) => setAutoConvert(e.target.checked)} /> {t("dev.auto_convert")}</label>
         <input type="file" multiple accept=".wav,.flac,.mp3,.m4a,audio/*" onChange={(e) => onFiles(e.target.files)} aria-label={t("dev.upload")} />
         {Object.entries(uploads).map(([n, u]) => (
           <div key={n}><div className="spread hint"><span>{n}</span><span>{u.err ? <span className="err-text">{u.err}</span> : u.done ? t("dev.uploaded") : `${Math.round(u.p * 100)}%`}</span></div>
@@ -164,11 +190,8 @@ function Audio({ app }: { app: any }) {
         ))}
       </div>
       <div className="panel stack">
-        <h2>{t("dev.convert")}</h2>
-        <label className="field">{t("dev.profile")}
-          <select value={profile} onChange={(e) => setProfile(e.target.value)}>{profiles.data?.items.map((p: any) => <option key={p.id} value={p.id}>{p.name} · v{p.version}</option>)}</select></label>
-        {prof && <p className="hint">{prof.description}</p>}
-        {prof && <details><summary>{t("dev.advanced")}</summary><dl className="kv hint">{Object.entries(prof.params).map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{String(v)}</dd></Fragment>)}</dl><p className="hint">{t("dev.profile_locked")}</p></details>}
+        <h2>{t("dev.step_files")}</h2>
+        <p className="hint">{t("dev.files_hint")}</p>
         {assets.data?.items?.length ? (
           <table><thead><tr><th>{t("dev.file")}</th><th>{t("dev.format")}</th><th>{t("account.status")}</th><th></th></tr></thead>
             <tbody>{assets.data.items.map((a: any) => (
@@ -182,6 +205,7 @@ function Audio({ app }: { app: any }) {
       </div>
       <div className="stack">
         <h2>{t("dev.jobs")}</h2>
+        <p className="hint">{t("dev.jobs_hint")}</p>
         {jobs.error && <ErrorBox error={jobs.error} onRetry={jobs.reload} />}
         {jobs.data?.items?.length ? jobs.data.items.map((j: any) => <JobCard key={j.id} job={j} onChange={jobs.reload} />) : <p className="muted">{t("dev.no_jobs")}</p>}
       </div>
@@ -321,9 +345,9 @@ function Editor() {
         <div><Link href={`/${locale}/developer`}>{t("dev.title")}</Link><h1>{v.metadata?.[locale]?.title ?? v.metadata?.ru?.title ?? v.metadata?.en?.title ?? app.slug}</h1></div>
         <div className="row"><StatusBadge ns="version_state" value={v.state} />{app.published_version_id && <Link href={`/${locale}/apps/${app.slug}`}>{t("dev.open_in_store")}</Link>}</div>
       </div>
-      <div className="tabs" role="tablist">{TABS.map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => router.replace(`/${locale}/developer/apps/${id}?tab=${x}`)}>{t(`dev.tab_${x}`)}</button>)}</div>
+      <div className="tabs" role="tablist">{TABS.map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => { router.replace(`/${locale}/developer/apps/${id}?tab=${x}`); reload(); }}>{t(`dev.tab_${x}`)}</button>)}</div>
       {tab === "details" && <Details key={v.id + v.state} app={app} v={v} reload={reload} />}
-      {tab === "audio" && <Audio app={app} />}
+      {tab === "audio" && <Audio app={app} onTrackReady={reload} />}
       {tab === "program" && <Program key={v.id + v.sessions.length} app={app} v={v} reload={reload} />}
       {tab === "price" && <PriceTab app={app} reload={reload} />}
       {tab === "versions" && <Versions app={app} reload={reload} />}

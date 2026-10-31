@@ -1,6 +1,7 @@
 """Celery worker: conversions run here, never inside the HTTP request. PostgreSQL keeps durable job state."""
 from __future__ import annotations
 
+import os
 import threading
 import uuid
 
@@ -10,7 +11,9 @@ from .config import get_settings
 
 s = get_settings()
 celery = Celery("nap", broker=s.redis_url, backend=None)
-celery.conf.update(task_acks_late=True, worker_prefetch_multiplier=1, task_reject_on_worker_lost=True,
+# beat state lives in the writable var/ dir (the image runs as a non-root user; /app itself is read-only to it)
+os.makedirs("var", exist_ok=True)
+celery.conf.update(beat_schedule_filename=os.path.join("var", "celerybeat-schedule"), task_acks_late=True, worker_prefetch_multiplier=1, task_reject_on_worker_lost=True,
                    broker_connection_retry_on_startup=True, timezone="UTC",
                    task_routes={"nap.run_conversion": {"queue": "media"}}, task_default_queue="ops",
                    beat_schedule={
