@@ -33,7 +33,12 @@ export function ErrorBox({ error, onRetry }: { error: unknown; onRetry?: () => v
   const { t } = useApp();
   if (!error) return null;
   const e = error as ApiError;
-  const fields = errorFields(error).map((f) => { const k = `fields.${f}`; const s = t(k); return s === k ? f : s; });
+  const label = (f: string) => {
+    const m = /^sessions\.(\d+)\.(key|titles|track)$/.exec(f); // program builder: "Session 2: Track"
+    if (m) return `${t("dev.session_n", { n: m[1] })}: ${t(`fields.session_${m[2]}`)}`;
+    const k = `fields.${f}`; const s = t(k); return s === k ? f : s;
+  };
+  const fields = errorFields(error).map(label);
   return (
     <div className="notice bad" role="alert">
       <div>{e.message || t("common.error")}</div>

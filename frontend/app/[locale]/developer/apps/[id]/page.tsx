@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useEffect, useState } from "react";
 import { useApp } from "@/components/Providers";
-import { ErrorBox, Loading, Price, RequireAuth, StatusBadge, useAction, useLoad } from "@/components/ui";
+import { ErrorBox, errorFields, Loading, Price, RequireAuth, StatusBadge, useAction, useLoad } from "@/components/ui";
 import { api, uid, uploadWithProgress } from "@/lib/api";
 import { date, duration } from "@/lib/i18n";
 
@@ -190,39 +190,53 @@ function Audio({ app }: { app: any }) {
 }
 
 function Program({ app, v, reload }: { app: any; v: any; reload: () => void }) {
-  const { t } = useApp();
+  const { t, locale } = useApp();
   const jobs = useLoad<any>(`/developer/conversions?app_id=${app.id}`);
   const [rows, setRows] = useState<any[]>(v.sessions.map((s: any) => ({ key: s.key, ru: s.titles.ru ?? "", en: s.titles.en ?? "", job: s.conversion_job_id })));
+  const [missing, setMissing] = useState<Set<number>>(new Set());
   const act = useAction();
   const done = (jobs.data?.items ?? []).filter((j: any) => j.state === "completed");
   const editable = v.state === "draft";
-  const move = (i: number, d: number) => { const r = [...rows]; [r[i], r[i + d]] = [r[i + d], r[i]]; setRows(r); };
+  const move = (i: number, d: number) => { const r = [...rows]; [r[i], r[i + d]] = [r[i + d], r[i]]; setRows(r); setMissing(new Set()); };
+  const set = (i: number, patch: any) => { setRows(rows.map((x, j) => j === i ? { ...x, ...patch } : x)); if (patch.job) setMissing(new Set([...missing].filter((m) => m !== i))); };
+  // server names fields as sessions.<position>.<key|titles|track>, position starting at 1
+  const bad = new Set(errorFields(act.error));
+  const isBad = (i: number, f: string) => bad.has(`sessions.${i + 1}.${f}`) || (f === "track" && missing.has(i));
+  const audioTab = `/${locale}/developer/apps/${app.id}?tab=audio`;
   return (
     <div className="stack">
       {!editable && <div className="notice warn">{t("dev.frozen")}</div>}
       <p className="hint">{t("dev.program_hint")}</p>
+      {editable && jobs.data && done.length === 0 && (
+        <div className="notice warn">{t("dev.no_tracks")} <Link href={audioTab}>{t("dev.go_audio")}</Link></div>
+      )}
       {rows.map((r, i) => (
         <fieldset key={i} className="panel flat form wide" disabled={!editable}>
           <legend>{t("dev.session_n", { n: i + 1 })}</legend>
-          <label className="field">{t("dev.key")}<input value={r.key} onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, key: e.target.value } : x))} /></label>
-          <label className="field">{t("dev.title_ru")}<input value={r.ru} onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, ru: e.target.value } : x))} /></label>
-          <label className="field">{t("dev.title_en")}<input value={r.en} onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, en: e.target.value } : x))} /></label>
-          <label className="field">{t("dev.track")}<select value={r.job} onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, job: e.target.value } : x))}>
-            <option value="">—</option>{done.map((j: any) => <option key={j.id} value={j.id}>{j.source.name} · {j.profile.slug}</option>)}</select></label>
+          <label className="field">{t("dev.key")}<input value={r.key} aria-invalid={isBad(i, "key") || undefined} onChange={(e) => set(i, { key: e.target.value })} /></label>
+          <label className="field">{t("dev.title_ru")}<input value={r.ru} aria-invalid={isBad(i, "titles") || undefined} onChange={(e) => set(i, { ru: e.target.value })} /></label>
+          <label className="field">{t("dev.title_en")}<input value={r.en} aria-invalid={isBad(i, "titles") || undefined} onChange={(e) => set(i, { en: e.target.value })} /></label>
+          <label className="field">{t("dev.track")}<select required value={r.job ?? ""} aria-invalid={isBad(i, "track") || undefined} onChange={(e) => set(i, { job: e.target.value })}>
+            <option value="">{t("dev.choose_track")}</option>{done.map((j: any) => <option key={j.id} value={j.id}>{j.source.name} · {j.profile.slug}</option>)}</select>
+            {isBad(i, "track") && <span className="err-text">{t("dev.track_required")}</span>}</label>
           <div className="row">
             <button type="button" className="btn ghost small" disabled={i === 0} onClick={() => move(i, -1)} aria-label={t("dev.up")}>↑</button>
             <button type="button" className="btn ghost small" disabled={i === rows.length - 1} onClick={() => move(i, 1)} aria-label={t("dev.down")}>↓</button>
-            <button type="button" className="btn ghost small" onClick={() => setRows(rows.filter((_, j) => j !== i))}>{t("dev.remove")}</button>
+            <button type="button" className="btn ghost small" onClick={() => { setRows(rows.filter((_, j) => j !== i)); setMissing(new Set()); }}>{t("dev.remove")}</button>
           </div>
         </fieldset>
       ))}
       {editable && <div className="row">
         <button className="btn ghost" onClick={() => setRows([...rows, { key: `s${rows.length + 1}`, ru: "", en: "", job: done[0]?.id ?? "" }])}>{t("dev.add_session")}</button>
         <button className="btn" disabled={act.pending} onClick={async () => {
+          const empty = new Set(rows.flatMap((r, i) => (r.job ? [] : [i])));
+          setMissing(empty);
+          if (empty.size) return; // NAP-068: do not send sessions without a track
           const sessions = rows.map((r) => ({ key: r.key, titles: Object.fromEntries([["ru", r.ru], ["en", r.en]].filter(([, x]) => x)), conversion_job_id: r.job }));
           if (await act.run(() => api(`/developer/apps/${app.id}/versions/${v.id}/program`, { method: "PUT", body: { sessions } }))) reload();
         }}>{t("dev.save_program")}</button>
       </div>}
+      {missing.size > 0 && <div className="notice bad" role="alert">{t("dev.tracks_missing", { list: [...missing].map((i) => i + 1).join(", ") })}</div>}
       <ErrorBox error={act.error} />
     </div>
   );

@@ -180,3 +180,27 @@ def test_csrf_and_locale_of_errors():
     r_en = c.raw().get("/api/v1/catalog/apps/does-not-exist", headers={"x-locale": "en"}).json()["error"]
     assert r_ru["code"] == r_en["code"] == "not_found" and r_ru["message"] != r_en["message"]
     assert r_ru["request_id"]
+
+
+def test_program_rejects_bad_sessions_with_field_not_500():
+    """NAP-068: a session without a chosen track (or with junk) is a 422 naming the field, never a 500."""
+    dev = Client().register(developer=True)
+    a = ok(dev.post("/developer/apps", {"slug": "prog-" + dev.user_id[:8], "author_name": "A",
+                                        "metadata": {"ru": {"title": "Программа"}}}), 201)
+    url = f"/developer/apps/{a['id']}/versions/{a['version_id']}/program"
+    titles = {"ru": "Программа Океан", "en": "Ocean program"}
+    cases = [
+        ({"key": "s1", "titles": titles, "conversion_job_id": ""}, "sessions.1.track"),
+        ({"key": "s1", "titles": titles}, "sessions.1.track"),
+        ({"key": "s1", "titles": titles, "conversion_job_id": None}, "sessions.1.track"),
+        ({"key": "s1", "titles": titles, "conversion_job_id": "not-a-uuid"}, "sessions.1.track"),
+        ({"key": "S 1", "titles": titles, "conversion_job_id": ""}, "sessions.1.key"),
+        ({"key": "s1", "titles": "x", "conversion_job_id": ""}, "sessions.1.titles"),
+    ]
+    for session, field in cases:
+        r = dev.put(url, {"sessions": [session]})
+        assert r.status_code == 422, (session, r.status_code, r.text)
+        assert r.json()["error"]["details"]["field"] == field, (session, r.json())
+    # a non-object session fails request validation: still 422, with FastAPI field locations
+    r = dev.put(url, {"sessions": ["junk"]})
+    assert r.status_code == 422 and r.json()["error"]["details"]["fields"][0]["loc"][:2] == ["body", "sessions"]

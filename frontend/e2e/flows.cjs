@@ -108,6 +108,13 @@ async function run(L) {
     await d.getByRole("button", { name: t("dev.add_session") }).click();
     await d.getByLabel(t("dev.title_ru")).fill("Сеанс 1");
     await d.getByLabel(t("dev.title_en")).fill("Session 1");
+    // NAP-068: a session without a track is stopped in the form with a clear message, no 500
+    const track = d.getByLabel(t("dev.track"));
+    const chosen = await track.inputValue();
+    await track.selectOption("");
+    await d.getByRole("button", { name: t("dev.save_program") }).click();
+    await d.getByText(t("dev.tracks_missing", { list: "1" })).waitFor();
+    await track.selectOption(chosen);
     await d.getByRole("button", { name: t("dev.save_program") }).click();
     await d.getByLabel(t("dev.key")).first().waitFor();
     await d.waitForLoadState("networkidle");

@@ -467,7 +467,12 @@
   "preview_published": "Fragment published",
   "sessions_count": "{count, plural, one {# session} other {# sessions}}",
   "rights_state": "rights confirmed: {ok}",
-  "open_in_store": "Open in store"
+  "open_in_store": "Open in store",
+  "choose_track": "— choose a track —",
+  "track_required": "Choose a track for this session.",
+  "tracks_missing": "No track chosen in sessions: {list}. The program can be saved once every session has a track.",
+  "no_tracks": "No finished tracks yet: a track appears after you upload audio and a conversion completes.",
+  "go_audio": "Go to Audio & converter"
  },
  "fin": {
   "sales": "One-time sales",
@@ -610,7 +615,10 @@
   "category": "Category",
   "metadata": "Title and description",
   "content_language": "Audio language",
-  "version_label": "Version label"
+  "version_label": "Version label",
+  "session_key": "key",
+  "session_titles": "titles",
+  "session_track": "track"
  },
  "caps": {
   "stereo_output": "stereo output",

@@ -139,14 +139,21 @@ def set_program(db: Session, app: App, v: AppVersion, sessions: list[dict], acto
     keys = set()
     new = []
     for i, s in enumerate(sessions, start=1):
+        if not isinstance(s, dict):
+            raise ApiError("validation_failed", 422, details={"field": f"sessions.{i}"})
         key = s.get("key", "")
-        if not re.match(r"^[a-z0-9][a-z0-9-]{0,63}$", key) or key in keys:
+        if not isinstance(key, str) or not re.match(r"^[a-z0-9][a-z0-9-]{0,63}$", key) or key in keys:
             raise ApiError("validation_failed", 422, details={"field": f"sessions.{i}.key"})
         keys.add(key)
         titles = s.get("titles") or {}
-        if not titles or not set(titles) <= {"ru", "en"} or not all(str(x).strip() for x in titles.values()):
+        if not isinstance(titles, dict) or not titles or not set(titles) <= {"ru", "en"} \
+                or not all(str(x).strip() for x in titles.values()):
             raise ApiError("validation_failed", 422, details={"field": f"sessions.{i}.titles"})
-        job = db.get(ConversionJob, uuid.UUID(str(s["conversion_job_id"])))
+        try:  # NAP-068: a session without a chosen track used to crash with 500
+            job_id = uuid.UUID(str(s.get("conversion_job_id") or ""))
+        except ValueError:
+            raise ApiError("validation_failed", 422, details={"field": f"sessions.{i}.track"}) from None
+        job = db.get(ConversionJob, job_id)
         if not job or job.app_id != app.id or job.owner_id != app.developer_id:
             raise ApiError("not_found", 404, entity="conversion")
         if job.state != "completed" or not job.result:
