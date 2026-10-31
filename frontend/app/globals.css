@@ -202,3 +202,7 @@ tr.row-bad td { background: #fbf0f0; }
 .dims { display: grid; gap: 6px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .sku-card { border-left: 3px solid var(--line, #d3dbdc); }
 .sku-card.off { opacity: .7; }
+
+/* NAP-042: seek bar and large player controls (touch target >= 48 px) */
+.seek { width: 100%; height: 28px; accent-color: var(--left); cursor: pointer; }
+.player-controls .btn { min-height: 52px; padding: 0 22px; font-size: 1.05rem; }

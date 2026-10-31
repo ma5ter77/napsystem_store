@@ -580,7 +580,13 @@
   "after": "After",
   "diff": "Difference",
   "self_report_note": "This is your self-rating on a 0–10 scale, not a medical index.",
-  "history": "Session history"
+  "history": "Session history",
+  "seek": "Position in the program",
+  "remaining": "{time} left",
+  "back30": "Back 30 seconds",
+  "fwd30": "Forward 30 seconds",
+  "sec": "s",
+  "seek_hint": "Seek with the slider, the buttons or the arrow keys. A session counts as completed when at least 80% of the program was listened to."
  },
  "account": {
   "title": "Account",

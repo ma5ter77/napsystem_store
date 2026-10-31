@@ -176,6 +176,10 @@ async function run(L) {
     await b.getByRole("button", { name: t("player.play") }).click({ timeout: 30000 });
     await b.waitForTimeout(1500);
     await b.screenshot({ path: `${out}/${L}-player.png`, fullPage: true });
+    // NAP-042: seek bar, remaining time and large back/forward buttons
+    await b.getByRole("slider", { name: t("player.seek") }).waitFor();
+    await b.getByText(t("player.remaining", { time: "" }).trim()).first().waitFor();
+    await b.getByRole("button", { name: t("player.back30") }).click();
     // connection drops while the session runs: local stop must still work, events sync once afterwards
     await buyer.ctx.setOffline(true);
     await b.waitForTimeout(800);

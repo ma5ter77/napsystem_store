@@ -151,3 +151,24 @@ def test_developer_analytics_suppresses_small_groups():
         assert ns["usage"]["reason"] == "insufficient_group_size"
     else:
         assert ns["usage"]["users"] >= 5
+
+
+def test_seek_backwards_position_and_late_events():
+    """NAP-042: seeking back is stored; an older event delivered late does not move the position forward again."""
+    b, app = _buyer_with_free_app()
+    web = ok(b.post("/devices", {"adapter": "web_headphones"}), 201)
+    s = ok(b.post("/sessions", {"app_id": app["id"], "session_key": "harbor-night", "device_id": web["id"]}), 201)
+    sid = s["id"]
+    ok(_cmd(b, sid, "precheck", 0, {"headphones_confirmed": True, "lr_test_passed": True}))
+    ok(_cmd(b, sid, "confirm_ready", 1))
+    ok(_cmd(b, sid, "start", 2))
+    t = utcnow()
+    ev = lambda i, pos, **extra: {"event_id": f"s{i}", "seq": i, "type": "progress",  # noqa: E731
+                                  "occurred_at": (t + timedelta(seconds=i)).isoformat(),
+                                  "data": {"position_seconds": pos, **extra}}
+    ok(b.post(f"/sessions/{sid}/events", {"events": [ev(1, 60), ev(3, 20, seek_from=60)]}))
+    assert ok(b.get(f"/sessions/{sid}"))["position_seconds"] == 20
+    ok(b.post(f"/sessions/{sid}/events", {"events": [ev(2, 75)]}))  # older event arrives after the seek
+    assert ok(b.get(f"/sessions/{sid}"))["position_seconds"] == 20
+    ok(b.post(f"/sessions/{sid}/events", {"events": [ev(4, 35)]}))
+    assert ok(b.get(f"/sessions/{sid}"))["position_seconds"] == 35
