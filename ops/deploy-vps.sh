@@ -16,7 +16,6 @@ if [ ! -f .env ]; then
   cp .env.example .env
   sed -i "s/^NAP_SECRET_KEY=.*/NAP_SECRET_KEY=$(head -c 32 /dev/urandom | base64 | tr -dc A-Za-z0-9)/" .env
   sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$(head -c 18 /dev/urandom | base64 | tr -dc A-Za-z0-9)/" .env
-  sed -i "s/^MINIO_ROOT_PASSWORD=.*/MINIO_ROOT_PASSWORD=$(head -c 18 /dev/urandom | base64 | tr -dc A-Za-z0-9)/" .env
 fi
 IP=$(curl -fsS https://api.ipify.org || hostname -I | awk '{print $1}')
 if [ -n "$DOMAIN" ]; then SITE="$DOMAIN"; URL="https://$DOMAIN"; SECURE=true; else SITE=":80"; URL="http://$IP"; SECURE=false; fi

@@ -3,7 +3,9 @@ WORKDIR /web
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-ENV NEXT_TELEMETRY_DISABLED=1
+# rewrites (/api/v1 -> backend) are resolved at build time
+ARG BACKEND_URL=http://api:8000
+ENV NEXT_TELEMETRY_DISABLED=1 BACKEND_URL=$BACKEND_URL
 RUN node scripts/check-i18n.mjs && npm run build
 
 FROM node:22-slim
