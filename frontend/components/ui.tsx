@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { money } from "@/lib/i18n";
+import { StatePanel, type StateKind } from "@/components/State";
 import { useApp } from "./Providers";
 
 export function Price({ minor, currency }: { minor: number | null | undefined; currency: string }) {
@@ -29,8 +30,11 @@ export function errorFields(error: unknown): string[] {
   return [...new Set(out)];
 }
 
+const UNAVAILABLE = new Set(["device_busy", "device_protocol_unavailable", "incompatible_device", "sensor_unavailable",
+  "payment_provider_unavailable", "carrier_timeout", "network_error"]);
+
 export function ErrorBox({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
-  const { t } = useApp();
+  const { t, locale } = useApp();
   if (!error) return null;
   const e = error as ApiError;
   const label = (f: string) => {
@@ -39,6 +43,18 @@ export function ErrorBox({ error, onRetry }: { error: unknown; onRetry?: () => v
     const k = `fields.${f}`; const s = t(k); return s === k ? f : s;
   };
   const fields = errorFields(error).map(label);
+  // NAP-044: "something is unavailable" (a device, the payment provider, a carrier) is not the user's mistake:
+  // the shared "unavailable" panel says so and offers what to do instead
+  if (e.code && UNAVAILABLE.has(e.code)) {
+    const device = e.code.startsWith("device") || e.code === "incompatible_device" || e.code === "sensor_unavailable";
+    return (
+      <StatePanel kind="unavailable" role="alert" title={t(device ? "state.device_title" : "state.provider_title")}
+        actions={<>{onRetry && <button className="btn small" onClick={onRetry}>{t("common.retry")}</button>}
+          {device && <a className="btn small ghost" href={`/${locale}/account?tab=devices`}>{t("state.my_devices")}</a>}</>}>
+        {e.message}{e.requestId ? <span className="hint"> · {t("common.request_id")}: {e.requestId}</span> : null}
+      </StatePanel>
+    );
+  }
   return (
     <div className="notice bad" role="alert">
       <div>{e.message || t("common.error")}</div>
@@ -60,8 +76,9 @@ export function Loading({ lines = 3 }: { lines?: number }) {
   );
 }
 
-export function Empty({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
-  return <div className="panel" style={{ textAlign: "left" }}><p className="muted">{children}</p>{action}</div>;
+/** Empty list / nothing to show — the shared state panel (NAP-044). `kind` changes the icon and tone. */
+export function Empty({ children, action, title, kind = "empty" }: { children: React.ReactNode; action?: React.ReactNode; title?: React.ReactNode; kind?: StateKind }) {
+  return <StatePanel kind={kind} title={title} actions={action}>{children}</StatePanel>;
 }
 
 /** Loads data with loading / error / retry states. */
@@ -96,10 +113,10 @@ export function RequireAuth({ role, children }: { role?: string | string[]; chil
   const { me, t, locale } = useApp();
   if (me === undefined) return <Loading />;
   if (me === null) {
-    return <Empty action={<a className="btn" href={`/${locale}/login?next=${encodeURIComponent(typeof window !== "undefined" ? location.pathname : "/")}`}>{t("nav.login")}</a>}>{t("common.login_required")}</Empty>;
+    return <Empty kind="locked" title={t("state.login_title")} action={<a className="btn" href={`/${locale}/login?next=${encodeURIComponent(typeof window !== "undefined" ? location.pathname + location.search : "/")}`}>{t("nav.login")}</a>}>{t("common.login_required")}</Empty>;
   }
   const roles = Array.isArray(role) ? role : role ? [role] : [];
-  if (roles.length && !roles.some((r) => me.roles.includes(r))) return <Empty>{t("common.no_role")}</Empty>;
+  if (roles.length && !roles.some((r) => me.roles.includes(r))) return <Empty kind="locked" title={t("state.no_role_title")} action={<a className="btn ghost" href={`/${locale}`}>{t("state.home")}</a>}>{t("common.no_role")}</Empty>;
   return <>{children}</>;
 }
 

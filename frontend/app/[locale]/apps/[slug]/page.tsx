@@ -7,6 +7,7 @@ import { AppActions } from "@/components/AppActions";
 import { ReviewsSection, Stars } from "@/components/Reviews";
 import { duration, isLocale, langName, Locale, num1, translator } from "@/lib/i18n";
 import { alternates, serverApi, serverTranslator } from "@/lib/server";
+import { ServerError } from "@/components/State";
 
 type P = Promise<{ locale: string; slug: string }>;
 
@@ -24,7 +25,7 @@ export default async function AppPage({ params }: { params: P }) {
   const r = await serverApi<any>(`/catalog/apps/${slug}`, locale);
   if (!r.ok) {
     if (r.status === 404) notFound();
-    return <div className="section notice bad">{t("common.error")}</div>;
+    return <ServerError t={t} locale={locale} status={r.status} />;
   }
   const a = r.data;
   const price = a.prices?.[0];

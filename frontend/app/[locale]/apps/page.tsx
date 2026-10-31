@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AppCard } from "@/components/cards";
 import { isLocale, langName, Locale, translator } from "@/lib/i18n";
 import { alternates, serverApi, serverTranslator } from "@/lib/server";
+import { ServerError } from "@/components/State";
 
 type SP = Promise<Record<string, string | undefined>>;
 
@@ -64,7 +65,7 @@ export default async function Catalog({ params, searchParams }: { params: Promis
           <Link key={c.slug} className="chip" href={link("category", c.slug)} aria-current={sp.category === c.slug}>{c.name}</Link>
         ))}
       </div>
-      {!res.ok ? <div className="notice bad">{t("common.error")}</div> :
+      {!res.ok ? <ServerError t={t} locale={locale} status={res.status} /> :
         res.data.items.length === 0 ? <div className="panel"><p>{t("catalog.empty")}</p><Link href={`/${locale}/apps`}>{t("catalog.reset")}</Link></div> :
           <>
             <p className="muted">{t("catalog.found", { count: res.data.total })}</p>

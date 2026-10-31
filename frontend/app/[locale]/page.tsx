@@ -3,6 +3,7 @@ import { BeatCover } from "@/components/Art";
 import { AppCard, ProductCard } from "@/components/cards";
 import { isLocale, Locale, translator } from "@/lib/i18n";
 import { serverApi, serverTranslator } from "@/lib/server";
+import { ServerError } from "@/components/State";
 
 export default async function Home({ params }: { params: Promise<{ locale: string }> }) {
   const { locale: l } = await params;
@@ -31,7 +32,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
         <div className="spread"><h2>{t("home.apps")}</h2><Link href={`/${locale}/apps`}>{t("common.all")}</Link></div>
         {apps.ok ? (
           <div className="grid">{apps.data.items.map((a: any) => <AppCard key={a.id} a={a} locale={locale} t={t} />)}</div>
-        ) : <div className="notice bad">{t("common.error")}</div>}
+        ) : <ServerError t={t} locale={locale} status={apps.status} />}
       </section>
       <section className="section">
         <div className="spread"><h2>{t("home.kits")}</h2><Link href={`/${locale}/kits`}>{t("common.all")}</Link></div>
