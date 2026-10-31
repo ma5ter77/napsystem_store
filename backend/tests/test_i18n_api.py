@@ -124,3 +124,26 @@ def test_version_endpoint_matches_repository_release():
     assert f"## [{repo['version']}]" in (root / "CHANGELOG.md").read_text()
     assert c.get("/about/documents/nope").status_code == 404
     assert ok(c.get("/openapi.json"))["info"]["version"] == repo["version"]
+
+
+def test_catalog_lists_use_a_bounded_number_of_queries():
+    """NAP-050: catalog and product lists load card data in batches — the query count does not grow per item."""
+    from sqlalchemy import event
+    from app.db import get_engine
+    from .conftest import Client
+    engine = get_engine()
+    c = Client()
+    counts = {}
+    for path in ("/catalog/apps?limit=100", "/hardware/products?limit=100"):
+        n = [0]
+        def count(*_a, **_k):
+            n[0] += 1
+        event.listen(engine, "before_cursor_execute", count)
+        try:
+            r = c.get(path)
+        finally:
+            event.remove(engine, "before_cursor_execute", count)
+        assert r.status_code == 200
+        counts[path] = (n[0], r.json()["total"])
+    for path, (queries, items) in counts.items():
+        assert items >= 3 and queries <= 15, (path, queries, items)
