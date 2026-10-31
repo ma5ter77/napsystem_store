@@ -432,6 +432,29 @@ def seed_reviews(db) -> None:
             r = db.scalar(select(Review).where(Review.app_id == app.id, Review.rating == 4, Review.body.isnot(None)))
             db.add(ReviewReply(review_id=r.id, developer_id=app.developer_id,
                                body="Спасибо! Более длинный третий сеанс — в планах следующей версии."))
+    # product reviews (NAP-079): demo verified purchases
+    from .models import Product, SellerMember, Sku
+    pdata = {"nap-studio-headphones": [(5, "ru", "Удобные", "Мягкие амбушюры, хорошее разделение каналов."),
+                                       (4, "en", None, "Comfortable, slightly heavy for long sessions."),
+                                       (5, "ru", None, None), (4, "ru", None, "Кабель мог бы быть длиннее."),
+                                       (5, "en", "Great for binaural", "Clear left/right separation.")]}
+    for slug, rows in pdata.items():
+        prod = db.scalar(select(Product).where(Product.slug == slug))
+        if not prod or db.scalar(select(Review).where(Review.product_id == prod.id)):
+            continue
+        sku = db.scalar(select(Sku).where(Sku.product_id == prod.id))
+        for rating, lang, title, body in rows:
+            n += 1
+            u = user(db, f"reviewer{n}@nap.demo", f"{'Покупатель' if lang == 'ru' else 'Buyer'} {n}", ["user"],
+                     locale=lang)
+            db.add(Review(product_id=prod.id, user_id=u.id, sku_id=sku.id, version_label=sku.code, rating=rating,
+                          title=title, body=body, lang=lang, status="published"))
+        db.flush()
+        r = db.scalar(select(Review).where(Review.product_id == prod.id, Review.rating == 4, Review.lang == "ru"))
+        member = db.scalar(select(SellerMember).where(SellerMember.seller_id == prod.seller_id))
+        if r and member:
+            db.add(ReviewReply(review_id=r.id, developer_id=member.user_id,
+                               body="Спасибо! В комплекте есть удлинитель 1,5 м — добавили это в описание."))
 
 
 def seed_multi_parcel_order() -> None:

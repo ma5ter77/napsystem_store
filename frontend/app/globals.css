@@ -101,6 +101,14 @@ input[type="range"] { padding: 0; accent-color: var(--left); }
 .notice { border-radius: var(--r-sm); padding: 12px 14px; background: var(--tint-left); border-left: 4px solid var(--left); }
 .notice.bad { background: #f8e7e7; border-color: var(--bad); }
 .notice.warn { background: #f6efdf; border-color: var(--warn); }
+.notice.ok { background: #e2f1e8; border-color: var(--ok); }
+.linklike { background: none; border: 0; padding: 0; color: var(--left); text-decoration: underline; cursor: pointer; font: inherit; }
+.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.checklist li { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.checklist li > span:first-child { width: 1.4em; height: 1.4em; border-radius: 50%; display: inline-grid; place-items: center; font-weight: 700; font-size: .85rem; }
+.checklist li.ok > span:first-child { background: #e2f1e8; color: var(--ok); }
+.checklist li.bad > span:first-child { background: #f8e7e7; color: var(--bad); }
+.checklist li.warn > span:first-child { background: #f6efdf; color: var(--warn); }
 .notice.test { background: repeating-linear-gradient(-45deg, #fff6d9, #fff6d9 12px, #fbeec2 12px, #fbeec2 24px); border-color: var(--warn); }
 .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: .78rem; font-weight: 600; background: var(--tint-left); color: var(--left); }
 .badge.r { background: var(--tint-right); color: var(--right); }

@@ -102,8 +102,12 @@ async function run(L) {
   });
   await step("details, program, price, submit", async () => {
     await d.getByRole("tab", { name: t("dev.tab_details") }).click();
+    // NAP-082: the next-step banner lists what is missing; saving is confirmed on screen
+    await d.getByText(t("dev.next_fill")).waitFor();
     await d.getByLabel(t("dev.rights")).check();
-    await d.getByRole("button", { name: t("common.save") }).click();
+    await d.getByText(t("dev.unsaved_rights")).waitFor();
+    await d.getByRole("button", { name: t("common.save"), exact: true }).click();
+    await d.getByText(t("dev.saved_details")).waitFor();
     await d.getByRole("tab", { name: t("dev.tab_program") }).click();
     // the first finished track is already session 1, titled like the app
     await d.getByLabel(t("dev.track")).waitFor(); // the Program tab is shown (Details also has title fields)
@@ -123,10 +127,14 @@ async function run(L) {
     await d.getByLabel(t("dev.key")).first().waitFor();
     await d.waitForLoadState("networkidle");
     await d.getByRole("tab", { name: t("dev.tab_price") }).click();
-    await d.getByRole("button", { name: t("common.save") }).click();
+    await d.getByRole("button", { name: t("common.save"), exact: true }).click();
+    await d.getByText(t("dev.saved_price")).waitFor();
     await d.getByText(t("dev.current_price")).waitFor();
     await d.getByRole("tab", { name: t("dev.tab_versions") }).click();
-    await d.getByRole("button", { name: t("dev.submit") }).click();
+    await d.getByText(t("dev.check_title")).waitFor();
+    await d.getByText(t("dev.next_submit")).waitFor();
+    await d.getByRole("button", { name: t("dev.submit"), exact: true }).click();
+    await d.getByText(t("dev.done_submitted")).waitFor();
     await d.locator(".badge", { hasText: t("version_state.submitted") }).first().waitFor();
   });
   await step("moderator approves", async () => {
@@ -135,12 +143,16 @@ async function run(L) {
     await m.p.getByText(slug).click();
     await m.p.getByLabel(t("mod.comment")).fill("OK e2e");
     await m.p.getByRole("button", { name: t("mod.approve") }).click();
+    await m.p.getByText(t("mod.done_approve")).waitFor();
+    await m.p.getByRole("link", { name: t("mod.back_to_queue") }).waitFor();
     await m.p.locator(".badge", { hasText: t("version_state.approved") }).first().waitFor();
     await m.ctx.close();
   });
   await step("author publishes", async () => {
     await d.reload();
-    await d.getByRole("button", { name: t("dev.publish") }).click();
+    await d.getByText(t("dev.next_publish")).waitFor();
+    await d.getByRole("button", { name: t("dev.publish"), exact: true }).click();
+    await d.getByText(t("dev.done_published")).waitFor();
     await d.locator(".badge", { hasText: t("version_state.published") }).first().waitFor();
   });
   const buyer = await register(browser, L, t, false);
@@ -270,6 +282,14 @@ async function run(L) {
     await b.locator(".badge", { hasText: t("fulfillment_status.shipped") }).first().waitFor();
     await b.getByText(t("orders.parcels")).waitFor();
     await b.screenshot({ path: `${out}/${L}-order.png`, fullPage: true });
+  });
+  await step("product ratings: verified purchases only (NAP-079)", async () => {
+    await b.goto(`${BASE}/${L}/devices/nap-studio-headphones`);
+    await b.getByRole("heading", { name: t("rev.title_section") }).waitFor();
+    await b.getByText(t("rev.verified")).first().waitFor();
+    // the order is shipped but not delivered yet: rating is not offered, the reason is shown
+    await b.goto(`${BASE}/${L}/devices/nap-cable-35`);
+    await b.getByText(t("rev.why.no_delivered_purchase")).waitFor();
   });
   await browser.close();
 }

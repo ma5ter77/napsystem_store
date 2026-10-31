@@ -29,7 +29,7 @@ def sku_availability(db: Session, sku: Sku, product: Product) -> dict:
             "last_unit": avail == 1}
 
 
-def serialize_product(db: Session, p: Product, locale: str, detail: bool = False) -> dict:
+def serialize_product(db: Session, p: Product, locale: str, detail: bool = False, rating: dict | None = None) -> dict:
     tr = get_translations(db, "product", [p.id]).get(p.id)
     loc = localized(tr, locale)
     seller = db.get(Seller, p.seller_id)
@@ -55,7 +55,10 @@ def serialize_product(db: Session, p: Product, locale: str, detail: bool = False
            "freight_mode": p.freight_mode, "hue": p.hue, "is_demo": p.is_demo, "skus": skus,
            "price_from_minor": min((s["price_minor"] for s in skus), default=None),
            "currency": skus[0]["currency"] if skus else None}
+    from . import reviews  # NAP-079
+    out["rating"] = rating if rating is not None else reviews.summaries(db, [p.id], "product")[p.id]
     if detail:
+        out["rating_summary"] = reviews.summary(db, p)
         wh = p.warehouse_id
         from ..models import Warehouse
         w = db.get(Warehouse, wh)
@@ -78,7 +81,8 @@ def compat_for_sku(db: Session, sku_id: uuid.UUID) -> list[dict]:
 
 
 def list_products(db: Session, locale: str, category: str | None = None, q: str | None = None,
-                  kind: str | None = None, limit: int = 50, offset: int = 0) -> tuple[list[dict], int]:
+                  kind: str | None = None, limit: int = 50, offset: int = 0, min_rating: float | None = None,
+                  sort: str | None = None) -> tuple[list[dict], int]:
     stmt = select(Product).where(Product.status == "published")
     if category:
         stmt = stmt.join(Category, Category.id == Product.category_id).where(Category.slug == category)
@@ -87,7 +91,14 @@ def list_products(db: Session, locale: str, category: str | None = None, q: str 
     elif kind == "devices":
         stmt = stmt.where(Product.kind == "simple")
     rows = list(db.scalars(stmt.order_by(Product.created_at)))
-    items = [serialize_product(db, p, locale) for p in rows]
+    from . import reviews
+    ratings = reviews.summaries(db, [p.id for p in rows], "product")
+    items = [serialize_product(db, p, locale, rating=ratings[p.id]) for p in rows]
+    if min_rating:
+        items = [i for i in items if i["rating"]["average"] is not None and i["rating"]["average"] >= min_rating]
+    if sort == "rating":
+        items.sort(key=lambda i: (i["rating"]["average"] is not None, i["rating"]["average"] or 0,
+                                  i["rating"]["count"]), reverse=True)
     if q:
         ql = q.lower()
         trs = get_translations(db, "product", [p.id for p in rows])

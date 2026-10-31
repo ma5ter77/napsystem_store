@@ -17,6 +17,8 @@ export default async function Devices({ params, searchParams }: { params: Promis
   const qs = new URLSearchParams({ kind: "devices", limit: "100" });
   if (sp.category) qs.set("category", sp.category);
   if (sp.q) qs.set("q", sp.q);
+  if (sp.min_rating) qs.set("min_rating", sp.min_rating);
+  if (sp.sort) qs.set("sort", sp.sort);
   const [res, cats] = await Promise.all([serverApi<any>(`/hardware/products?${qs}`, locale),
                                          serverApi<any>("/categories?kind=hardware", locale)]);
   return (
@@ -25,6 +27,10 @@ export default async function Devices({ params, searchParams }: { params: Promis
       <p className="muted">{t("devices.lead")}</p>
       <form className="filters" method="get" role="search">
         <label className="field">{t("catalog.search")}<input name="q" defaultValue={sp.q ?? ""} /></label>
+        <label className="field">{t("catalog.rating")}
+          <select name="min_rating" defaultValue={sp.min_rating ?? ""}><option value="">{t("catalog.any")}</option><option value="4">{t("catalog.rating_4")}</option></select></label>
+        <label className="field">{t("catalog.sort")}
+          <select name="sort" defaultValue={sp.sort ?? ""}><option value="">{t("catalog.sort_default")}</option><option value="rating">{t("catalog.sort_rating")}</option></select></label>
         {sp.category && <input type="hidden" name="category" value={sp.category} />}
         <div><button className="btn" type="submit">{t("catalog.apply")}</button></div>
       </form>

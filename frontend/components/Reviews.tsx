@@ -57,7 +57,7 @@ export function RatingSummary({ s }: { s: any }) {
   );
 }
 
-function MyReview({ slug, mine, onSaved }: { slug: string; mine: any; onSaved: () => void }) {
+function MyReview({ base, mine, onSaved }: { base: string; mine: any; onSaved: () => void }) {
   const { t, locale } = useApp();
   const [editing, setEditing] = useState(!mine);
   const [rating, setRating] = useState<number>(mine?.rating ?? 0);
@@ -70,7 +70,7 @@ function MyReview({ slug, mine, onSaved }: { slug: string; mine: any; onSaved: (
         <div className="spread"><strong>{t("rev.your_review")}</strong>
           <span className="row"><button className="btn ghost small" onClick={() => setEditing(true)}>{t("rev.edit")}</button>
             <button className="btn ghost small" disabled={act.pending} onClick={async () => {
-              if (await act.run(() => api(`/catalog/apps/${slug}/review`, { method: "DELETE" })) !== undefined) onSaved();
+              if (await act.run(() => api(`${base}/review`, { method: "DELETE" })) !== undefined) onSaved();
             }}>{t("rev.delete")}</button></span></div>
         <Stars value={mine.rating} label={t("rev.stars_n", { count: mine.rating })} />
         {mine.title && <strong>{mine.title}</strong>}
@@ -85,7 +85,7 @@ function MyReview({ slug, mine, onSaved }: { slug: string; mine: any; onSaved: (
     <form className="panel flat stack" onSubmit={async (e) => {
       e.preventDefault();
       if (!rating) return;
-      const r = await act.run(() => api(`/catalog/apps/${slug}/review`, { method: "PUT", body: { rating, title: title || null, body: body || null, lang: locale } }));
+      const r = await act.run(() => api(`${base}/review`, { method: "PUT", body: { rating, title: title || null, body: body || null, lang: locale } }));
       if (r) { setEditing(false); onSaved(); }
     }}>
       <strong>{mine ? t("rev.edit_title") : t("rev.write_title")}</strong>
@@ -113,7 +113,7 @@ function ReviewItem({ r, onChange }: { r: any; onChange: () => void }) {
     <article className="review" lang={r.lang}>
       <div className="spread"><span className="row"><Stars value={r.rating} label={t("rev.stars_n", { count: r.rating })} />{r.title && <strong>{r.title}</strong>}</span>
         <span className="hint">{r.author ?? t("rev.deleted_user")} · {date(r.created_at, locale)}{r.edited ? ` · ${t("rev.edited")}` : ""}</span></div>
-      <div className="hint">{t("rev.version", { v: r.version })}{r.lang !== locale ? ` · ${langName(r.lang, locale)}` : ""}</div>
+      <div className="hint">{r.verified_purchase ? <><span className="badge ok">{t("rev.verified")}</span> {t("rev.variant", { v: r.version })}</> : t("rev.version", { v: r.version })}{r.lang !== locale ? ` · ${langName(r.lang, locale)}` : ""}</div>
       {r.body && <p className="pre">{r.body}</p>}
       {r.reply && <div className="reply"><strong>{t("rev.dev_reply")}</strong> <span className="hint">{date(r.reply.updated_at, locale)}</span><p className="pre">{r.reply.body}</p></div>}
       {me && !r.mine && (
@@ -145,7 +145,9 @@ function ReviewItem({ r, onChange }: { r: any; onChange: () => void }) {
 }
 
 /** App page section: summary, own review form and the public list. */
-export function ReviewsSection({ slug }: { slug: string }) {
+export function ReviewsSection({ slug, kind = "app", path }: { slug: string; kind?: "app" | "product"; path?: string }) {
+  const base = kind === "app" ? `/catalog/apps/${slug}` : `/hardware/products/${slug}`;
+  const page = path ?? (kind === "app" ? `apps/${slug}` : `devices/${slug}`);
   const { t, locale } = useApp();
   const [sort, setSort] = useState("helpful");
   const [version, setVersion] = useState("");
@@ -154,7 +156,7 @@ export function ReviewsSection({ slug }: { slug: string }) {
   const qs = new URLSearchParams({ sort, limit: String(limit) });
   if (version) qs.set("version", version);
   if (lang) qs.set("lang", lang);
-  const { data, error, loading, reload } = useLoad<any>(`/catalog/apps/${slug}/reviews?${qs}`);
+  const { data, error, loading, reload } = useLoad<any>(`${base}/reviews?${qs}`);
   return (
     <section className="panel stack" aria-labelledby="reviews-h">
       <h2 id="reviews-h">{t("rev.title_section")}</h2>
@@ -162,15 +164,15 @@ export function ReviewsSection({ slug }: { slug: string }) {
         <>
           <RatingSummary s={data.summary} />
           {data.eligibility.can_review || data.mine
-            ? <MyReview key={data.mine?.updated_at ?? "new"} slug={slug} mine={data.mine} onSaved={reload} />
+            ? <MyReview key={data.mine?.updated_at ?? "new"} base={base} mine={data.mine} onSaved={reload} />
             : <p className="hint">{data.eligibility.reason === "login_required"
-              ? <Link href={`/${locale}/login?next=/${locale}/apps/${slug}`}>{t("rev.why.login_required")}</Link>
+              ? <Link href={`/${locale}/login?next=/${locale}/${page}`}>{t("rev.why.login_required")}</Link>
               : t(`rev.why.${data.eligibility.reason}`)}</p>}
           {data.summary.count > 0 && (
             <div className="filters">
               <label className="field">{t("rev.sort")}<select value={sort} onChange={(e) => setSort(e.target.value)}>
                 {["helpful", "new", "high", "low"].map((x) => <option key={x} value={x}>{t(`rev.sorts.${x}`)}</option>)}</select></label>
-              {data.versions.length > 1 && <label className="field">{t("rev.filter_version")}<select value={version} onChange={(e) => setVersion(e.target.value)}>
+              {data.versions.length > 1 && <label className="field">{kind === "app" ? t("rev.filter_version") : t("rev.filter_variant")}<select value={version} onChange={(e) => setVersion(e.target.value)}>
                 <option value="">{t("catalog.any")}</option>{data.versions.map((v: string) => <option key={v} value={v}>{v}</option>)}</select></label>}
               <label className="field">{t("rev.filter_lang")}<select value={lang} onChange={(e) => setLang(e.target.value)}>
                 <option value="">{t("catalog.any")}</option><option value="ru">{langName("ru", locale)}</option><option value="en">{langName("en", locale)}</option></select></label>
@@ -186,23 +188,24 @@ export function ReviewsSection({ slug }: { slug: string }) {
 }
 
 /** Developer cabinet tab: feed with filters, reply form, monthly trend. */
-export function DeveloperReviews() {
+export function DeveloperReviews({ scope = "developer" }: { scope?: "developer" | "seller" }) {
   const { t, locale } = useApp();
+  const idParam = scope === "developer" ? "app_id" : "product_id";
   const [appId, setAppId] = useState("");
   const [filter, setFilter] = useState("");
   const [rating, setRating] = useState("");
   const qs = new URLSearchParams({ limit: "50" });
-  if (appId) qs.set("app_id", appId);
+  if (appId) qs.set(idParam, appId);
   if (filter) qs.set("filter", filter);
   if (rating) qs.set("rating", rating);
-  const { data, error, loading, reload } = useLoad<any>(`/developer/reviews?${qs}`);
+  const { data, error, loading, reload } = useLoad<any>(`/${scope}/reviews?${qs}`);
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} onRetry={reload} />;
   return (
     <div className="stack">
       <div className="filters">
-        <label className="field">{t("rev.app")}<select value={appId} onChange={(e) => setAppId(e.target.value)}>
-          <option value="">{t("rev.all_apps")}</option>{data.apps.map((a: any) => <option key={a.id} value={a.id}>{a.slug}</option>)}</select></label>
+        <label className="field">{scope === "developer" ? t("rev.app") : t("rev.product")}<select value={appId} onChange={(e) => setAppId(e.target.value)}>
+          <option value="">{scope === "developer" ? t("rev.all_apps") : t("rev.all_products")}</option>{data.apps.map((a: any) => <option key={a.id} value={a.id}>{a.slug}</option>)}</select></label>
         <label className="field">{t("rev.show")}<select value={filter} onChange={(e) => setFilter(e.target.value)}>
           <option value="">{t("rev.all_reviews")}</option><option value="unanswered">{t("rev.unanswered")}</option></select></label>
         <label className="field">{t("rev.stars")}<select value={rating} onChange={(e) => setRating(e.target.value)}>
@@ -213,13 +216,13 @@ export function DeveloperReviews() {
         <table><caption className="hint">{t("rev.trend")}</caption><thead><tr><th>{t("rev.month")}</th><th>{t("rev.avg")}</th><th>{t("rev.count")}</th></tr></thead>
           <tbody>{data.trend.map((x: any) => <tr key={x.month}><td>{x.month}</td><td>{num1(x.average, locale)}</td><td>{x.count}</td></tr>)}</tbody></table>
       )}
-      <p className="hint">{t("rev.dev_rules")}</p>
-      {!data.items.length ? <Empty>{t("rev.dev_empty")}</Empty> : data.items.map((r: any) => <DevReviewItem key={r.id + (r.reply?.updated_at ?? "")} r={r} onChange={reload} />)}
+      <p className="hint">{scope === "developer" ? t("rev.dev_rules") : t("rev.seller_rules")}</p>
+      {!data.items.length ? <Empty>{t("rev.dev_empty")}</Empty> : data.items.map((r: any) => <DevReviewItem key={r.id + (r.reply?.updated_at ?? "")} r={r} onChange={reload} scope={scope} />)}
     </div>
   );
 }
 
-function DevReviewItem({ r, onChange }: { r: any; onChange: () => void }) {
+function DevReviewItem({ r, onChange, scope }: { r: any; onChange: () => void; scope: "developer" | "seller" }) {
   const { t, locale } = useApp();
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState(r.reply?.body ?? "");
@@ -227,19 +230,19 @@ function DevReviewItem({ r, onChange }: { r: any; onChange: () => void }) {
   return (
     <article className="review panel flat" lang={r.lang}>
       <div className="spread"><span className="row"><Stars value={r.rating} label={t("rev.stars_n", { count: r.rating })} /><strong>{r.title}</strong></span>
-        <span className="hint">{r.app.slug} · {t("rev.version", { v: r.version })} · {date(r.created_at, locale)}</span></div>
+        <span className="hint">{r.app.slug} · {scope === "developer" ? t("rev.version", { v: r.version }) : t("rev.variant", { v: r.version })} · {date(r.created_at, locale)}</span></div>
       {r.status === "pending" && <span className="badge warn">{t("rev.status.pending")}</span>}
       {r.body && <p className="pre">{r.body}</p>}
       {r.reply && !editing && (
         <div className="reply"><strong>{t("rev.your_reply")}</strong> {r.reply.status !== "published" && <span className="badge warn">{t(`rev.status.${r.reply.status}`)}</span>}
           <p className="pre">{r.reply.body}</p>
           <div className="row"><button className="btn ghost small" onClick={() => setEditing(true)}>{t("rev.edit")}</button>
-            <button className="btn ghost small" onClick={async () => { if (await act.run(() => api(`/developer/reviews/${r.id}/reply`, { method: "DELETE" })) !== undefined) onChange(); }}>{t("rev.delete")}</button></div></div>
+            <button className="btn ghost small" onClick={async () => { if (await act.run(() => api(`/${scope}/reviews/${r.id}/reply`, { method: "DELETE" })) !== undefined) onChange(); }}>{t("rev.delete")}</button></div></div>
       )}
       {(!r.reply || editing) && (
         <form className="stack" onSubmit={async (e) => {
           e.preventDefault();
-          if (await act.run(() => api(`/developer/reviews/${r.id}/reply`, { method: "PUT", body: { body } }))) { setEditing(false); onChange(); }
+          if (await act.run(() => api(`/${scope}/reviews/${r.id}/reply`, { method: "PUT", body: { body } }))) { setEditing(false); onChange(); }
         }}>
           <label className="field">{t("rev.reply_label")}<textarea rows={3} required maxLength={4000} value={body} onChange={(e) => setBody(e.target.value)} /></label>
           <div className="row"><button className="btn small" disabled={act.pending || !body.trim()}>{t("rev.send_reply")}</button>

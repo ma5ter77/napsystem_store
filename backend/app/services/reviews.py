@@ -1,8 +1,9 @@
-"""Ratings and reviews (NAP-065).
+"""Ratings and reviews of apps (NAP-065) and products (NAP-079).
 
-Rules (decision of 31.10.2026): only users with access may rate; paid apps additionally need one completed
-session; the developer cannot rate own apps and cannot edit, hide, delete or reset users' ratings and reviews —
-only reply publicly or report. Reviews with links, contacts or forbidden words wait for a moderator.
+Rules (decisions of 31.10.2026): apps — only users with access may rate, paid apps additionally need one completed
+session; products — only buyers whose parcel with the product was delivered (verified purchase). The developer or
+seller cannot rate own items and cannot edit, hide, delete or reset users' ratings and reviews — only reply
+publicly or report. Reviews with links, contacts or forbidden words wait for a moderator.
 """
 from __future__ import annotations
 
@@ -16,7 +17,8 @@ from sqlalchemy.orm import Session
 from ..config import get_settings
 from ..db import utcnow
 from ..errors import ApiError
-from ..models import App, AppVersion, PlaySession, Price, Review, ReviewHelpful, ReviewReply, ReviewReport, User
+from ..models import (App, AppVersion, HardwareOrder, HardwareOrderItem, Parcel, ParcelItem, PlaySession, Price,
+                      Product, Review, ReviewHelpful, ReviewReply, ReviewReport, SellerMember, Sku, User)
 from . import billing
 from .common import audit, notify
 
@@ -44,14 +46,60 @@ def flagged(text: str, *, reply: bool = False) -> list[str]:
     return out
 
 
+Target = App | Product
+
+
+def _col(t: Target):
+    return Review.app_id if isinstance(t, App) else Review.product_id
+
+
+def _target_of(db: Session, r: Review) -> Target:
+    return db.get(App, r.app_id) if r.app_id else db.get(Product, r.product_id)
+
+
+def is_owner(db: Session, user_id: uuid.UUID, t: Target) -> bool:
+    if isinstance(t, App):
+        return t.developer_id == user_id
+    return db.scalar(select(func.count()).select_from(SellerMember).where(
+        SellerMember.seller_id == t.seller_id, SellerMember.user_id == user_id)) > 0
+
+
+def _target_view(db: Session, t: Target) -> dict:
+    if isinstance(t, App):
+        return {"kind": "app", "id": str(t.id), "slug": t.slug, "author": t.author_name}
+    return {"kind": "product", "id": str(t.id), "slug": t.slug, "author": f"{t.brand} {t.model}"}
+
+
+def delivered_skus(db: Session, user_id: uuid.UUID, product: Product) -> list[uuid.UUID]:
+    """SKUs of this product the user received in a delivered parcel (or kit components bought for this kit)."""
+    rows = db.execute(select(HardwareOrderItem.sku_id, Sku.product_id, HardwareOrder.bom_snapshot)
+                      .join(ParcelItem, ParcelItem.order_item_id == HardwareOrderItem.id)
+                      .join(Parcel, Parcel.id == ParcelItem.parcel_id)
+                      .join(HardwareOrder, HardwareOrder.id == HardwareOrderItem.order_id)
+                      .join(Sku, Sku.id == HardwareOrderItem.sku_id)
+                      .where(HardwareOrder.buyer_id == user_id, Parcel.status == "delivered")).all()
+    out = [sku for sku, pid, _ in rows if pid == product.id]
+    if not out and product.kind == "kit_component":  # a kit built from components has no SKU of its own
+        for sku, _, snap in rows:
+            if any(b.get("product_slug") == product.slug for b in (snap or [])):
+                out.append(sku)
+    return list(dict.fromkeys(out))
+
+
 def _is_paid(db: Session, app: App) -> bool:
     kinds = {p.kind for p in db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True)))}
     return bool(kinds - {"free"})
 
 
-def eligibility(db: Session, user: User | None, app: App) -> dict:
+def eligibility(db: Session, user: User | None, app: Target) -> dict:
     if user is None:
         return {"can_review": False, "reason": "login_required"}
+    if isinstance(app, Product):
+        if is_owner(db, user.id, app):
+            return {"can_review": False, "reason": "own_product"}
+        if not delivered_skus(db, user.id, app):
+            return {"can_review": False, "reason": "no_delivered_purchase"}
+        return {"can_review": True, "reason": None}
     if app.developer_id == user.id:
         return {"can_review": False, "reason": "own_app"}
     access = billing.access_for(db, user.id, app.id)
@@ -72,7 +120,7 @@ def _clean(s: str | None, limit: int) -> str | None:
     return s or None
 
 
-def upsert(db: Session, user: User, app: App, rating: int, title: str | None, body: str | None,
+def upsert(db: Session, user: User, app: Target, rating: int, title: str | None, body: str | None,
            lang: str) -> Review:
     el = eligibility(db, user, app)
     if not el["can_review"]:
@@ -87,14 +135,21 @@ def upsert(db: Session, user: User, app: App, rating: int, title: str | None, bo
                                                                       Review.updated_at >= since))
     if recent >= get_settings().reviews_per_day:
         raise ApiError("review_rate_limited", 429)
-    v = db.get(AppVersion, app.published_version_id)
-    r = db.scalar(select(Review).where(Review.app_id == app.id, Review.user_id == user.id).with_for_update())
+    # load everything before add(): a query after add() would autoflush an incomplete row
+    sku = db.get(Sku, delivered_skus(db, user.id, app)[0]) if isinstance(app, Product) else None
+    v = db.get(AppVersion, app.published_version_id) if isinstance(app, App) else None
+    r = db.scalar(select(Review).where(_col(app) == app.id, Review.user_id == user.id).with_for_update())
     reasons = flagged(f"{title or ''}\n{body or ''}")
     status = "pending" if reasons else "published"
     if r is None:
-        r = Review(app_id=app.id, user_id=user.id)
+        r = Review(app_id=app.id, user_id=user.id) if isinstance(app, App) else \
+            Review(product_id=app.id, user_id=user.id)
         db.add(r)
-    r.version_id, r.version_label = v.id, v.version_label
+    if v is not None:
+        r.version_id, r.version_label = v.id, v.version_label
+    else:
+        r.sku_id = sku.id
+        r.version_label = (" / ".join(str(x) for x in (sku.variant or {}).values()) or sku.code)[:64]
     r.rating, r.title, r.body = rating, title, body
     r.lang = lang if lang in ("ru", "en") else "ru"
     r.status = status
@@ -105,16 +160,16 @@ def upsert(db: Session, user: User, app: App, rating: int, title: str | None, bo
     return r
 
 
-def delete_own(db: Session, user: User, app: App) -> None:
-    r = db.scalar(select(Review).where(Review.app_id == app.id, Review.user_id == user.id))
+def delete_own(db: Session, user: User, app: Target) -> None:
+    r = db.scalar(select(Review).where(_col(app) == app.id, Review.user_id == user.id))
     if r is None:
         raise ApiError("not_found", 404, entity="review")
     audit(db, user.id, "review.deleted", "review", r.id, {"rating": r.rating})
     db.delete(r)
 
 
-def summary(db: Session, app: App) -> dict:
-    rows = db.execute(select(Review.rating, func.count()).where(Review.app_id == app.id,
+def summary(db: Session, app: Target) -> dict:
+    rows = db.execute(select(Review.rating, func.count()).where(_col(app) == app.id,
                                                                 Review.status == "published")
                       .group_by(Review.rating)).all()
     dist = {str(k): 0 for k in range(1, 6)}
@@ -123,7 +178,7 @@ def summary(db: Session, app: App) -> dict:
     count = sum(dist.values())
     avg = round(sum(int(k) * n for k, n in dist.items()) / count, 2) if count else None
     cur_count = cur_avg = None
-    if app.published_version_id:
+    if isinstance(app, App) and app.published_version_id:
         cur_count, cur_avg = db.execute(select(func.count(), func.avg(Review.rating)).where(
             Review.app_id == app.id, Review.status == "published",
             Review.version_id == app.published_version_id)).one()
@@ -135,14 +190,15 @@ def summary(db: Session, app: App) -> dict:
                                 "average": cur_avg if (cur_count or 0) >= minimum else None}}
 
 
-def summaries(db: Session, app_ids: list[uuid.UUID]) -> dict[uuid.UUID, dict]:
-    """Average and count per app for catalog cards (one query)."""
+def summaries(db: Session, app_ids: list[uuid.UUID], kind: str = "app") -> dict[uuid.UUID, dict]:
+    """Average and count per app (or product) for catalog cards (one query)."""
     minimum = get_settings().reviews_min_for_average
     out = {a: {"count": 0, "average": None} for a in app_ids}
     if not app_ids:
         return out
-    for app_id, n, avg in db.execute(select(Review.app_id, func.count(), func.avg(Review.rating)).where(
-            Review.app_id.in_(app_ids), Review.status == "published").group_by(Review.app_id)):
+    col = Review.app_id if kind == "app" else Review.product_id
+    for app_id, n, avg in db.execute(select(col, func.count(), func.avg(Review.rating)).where(
+            col.in_(app_ids), Review.status == "published").group_by(col)):
         out[app_id] = {"count": n, "average": round(float(avg), 2) if n >= minimum else None}
     return out
 
@@ -151,6 +207,7 @@ def view(db: Session, r: Review, viewer_id: uuid.UUID | None = None, *, with_sta
     author = db.get(User, r.user_id)
     out = {"id": str(r.id), "rating": r.rating, "title": r.title, "body": r.body, "lang": r.lang,
            "version": r.version_label, "helpful_count": r.helpful_count,
+           "verified_purchase": r.product_id is not None,
            "author": (author.display_name if author and not author.deleted_at else None),
            "created_at": r.created_at.isoformat(), "updated_at": r.updated_at.isoformat(),
            "edited": (r.updated_at - r.created_at).total_seconds() > 60, "mine": viewer_id == r.user_id,
@@ -169,9 +226,9 @@ def view(db: Session, r: Review, viewer_id: uuid.UUID | None = None, *, with_sta
     return out
 
 
-def list_public(db: Session, app: App, sort: str, version: str | None, lang: str | None, rating: int | None,
+def list_public(db: Session, app: Target, sort: str, version: str | None, lang: str | None, rating: int | None,
                 limit: int, offset: int, viewer_id: uuid.UUID | None) -> tuple[list[dict], int]:
-    q = select(Review).where(Review.app_id == app.id, Review.status == "published")
+    q = select(Review).where(_col(app) == app.id, Review.status == "published")
     if version:
         q = q.where(Review.version_label == version)
     if lang in ("ru", "en"):
@@ -187,8 +244,8 @@ def list_public(db: Session, app: App, sort: str, version: str | None, lang: str
     return [view(db, r, viewer_id) for r in rows], total
 
 
-def versions_with_reviews(db: Session, app: App) -> list[str]:
-    return list(db.scalars(select(Review.version_label).where(Review.app_id == app.id, Review.status == "published")
+def versions_with_reviews(db: Session, app: Target) -> list[str]:
+    return list(db.scalars(select(Review.version_label).where(_col(app) == app.id, Review.status == "published")
                            .group_by(Review.version_label).order_by(func.max(Review.created_at).desc())))
 
 
@@ -229,8 +286,8 @@ def reply(db: Session, dev: User, review_id: uuid.UUID, body: str) -> ReviewRepl
     r = db.get(Review, review_id, with_for_update=True)
     if r is None:
         raise ApiError("not_found", 404, entity="review")
-    app = db.get(App, r.app_id)
-    if app.developer_id != dev.id:
+    app = _target_of(db, r)
+    if not is_owner(db, dev.id, app):
         raise ApiError("not_found", 404, entity="review")
     body = (body or "").strip()
     if not body or len(body) > 4000:
@@ -252,19 +309,20 @@ def reply(db: Session, dev: User, review_id: uuid.UUID, body: str) -> ReviewRepl
     return rp
 
 
-def _notify_reply(db: Session, r: Review, app: App) -> None:
+def _notify_reply(db: Session, r: Review, app: Target) -> None:
     author = db.get(User, r.user_id)
     if not author or author.deleted_at:
         return
     from .common import get_translations, localized
-    title = localized(get_translations(db, "app", [app.id]).get(app.id), author.locale).get("title") or app.slug
+    kind = "app" if isinstance(app, App) else "product"
+    title = localized(get_translations(db, kind, [app.id]).get(app.id), author.locale).get("title") or app.slug
     notify(db, author.id, author.locale, "review_reply", f"review_reply:{r.id}:{r.reply.updated_at.isoformat()}",
            app=title)
 
 
 def delete_reply(db: Session, dev: User, review_id: uuid.UUID) -> None:
     r = db.get(Review, review_id)
-    if r is None or r.reply is None or db.get(App, r.app_id).developer_id != dev.id:
+    if r is None or r.reply is None or not is_owner(db, dev.id, _target_of(db, r)):
         raise ApiError("not_found", 404, entity="review")
     audit(db, dev.id, "review.reply_deleted", "review", r.id, {})
     r.reply = None
@@ -306,8 +364,7 @@ def moderation_queue(db: Session) -> list[dict]:
     out = []
     for r in rows:
         d = view(db, r, with_status=True)
-        app = db.get(App, r.app_id)
-        d["app"] = {"id": str(app.id), "slug": app.slug, "author": app.author_name}
+        d["app"] = _target_view(db, _target_of(db, r))  # "app" kept for compatibility; see app.kind
         d["reports"] = [{"target": x.target, "reason": x.reason, "comment": x.comment,
                          "created_at": x.created_at.isoformat()}
                         for x in db.scalars(select(ReviewReport).where(ReviewReport.review_id == r.id,
@@ -330,5 +387,32 @@ def moderate(db: Session, moderator: User, review_id: uuid.UUID, target: str, ac
                                                      ReviewReport.resolved_at.is_(None))):
         rep.resolved_at = utcnow()
     if target == "reply" and was != "published" and obj.status == "published":
-        _notify_reply(db, r, db.get(App, r.app_id))
+        _notify_reply(db, r, _target_of(db, r))
     audit(db, moderator.id, f"review.moderated.{action}", "review", r.id, {"target": target, "note": note})
+
+
+def seller_list(db: Session, user: User, product_id: uuid.UUID | None, filt: str | None, rating: int | None,
+                limit: int, offset: int) -> dict:
+    seller_ids = list(db.scalars(select(SellerMember.seller_id).where(SellerMember.user_id == user.id)))
+    products = {p.id: p for p in db.scalars(select(Product).where(Product.seller_id.in_(seller_ids)))}
+    ids = [product_id] if product_id in products else list(products)
+    q = select(Review).where(Review.product_id.in_(ids), Review.status != "hidden")
+    if filt == "unanswered":
+        q = q.where(~Review.reply.has())
+    if rating:
+        q = q.where(Review.rating == rating)
+    total = db.scalar(select(func.count()).select_from(q.subquery()))
+    rows = db.scalars(q.order_by(Review.created_at.desc()).limit(limit).offset(offset)).all()
+    items = []
+    for r in rows:
+        d = view(db, r, user.id, with_status=True)
+        d["app"] = {"id": str(r.product_id), "slug": products[r.product_id].slug}
+        items.append(d)
+    month = func.date_trunc("month", Review.created_at)
+    trend = [{"month": m.date().isoformat()[:7], "count": n, "average": round(float(a), 2)}
+             for m, n, a in db.execute(select(month, func.count(), func.avg(Review.rating))
+                                       .where(Review.product_id.in_(ids), Review.status == "published")
+                                       .group_by(month).order_by(month))]
+    return {"items": items, "total": total, "limit": limit, "offset": offset, "trend": trend,
+            "apps": [{"id": str(p.id), "slug": p.slug} for p in products.values()],
+            "summary": summary(db, products[product_id]) if product_id in products else None}

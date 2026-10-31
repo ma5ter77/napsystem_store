@@ -26,8 +26,9 @@ CART_COOKIE = "nap_cart"
 
 @router.get("/products")
 def products(request: Request, category: str | None = None, q: str | None = None, kind: str | None = None,
+             min_rating: float | None = Query(None, ge=1, le=5), sort: str | None = None,
              limit: int = Query(50, le=100), offset: int = Query(0, ge=0), db=DB):
-    items, total = hw.list_products(db, locale_of(request), category, q, kind, limit, offset)
+    items, total = hw.list_products(db, locale_of(request), category, q, kind, limit, offset, min_rating, sort)
     return page(items, total, limit, offset)
 
 

@@ -12,11 +12,19 @@ function Review() {
   const { t, locale } = useApp();
   const { data, error, loading, reload } = useLoad<any>(`/moderation/versions/${id}`);
   const [comment, setComment] = useState("");
+  const [done, setDone] = useState<{ decision: string; next: string | null } | null>(null);
   const act = useAction();
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} onRetry={reload} />;
   const v = data.version;
-  const decide = async (decision: string) => { if (await act.run(() => api(`/moderation/versions/${id}/decision`, { body: { decision, comment } }))) { setComment(""); reload(); } };
+  // NAP-082: confirm the decision and offer the next version waiting in the queue
+  const decide = async (decision: string) => {
+    if (await act.run(() => api(`/moderation/versions/${id}/decision`, { body: { decision, comment } }))) {
+      setComment(""); reload();
+      const q = await api<any>("/moderation/queue").catch(() => ({ items: [] }));
+      setDone({ decision, next: q.items.find((x: any) => x.version.id !== id)?.version.id ?? null });
+    }
+  };
   return (
     <div className="stack">
       <Link href={`/${locale}/moderation`}>{t("mod.title")}</Link>
@@ -39,11 +47,20 @@ function Review() {
       ))}
       <details className="panel flat"><summary>manifest ({v.manifest_sha256?.slice(0, 16)}…)</summary><pre style={{ whiteSpace: "pre-wrap", fontSize: ".8rem" }}>{JSON.stringify(data.manifest, null, 2)}</pre></details>
       {v.moderation.map((d: any, i: number) => <div key={i} className="notice"><StatusBadge ns="decision" value={d.decision} /> {d.comment}</div>)}
+      {done && (
+        <div className={`notice ${done.decision === "reject" ? "warn" : "ok"}`} role="status">
+          <strong>{t(`mod.done_${done.decision}`)}</strong> {done.decision !== "comment" && t("mod.done_notified")}
+          <div className="row" style={{ marginTop: 8 }}>
+            {done.next ? <Link className="btn small" href={`/${locale}/moderation/${done.next}`}>{t("mod.next")}</Link> : <span className="hint">{t("mod.queue_empty_now")}</span>}
+            <Link className="btn ghost small" href={`/${locale}/moderation`}>{t("mod.back_to_queue")}</Link>
+          </div>
+        </div>
+      )}
       <div className="panel stack">
         <label className="field">{t("mod.comment")}<textarea value={comment} onChange={(e) => setComment(e.target.value)} /></label>
         <div className="row">
-          {v.state === "submitted" && <><button className="btn" onClick={() => decide("approve")}>{t("mod.approve")}</button>
-            <button className="btn danger" onClick={() => decide("reject")}>{t("mod.reject")}</button></>}
+          {v.state === "submitted" && <><button className="btn" disabled={act.pending} onClick={() => decide("approve")}>{t("mod.approve")}</button>
+            <button className="btn danger" disabled={act.pending} onClick={() => decide("reject")}>{t("mod.reject")}</button></>}
           <button className="btn ghost" onClick={() => decide("comment")} disabled={!comment}>{t("mod.comment_only")}</button>
         </div>
         <ErrorBox error={act.error} />

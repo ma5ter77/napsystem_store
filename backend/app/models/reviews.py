@@ -15,13 +15,16 @@ REVIEW_STATUSES = ("published", "pending", "hidden")
 
 
 class Review(Base):
-    """A 1-5 star rating, optionally with a title and text. The developer cannot edit, hide or delete it."""
+    """A 1-5 star rating, optionally with a title and text, about an app (NAP-065) or a product (NAP-079).
+    The app developer or the seller cannot edit, hide or delete it."""
     __tablename__ = "reviews"
     id: Mapped[uuid.UUID] = uuid_pk()
-    app_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("apps.id"), index=True)
+    app_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("apps.id"), index=True)
+    product_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("products.id"), index=True)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
-    version_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_versions.id"))  # version the author was using
-    version_label: Mapped[str] = mapped_column(String(32))
+    version_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("app_versions.id"))  # app version used
+    sku_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("skus.id"))  # purchased product variant
+    version_label: Mapped[str] = mapped_column(String(64))  # app version label or product variant label
     rating: Mapped[int] = mapped_column(Integer)
     title: Mapped[str | None] = mapped_column(String(100))
     body: Mapped[str | None] = mapped_column(Text)
@@ -35,19 +38,22 @@ class Review(Base):
                                                        cascade="all, delete-orphan")
     __table_args__ = (
         UniqueConstraint("app_id", "user_id"),
+        UniqueConstraint("product_id", "user_id"),
+        CheckConstraint("(app_id IS NULL) <> (product_id IS NULL)", name="one_target"),
         CheckConstraint("rating BETWEEN 1 AND 5", name="rating"),
         CheckConstraint(_in("status", REVIEW_STATUSES), name="status"),
         CheckConstraint("char_length(body) <= 4000", name="body_len"),
         Index("ix_reviews_app_status_created", "app_id", "status", "created_at"),
+        Index("ix_reviews_product_status_created", "product_id", "status", "created_at"),
     )
 
 
 class ReviewReply(Base):
-    """One public developer reply per review, editable by the app owner."""
+    """One public reply per review by the app developer or the seller, editable by them."""
     __tablename__ = "review_replies"
     id: Mapped[uuid.UUID] = uuid_pk()
     review_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("reviews.id", ondelete="CASCADE"), unique=True)
-    developer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+    developer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))  # app developer or seller member
     body: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(12), default="published")
     moderation_note: Mapped[str | None] = mapped_column(String(300))

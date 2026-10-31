@@ -11,7 +11,7 @@ import { date, duration } from "@/lib/i18n";
 const TABS = ["details", "audio", "program", "price", "versions"] as const;
 const CAPS = ["stereo_output", "stereo_separation", "vibroacoustic_output", "heart_rate_sensor", "hrv_sensor"];
 
-function Details({ app, v, reload }: { app: any; v: any; reload: () => void }) {
+function Details({ app, v, reload, done }: { app: any; v: any; reload: () => void; done: (m: string) => void }) {
   const { t } = useApp();
   const cats = useLoad<any>("/categories?kind=app");
   const [m, setM] = useState<any>(v.metadata);
@@ -23,6 +23,10 @@ function Details({ app, v, reload }: { app: any; v: any; reload: () => void }) {
   const [rights, setRights] = useState(v.rights_confirmed);
   const act = useAction();
   const editable = v.state === "draft";
+  // unsaved edits are easy to lose when switching tabs: say so next to the button
+  const snapshot = JSON.stringify({ m, lang, caps, api_v, label, cat, rights });
+  const [initial, setInitial] = useState(snapshot);
+  const dirty = editable && snapshot !== initial;
   const field = (loc: string, k: string, area = false) => {
     const val = m?.[loc]?.[k] ?? "";
     const on = (e: any) => setM({ ...m, [loc]: { ...(m?.[loc] ?? {}), [k]: e.target.value } });
@@ -37,7 +41,7 @@ function Details({ app, v, reload }: { app: any; v: any; reload: () => void }) {
       const body: any = { metadata: clean, content_language: lang, required_capabilities: caps, min_api_version: api_v, version_label: label };
       if (cat) body.category = cat;
       if (rights && !v.rights_confirmed) body.confirm_rights = true;
-      if (await act.run(() => api(`/developer/apps/${app.id}/versions/${v.id}`, { method: "PATCH", body }))) reload();
+      if (await act.run(() => api(`/developer/apps/${app.id}/versions/${v.id}`, { method: "PATCH", body }))) { setInitial(snapshot); reload(); done(t("dev.saved_details")); }
     }}>
       {!editable && <div className="notice warn">{t("dev.frozen")}</div>}
       <div className="two">
@@ -57,7 +61,8 @@ function Details({ app, v, reload }: { app: any; v: any; reload: () => void }) {
       </fieldset>
       <label className="check panel flat"><input type="checkbox" checked={rights} disabled={!editable || v.rights_confirmed} onChange={(e) => setRights(e.target.checked)} /> {t("dev.rights")}</label>
       <ErrorBox error={act.error} />
-      {editable && <div><button className="btn" disabled={act.pending}>{t("common.save")}</button></div>}
+      {editable && <div className="row"><button className="btn" disabled={act.pending}>{t("common.save")}</button>
+        {dirty && <span className="hint" role="status">{rights && !v.rights_confirmed ? t("dev.unsaved_rights") : t("dev.unsaved")}</span>}</div>}
     </form>
   );
 }
@@ -213,7 +218,7 @@ function Audio({ app, onTrackReady }: { app: any; onTrackReady?: () => void }) {
   );
 }
 
-function Program({ app, v, reload }: { app: any; v: any; reload: () => void }) {
+function Program({ app, v, reload, saved }: { app: any; v: any; reload: () => void; saved: (m: string) => void }) {
   const { t, locale } = useApp();
   const jobs = useLoad<any>(`/developer/conversions?app_id=${app.id}`);
   const [rows, setRows] = useState<any[]>(v.sessions.map((s: any) => ({ key: s.key, ru: s.titles.ru ?? "", en: s.titles.en ?? "", job: s.conversion_job_id })));
@@ -257,7 +262,7 @@ function Program({ app, v, reload }: { app: any; v: any; reload: () => void }) {
           setMissing(empty);
           if (empty.size) return; // NAP-068: do not send sessions without a track
           const sessions = rows.map((r) => ({ key: r.key, titles: Object.fromEntries([["ru", r.ru], ["en", r.en]].filter(([, x]) => x)), conversion_job_id: r.job }));
-          if (await act.run(() => api(`/developer/apps/${app.id}/versions/${v.id}/program`, { method: "PUT", body: { sessions } }))) reload();
+          if (await act.run(() => api(`/developer/apps/${app.id}/versions/${v.id}/program`, { method: "PUT", body: { sessions } }))) { reload(); saved(t("dev.saved_program")); }
         }}>{t("dev.save_program")}</button>
       </div>}
       {missing.size > 0 && <div className="notice bad" role="alert">{t("dev.tracks_missing", { list: [...missing].map((i) => i + 1).join(", ") })}</div>}
@@ -266,7 +271,7 @@ function Program({ app, v, reload }: { app: any; v: any; reload: () => void }) {
   );
 }
 
-function PriceTab({ app, reload }: { app: any; reload: () => void }) {
+function PriceTab({ app, reload, done }: { app: any; reload: () => void; done: (m: string) => void }) {
   const { t } = useApp();
   const cur = app.prices[0];
   const [kind, setKind] = useState(cur?.kind ?? "one_time");
@@ -277,7 +282,7 @@ function PriceTab({ app, reload }: { app: any; reload: () => void }) {
   return (
     <form className="panel stack" onSubmit={async (e) => {
       e.preventDefault();
-      if (await act.run(() => api(`/developer/apps/${app.id}/price`, { method: "PUT", body: { kind, amount_minor: Math.round(amount * 100), currency, interval: kind === "subscription" ? interval : null } }))) reload();
+      if (await act.run(() => api(`/developer/apps/${app.id}/price`, { method: "PUT", body: { kind, amount_minor: Math.round(amount * 100), currency, interval: kind === "subscription" ? interval : null } }))) { reload(); done(t("dev.saved_price")); }
     }}>
       {cur && <p>{t("dev.current_price")}: <Price minor={cur.amount_minor} currency={cur.currency} /> ({t(`kinds.${cur.kind}`)}{cur.interval ? `, ${t(`interval.${cur.interval}`)}` : ""})</p>}
       <div className="form wide">
@@ -293,22 +298,22 @@ function PriceTab({ app, reload }: { app: any; reload: () => void }) {
   );
 }
 
-function Versions({ app, reload }: { app: any; reload: () => void }) {
+function Versions({ app, reload, done, ready }: { app: any; reload: () => void; done: (m: string) => void; ready: boolean }) {
   const { t, locale } = useApp();
   const act = useAction();
   const latest = app.versions[0];
   const jobs = useLoad<any>(`/developer/conversions?app_id=${app.id}`);
-  const go = async (path: string, body?: any) => { if (await act.run(() => api(path, { method: body ? "PUT" : "POST", body }))) reload(); };
+  const go = async (path: string, msg: string, body?: any) => { if (await act.run(() => api(path, { method: body ? "PUT" : "POST", body }))) { reload(); done(msg); } };
   return (
     <div className="stack">
       <div className="row">
-        {latest?.state === "draft" && <button className="btn" onClick={() => go(`/developer/apps/${app.id}/versions/${latest.id}/submit`)}>{t("dev.submit")}</button>}
-        {latest?.state === "approved" && <button className="btn" onClick={() => go(`/developer/apps/${app.id}/versions/${latest.id}/publish`)}>{t("dev.publish")}</button>}
-        {["submitted", "approved"].includes(latest?.state) && <button className="btn ghost" onClick={() => go(`/developer/apps/${app.id}/versions/${latest.id}/withdraw`)}>{t("dev.withdraw_version")}</button>}
-        {!["draft", "submitted"].includes(latest?.state) && <button className="btn ghost" onClick={() => go(`/developer/apps/${app.id}/versions`)}>{t("dev.new_version")}</button>}
+        {latest?.state === "draft" && <button className="btn" disabled={act.pending || !ready} onClick={() => go(`/developer/apps/${app.id}/versions/${latest.id}/submit`, t("dev.done_submitted"))}>{t("dev.submit")}</button>}
+        {latest?.state === "approved" && <button className="btn" disabled={act.pending} onClick={() => go(`/developer/apps/${app.id}/versions/${latest.id}/publish`, t("dev.done_published"))}>{t("dev.publish")}</button>}
+        {["submitted", "approved"].includes(latest?.state) && <button className="btn ghost" disabled={act.pending} onClick={() => go(`/developer/apps/${app.id}/versions/${latest.id}/withdraw`, t("dev.done_withdrawn"))}>{t("dev.withdraw_version")}</button>}
+        {!["draft", "submitted"].includes(latest?.state) && <button className="btn ghost" disabled={act.pending} onClick={() => go(`/developer/apps/${app.id}/versions`, t("dev.done_new_version"))}>{t("dev.new_version")}</button>}
         {app.published_version_id && (app.sales_status === "active"
-          ? <button className="btn ghost" onClick={() => go(`/developer/apps/${app.id}/sales`, { status: "withdrawn" })}>{t("dev.stop_sales")}</button>
-          : <button className="btn ghost" onClick={() => go(`/developer/apps/${app.id}/sales`, { status: "active" })}>{t("dev.resume_sales")}</button>)}
+          ? <button className="btn ghost" onClick={() => go(`/developer/apps/${app.id}/sales`, t("dev.done_sales_stopped"), { status: "withdrawn" })}>{t("dev.stop_sales")}</button>
+          : <button className="btn ghost" onClick={() => go(`/developer/apps/${app.id}/sales`, t("dev.done_sales_resumed"), { status: "active" })}>{t("dev.resume_sales")}</button>)}
       </div>
       {app.sales_status === "withdrawn" && <div className="notice warn">{t("dev.sales_withdrawn")}</div>}
       <ErrorBox error={act.error} />
@@ -316,7 +321,7 @@ function Versions({ app, reload }: { app: any; reload: () => void }) {
         <h3>{t("dev.public_preview")}</h3>
         <p className="hint">{t("dev.preview_hint")}</p>
         <div className="row">{(jobs.data?.items ?? []).filter((j: any) => j.state === "completed").slice(0, 5).map((j: any) => (
-          <button key={j.id} className="btn ghost small" onClick={async () => { if (await act.run(() => api(`/developer/apps/${app.id}/public-preview`, { body: { conversion_job_id: j.id } }))) reload(); }}>{j.source.name}</button>))}</div>
+          <button key={j.id} className="btn ghost small" onClick={async () => { if (await act.run(() => api(`/developer/apps/${app.id}/public-preview`, { body: { conversion_job_id: j.id } }))) { reload(); done(t("dev.done_preview")); } }}>{j.source.name}</button>))}</div>
         {app.public_preview && <span className="badge ok">{t("dev.preview_published")}</span>}
       </div>
       {app.versions.map((v: any) => (
@@ -330,27 +335,72 @@ function Versions({ app, reload }: { app: any; reload: () => void }) {
   );
 }
 
+function Checklist({ checks, goTab, editable }: { checks: any[]; goTab: (x: string) => void; editable: boolean }) {
+  const { t } = useApp();
+  if (!editable) return null;
+  return (
+    <div className="panel flat stack">
+      <h3>{t("dev.check_title")}</h3>
+      <ul className="checklist">{checks.map((c) => (
+        <li key={c.key} className={c.ok ? "ok" : c.key === "price" ? "warn" : "bad"}>
+          <span aria-hidden="true">{c.ok ? "✓" : c.key === "price" ? "!" : "✗"}</span>
+          <span>{t(`dev.check.${c.key}`)}{!c.ok && c.key === "price" ? ` — ${t("dev.check_price_later")}` : ""}</span>
+          {!c.ok && <button type="button" className="btn ghost small" onClick={() => goTab(c.tab)}>{t("dev.fix")}</button>}
+        </li>))}</ul>
+    </div>
+  );
+}
+
+function NextStep({ v, app, ready, checks, decision, goTab }: { v: any; app: any; ready: boolean; checks: any[]; decision: any; goTab: (x: string) => void }) {
+  const { t, locale } = useApp();
+  const missing = checks.filter((c) => !c.ok && c.key !== "price");
+  let cls = "notice", body: React.ReactNode = null;
+  if (v.state === "draft" && !ready) body = <>{t("dev.next_fill")} {missing.map((c, i) => <span key={c.key}>{i ? ", " : ""}<button type="button" className="linklike" onClick={() => goTab(c.tab)}>{t(`dev.todo.${c.key}`)}</button></span>)}</>;
+  else if (v.state === "draft") body = <>{t("dev.next_submit")} <button type="button" className="btn small" onClick={() => goTab("versions")}>{t("dev.go_submit")}</button></>;
+  else if (v.state === "submitted") { cls = "notice warn"; body = t("dev.next_wait", { date: date(v.submitted_at, locale, true) }); }
+  else if (v.state === "approved") { cls = "notice ok"; body = <>{t("dev.next_publish")}{!(app.prices ?? []).length && ` ${t("dev.next_publish_price")}`} <button type="button" className="btn small" onClick={() => goTab((app.prices ?? []).length ? "versions" : "price")}>{(app.prices ?? []).length ? t("dev.go_publish") : t("dev.tab_price")}</button></>; }
+  else if (v.state === "rejected") { cls = "notice bad"; body = <>{t("dev.next_rejected")}{decision?.comment ? <> «{decision.comment}»</> : null}. {t("dev.next_rejected_fix")}</>; }
+  else if (v.state === "published") { cls = "notice ok"; body = <>{t("dev.next_published")} <Link href={`/${locale}/apps/${app.slug}`}>{t("dev.open_in_store")}</Link></>; }
+  if (!body) return null;
+  return <div className={cls} role="status"><strong>{t("dev.next_step")}:</strong> {body}</div>;
+}
+
 function Editor() {
   const { id } = useParams<{ id: string }>();
   const { t, locale } = useApp();
   const router = useRouter();
   const tab = (useSearchParams()?.get("tab") as (typeof TABS)[number]) || "details";
   const { data: app, error, loading, reload } = useLoad<any>(`/developer/apps/${id}`);
+  const [flash, setFlash] = useState<string | null>(null);
+  useEffect(() => { if (!flash) return; const x = setTimeout(() => setFlash(null), 6000); return () => clearTimeout(x); }, [flash]);
+  const showFlash = (m: string) => setFlash(m);
   if (loading && !app) return <Loading />;
   if (error) return <ErrorBox error={error} onRetry={reload} />;
   const v = app.versions[0];
+  // NAP-082: what is ready, what is missing, and what to do next — visible on every tab
+  const checks = [
+    { key: "title", ok: !!(v.metadata?.ru?.title || v.metadata?.en?.title), tab: "details" },
+    { key: "rights", ok: !!v.rights_confirmed, tab: "details" },
+    { key: "program", ok: v.sessions.length > 0, tab: v.sessions.length ? "program" : "audio" },
+    { key: "price", ok: (app.prices ?? []).length > 0, tab: "price" },
+  ];
+  const ready = checks.filter((c) => c.key !== "price").every((c) => c.ok);
+  const goTab = (x: string) => { router.replace(`/${locale}/developer/apps/${id}?tab=${x}`); reload(); };
+  const lastDecision = v.moderation?.length ? v.moderation[v.moderation.length - 1] : null;
   return (
     <div className="stack">
       <div className="spread">
         <div><Link href={`/${locale}/developer`}>{t("dev.title")}</Link><h1>{v.metadata?.[locale]?.title ?? v.metadata?.ru?.title ?? v.metadata?.en?.title ?? app.slug}</h1></div>
         <div className="row"><StatusBadge ns="version_state" value={v.state} />{app.published_version_id && <Link href={`/${locale}/apps/${app.slug}`}>{t("dev.open_in_store")}</Link>}</div>
       </div>
-      <div className="tabs" role="tablist">{TABS.map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => { router.replace(`/${locale}/developer/apps/${id}?tab=${x}`); reload(); }}>{t(`dev.tab_${x}`)}</button>)}</div>
-      {tab === "details" && <Details key={v.id + v.state} app={app} v={v} reload={reload} />}
+      <NextStep v={v} app={app} ready={ready} checks={checks} decision={lastDecision} goTab={goTab} />
+      <div className="tabs" role="tablist">{TABS.map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => goTab(x)}>{t(`dev.tab_${x}`)}</button>)}</div>
+      {flash && <div className="notice ok" role="status">{flash}</div>}
+      {tab === "details" && <Details key={v.id + v.state} app={app} v={v} reload={reload} done={showFlash} />}
       {tab === "audio" && <Audio app={app} onTrackReady={reload} />}
-      {tab === "program" && <Program key={v.id + v.sessions.length} app={app} v={v} reload={reload} />}
-      {tab === "price" && <PriceTab app={app} reload={reload} />}
-      {tab === "versions" && <Versions app={app} reload={reload} />}
+      {tab === "program" && <Program key={v.id + v.sessions.length} app={app} v={v} reload={reload} saved={showFlash} />}
+      {tab === "price" && <PriceTab app={app} reload={reload} done={showFlash} />}
+      {tab === "versions" && <><Checklist checks={checks} goTab={goTab} editable={v.state === "draft"} /><Versions app={app} reload={reload} done={showFlash} ready={ready} /></>}
     </div>
   );
 }

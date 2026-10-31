@@ -32,6 +32,7 @@ export function ProductCard({ p, locale, t }: { p: any; locale: Locale; t: T }) 
       <div className="art"><ProductArt category={p.category.slug} hue={p.hue} title={p.title} /></div>
       <h3 lang={p.lang ?? undefined}>{p.title}</h3>
       <div className="meta">{p.seller.name}</div>
+      {p.rating?.average != null && <div className="meta" aria-label={t("rev.card", { avg: num1(p.rating.average, locale), count: p.rating.count })}><span className="stars-inline" aria-hidden="true">★</span> {num1(p.rating.average, locale)} <span aria-hidden="true">({p.rating.count})</span></div>}
       <div className="meta">
         {p.price_from_minor !== null ? <span className="price">{money(p.price_from_minor, p.currency, locale)}</span> : t("kit.from_components")}
         {av && <> · {availabilityText(av, t)}</>}

@@ -81,6 +81,8 @@
     "review_no_completed_session": "Paid apps can be rated after at least one completed session.",
     "review_rate_limited": "Too many reviews in 24 hours. Try again tomorrow.",
     "review_own_vote": "You cannot mark your own review as helpful.",
+    "review_own_product": "You cannot rate your own product.",
+    "review_no_delivered_purchase": "You can rate a product once an order with it has been delivered.",
     "upload_offset_mismatch": "A file chunk arrived out of order. The upload resumes from byte {offset}.",
     "validation_failed": "Please check the entered data.",
     "version_conflict": "The session state changed. Refresh and try again.",

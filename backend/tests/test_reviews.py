@@ -121,3 +121,54 @@ def test_reply_moderation_reports_and_notifications():
     assert ok(Client().get(f"/catalog/apps/{pub['slug']}/reviews"))["total"] == 0
     assert all(x["id"] != rid for x in ok(mod.get("/moderation/reviews"))["items"])
     assert b.get("/moderation/reviews").status_code == 403
+
+
+def _deliver(buyer, code="NAP-CBL35"):
+    from .test_hardware import buy
+    o = buy(buyer, [(code, 1)])
+    seller = Client().login("seller@nap.demo")
+    ok(seller.post(f"/seller/orders/{o['id']}/acknowledge"))
+    item = o["items"][0]
+    o = ok(seller.post(f"/seller/orders/{o['id']}/parcels", {"items": [{"order_item_id": item["id"], "quantity": 1}],
+                                                             "weight_g": 300, "dims_mm": [200, 150, 100]}), 201)
+    p = o["parcels"][0]
+    ok(seller.post(f"/seller/orders/{o['id']}/parcels/{p['id']}/manual-shipment",
+                   {"carrier": "Local", "tracking_number": "T-" + uuid.uuid4().hex[:8]}))
+    ok(seller.post(f"/seller/orders/{o['id']}/parcels/{p['id']}/handover"))
+    return seller, o, p
+
+
+def test_product_review_needs_delivered_purchase_seller_replies():
+    """NAP-079: verified purchase only (delivered parcel), seller cannot rate own product, seller replies."""
+    slug = "nap-cable-35"
+    url = f"/hardware/products/{slug}/review"
+    b = Client().register()
+    assert ok(Client().get(f"/hardware/products/{slug}/reviews"))["eligibility"]["reason"] == "login_required"
+    assert b.put(url, {"rating": 5}).json()["error"]["code"] == "review_no_delivered_purchase"
+    seller, o, p = _deliver(b)
+    # shipped but not delivered yet: still not allowed
+    assert b.put(url, {"rating": 5}).json()["error"]["code"] == "review_no_delivered_purchase"
+    ok(seller.post(f"/seller/orders/{o['id']}/parcels/{p['id']}/events", {"status": "delivered", "description": "POD"}))
+    r = ok(b.put(url, {"rating": 4, "body": "Кабель как кабель, работает"}))
+    assert r["verified_purchase"] and r["version"] == "NAP-CBL35" and r["status"] == "published"
+    assert seller.put(url, {"rating": 5}).json()["error"]["code"] == "review_own_product"
+    lst = ok(Client().get(f"/hardware/products/{slug}/reviews"))
+    assert lst["total"] >= 1 and any(x["id"] == r["id"] for x in lst["items"])
+    card = ok(Client().get(f"/hardware/products/{slug}"))
+    assert card["rating"]["count"] >= 1 and card["rating_summary"]["count"] >= 1
+    # the seller's cabinet lists it; reply notifies the buyer; another seller cannot reply
+    mine = ok(seller.get("/seller/reviews?filter=unanswered&limit=100"))
+    assert any(x["id"] == r["id"] for x in mine["items"])
+    assert Client().login("seller2@nap.demo").put(f"/seller/reviews/{r['id']}/reply", {"body": "x"}).status_code == 404
+    ok(seller.put(f"/seller/reviews/{r['id']}/reply", {"body": "Спасибо за покупку!"}))
+    assert any(n["template"] == "review_reply" for n in ok(b.get("/me/notifications"))["items"])
+    shown = next(x for x in ok(Client().get(f"/hardware/products/{slug}/reviews?limit=50"))["items"] if x["id"] == r["id"])
+    assert shown["reply"]["body"] == "Спасибо за покупку!"
+    # catalog: filter/sort parameters accepted, rating present on cards
+    items = ok(Client().get("/hardware/products?kind=devices&sort=rating"))["items"]
+    assert all("rating" in i for i in items)
+    # moderation queue shows product reviews with their kind
+    c = Client().register()
+    ok(c.post(f"/reviews/{r['id']}/report", {"reason": "spam"}), 202)
+    q = ok(Client().login("moderator@nap.demo").get("/moderation/reviews"))["items"]
+    assert next(x for x in q if x["id"] == r["id"])["app"]["kind"] == "product"

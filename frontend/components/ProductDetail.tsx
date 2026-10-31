@@ -4,7 +4,8 @@ import { ProductArt } from "@/components/Art";
 import { availabilityText, CompatBadge } from "@/components/cards";
 import { AddToCart } from "@/components/AddToCart";
 import { BomBuilder } from "@/components/BomBuilder";
-import { langName, Locale, money, translator } from "@/lib/i18n";
+import { langName, Locale, money, num1, translator } from "@/lib/i18n";
+import { ReviewsSection, Stars } from "@/components/Reviews";
 import { serverApi } from "@/lib/server";
 
 export async function ProductDetail({ locale, slug, app }: { locale: Locale; slug: string; app?: string }) {
@@ -23,6 +24,7 @@ export async function ProductDetail({ locale, slug, app }: { locale: Locale; slu
       </div>
       <div className="stack">
         <h1 lang={p.lang ?? undefined}>{p.title}</h1>
+        {p.rating?.average != null && <a href="#reviews-h" className="row hint"><Stars value={p.rating.average} label={t("rev.card", { avg: num1(p.rating.average, locale), count: p.rating.count })} /> {num1(p.rating.average, locale)} · {t("rev.ratings_n", { count: p.rating.count })}</a>}
         {p.fallback && p.lang && <span className="badge gray">{t("common.original_lang", { lang: langName(p.lang, locale) })}</span>}
         <p lang={p.lang ?? undefined}>{p.description}</p>
         {p.skus.map((s: any) => (
@@ -55,6 +57,7 @@ export async function ProductDetail({ locale, slug, app }: { locale: Locale; slu
         <p className="hint">{t("hw.compat_note")}</p>
       </div>
       {p.bom && p.kind === "kit_component" && <div style={{ gridColumn: "1 / -1" }}><BomBuilder slug={p.slug} app={app} /></div>}
+      <div style={{ gridColumn: "1 / -1" }}><ReviewsSection slug={p.slug} kind="product" path={`${p.kind === "simple" ? "devices" : "kits"}/${p.slug}`} /></div>
     </div>
   );
 }
