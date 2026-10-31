@@ -126,7 +126,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD/ops/monitoring:/etc/prometheus:ro" --entrypoint promtool prom/prometheus:v2.53.2 check config /etc/prometheus/prometheus.yml
           docker run --rm -v "$PWD/ops/monitoring:/etc/am:ro" --entrypoint amtool prom/alertmanager:v0.27.0 check-config /etc/am/alertmanager.yml
-      - run: docker compose config -q && docker compose build
+      - run: docker compose config -q && docker compose -f docker-compose.yml -f ops/cohost/docker-compose.cohost.yml config -q && docker compose build
       - name: stack starts and is ready
         run: |
           docker compose up -d

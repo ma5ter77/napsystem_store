@@ -1,0 +1,19 @@
+# NAP-085: run the store next to an existing nginx (napsystem.com server) on the subdomain store.napsystem.com.
+# Nothing listens publicly: the site is published on 127.0.0.1:${STORE_WEB_PORT} only, the API and the databases
+# stay on the internal Docker networks, nginx terminates TLS and proxies store.napsystem.com to that port.
+# Used by ops/cohost/deploy-cohost.sh together with ../../docker-compose.yml.
+services:
+  api:
+    ports: !reset []
+    environment:
+      NAP_PUBLIC_BASE_URL: ${NAP_PUBLIC_BASE_URL:-https://store.napsystem.com}
+      NAP_COOKIE_SECURE: "true"
+    volumes: !override [storage:/app/var/storage, "${STORE_SHARED:-/srv/nap-store/shared}/backups:/backups:ro"]
+  web:
+    ports: !override ["127.0.0.1:${STORE_WEB_PORT:-3100}:3000"]
+    environment:
+      PUBLIC_BASE_URL: ${NAP_PUBLIC_BASE_URL:-https://store.napsystem.com}
+  backup:
+    volumes: !override ["./ops:/ops:ro", "${STORE_SHARED:-/srv/nap-store/shared}/backups:/backups", "storage:/storage:ro", "s3data:/s3data:ro"]
+  postgres:
+    volumes: !override ["pgdata:/var/lib/postgresql/data", "${STORE_SHARED:-/srv/nap-store/shared}/backups:/backups"]
