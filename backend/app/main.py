@@ -131,7 +131,7 @@ def create_app() -> FastAPI:
             checks["redis"] = "unavailable" if not s.run_jobs_inline else "not_required_inline_mode"
         try:
             from .storage import get_storage
-            get_storage()
+            get_storage().ping()
             checks["storage"] = "ok"
         except Exception as e:
             checks["storage"] = f"error: {type(e).__name__}"

@@ -247,12 +247,11 @@ def verify_integrity(db: Session, app: App, v: AppVersion, deep: bool = False) -
         if a.sha256 != s.sha256 or not a.immutable:
             problems.append(f"asset_changed:{s.key}")
         elif deep:
-            st = get_storage()
-            p = st.local_path(a.storage_key)
-            if p:
-                from ..dsp.pipeline import sha256_file
-                if sha256_file(p) != a.sha256:
+            try:  # streams the object: works for the local volume and the S3 bucket alike
+                if get_storage().sha256(a.storage_key) != a.sha256:
                     problems.append(f"object_changed:{s.key}")
+            except Exception:
+                problems.append(f"object_missing:{s.key}")
     # the DSP profile snapshot of every session is part of the manifest hash above
     return problems
 

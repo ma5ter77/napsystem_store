@@ -3,7 +3,7 @@
  "info": {
   "title": "NAP Store API",
   "description": "NAP Store platform API. Machine error codes are stable; messages are localized (ru/en). Mutating requests with duplicate risk accept an Idempotency-Key header.",
-  "version": "0.5.0"
+  "version": "0.6.0"
  },
  "paths": {
   "/api/v1/health": {
@@ -4141,6 +4141,417 @@
     }
    }
   },
+  "/api/v1/seller/products": {
+   "get": {
+    "tags": [
+     "seller/fulfillment",
+     "seller/products"
+    ],
+    "summary": "My Products",
+    "operationId": "my_products_api_v1_seller_products_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "seller/fulfillment",
+     "seller/products"
+    ],
+    "summary": "Create Product",
+    "operationId": "create_product_api_v1_seller_products_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "type": "object",
+        "title": "Body"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/seller/products/{product_id}": {
+   "get": {
+    "tags": [
+     "seller/fulfillment",
+     "seller/products"
+    ],
+    "summary": "Get Product",
+    "operationId": "get_product_api_v1_seller_products__product_id__get",
+    "parameters": [
+     {
+      "name": "product_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Product Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "tags": [
+     "seller/fulfillment",
+     "seller/products"
+    ],
+    "summary": "Update Product",
+    "operationId": "update_product_api_v1_seller_products__product_id__put",
+    "parameters": [
+     {
+      "name": "product_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Product Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "title": "Body"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/seller/products/{product_id}/texts/{locale}": {
+   "put": {
+    "tags": [
+     "seller/fulfillment",
+     "seller/products"
+    ],
+    "summary": "Save Product Texts",
+    "operationId": "save_product_texts_api_v1_seller_products__product_id__texts__locale__put",
+    "parameters": [
+     {
+      "name": "product_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Product Id"
+      }
+     },
+     {
+      "name": "locale",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Locale"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "title": "Body"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/seller/products/{product_id}/skus": {
+   "post": {
+    "tags": [
+     "seller/fulfillment",
+     "seller/products"
+    ],
+    "summary": "Add Product Sku",
+    "operationId": "add_product_sku_api_v1_seller_products__product_id__skus_post",
+    "parameters": [
+     {
+      "name": "product_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Product Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "title": "Body"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/seller/products/{product_id}/skus/{sku_id}": {
+   "put": {
+    "tags": [
+     "seller/fulfillment",
+     "seller/products"
+    ],
+    "summary": "Update Product Sku",
+    "operationId": "update_product_sku_api_v1_seller_products__product_id__skus__sku_id__put",
+    "parameters": [
+     {
+      "name": "product_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Product Id"
+      }
+     },
+     {
+      "name": "sku_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sku Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "title": "Body"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/seller/products/{product_id}/submit": {
+   "post": {
+    "tags": [
+     "seller/fulfillment",
+     "seller/products"
+    ],
+    "summary": "Submit Product",
+    "operationId": "submit_product_api_v1_seller_products__product_id__submit_post",
+    "parameters": [
+     {
+      "name": "product_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Product Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/seller/products/{product_id}/withdraw": {
+   "post": {
+    "tags": [
+     "seller/fulfillment",
+     "seller/products"
+    ],
+    "summary": "Withdraw Product",
+    "operationId": "withdraw_product_api_v1_seller_products__product_id__withdraw_post",
+    "parameters": [
+     {
+      "name": "product_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Product Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/devices": {
    "get": {
     "tags": [
@@ -4789,6 +5200,65 @@
       }
      }
     },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/moderation/products": {
+   "get": {
+    "tags": [
+     "moderation/admin"
+    ],
+    "summary": "Product Queue",
+    "operationId": "product_queue_api_v1_moderation_products_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/moderation/products/{product_id}": {
+   "get": {
+    "tags": [
+     "moderation/admin"
+    ],
+    "summary": "Product For Moderation",
+    "operationId": "product_for_moderation_api_v1_moderation_products__product_id__get",
+    "parameters": [
+     {
+      "name": "product_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Product Id"
+      }
+     }
+    ],
     "responses": {
      "200": {
       "description": "Successful Response",

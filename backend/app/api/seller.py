@@ -282,3 +282,90 @@ def adjust(sku_id: str, body: AdjustIn, p=P, db=DB):
     audit(db, u.id, "inventory.adjusted", "sku", s.code, {"delta": body.delta, "reason": body.reason})
     db.commit()
     return {"on_hand": inv.on_hand, "available": inv.on_hand - inv.reserved - inv.allocated}
+
+
+# ------------------------------------------------------------------ product cabinet (NAP-022)
+
+from ..services import products as prod  # noqa: E402
+
+
+def _seller(p, db):
+    u, ids = ctx(p, db, ("seller",))
+    if not ids:
+        raise ApiError("forbidden", 403)
+    return u, ids
+
+
+@router.get("/products", tags=["seller/products"])
+def my_products(request: Request, p=P, db=DB):
+    u, ids = _seller(p, db)
+    warehouses = db.scalars(select(Warehouse).where(Warehouse.seller_id.in_(ids)).order_by(Warehouse.name))
+    return {"items": prod.list_for_seller(db, ids, locale_of(request)),
+            "warehouses": [{"id": str(w.id), "name": w.name, "country": w.country} for w in warehouses]}
+
+
+@router.post("/products", status_code=201, tags=["seller/products"])
+def create_product(body: dict, request: Request, p=P, db=DB):
+    u, ids = _seller(p, db)
+    x = prod.create(db, u, ids, body)
+    db.commit()
+    return prod.view(db, x, locale_of(request))
+
+
+@router.get("/products/{product_id}", tags=["seller/products"])
+def get_product(product_id: str, request: Request, p=P, db=DB):
+    u, ids = _seller(p, db)
+    return prod.view(db, prod.owned_product(db, ids, as_uuid(product_id, "product")), locale_of(request))
+
+
+@router.put("/products/{product_id}", tags=["seller/products"])
+def update_product(product_id: str, body: dict, request: Request, p=P, db=DB):
+    u, ids = _seller(p, db)
+    x = prod.update(db, u, prod.owned_product(db, ids, as_uuid(product_id, "product"), lock=True), body)
+    db.commit()
+    return prod.view(db, x, locale_of(request))
+
+
+@router.put("/products/{product_id}/texts/{locale}", tags=["seller/products"])
+def save_product_texts(product_id: str, locale: str, body: dict, request: Request, p=P, db=DB):
+    u, ids = _seller(p, db)
+    x = prod.owned_product(db, ids, as_uuid(product_id, "product"), lock=True)
+    prod.save_texts(db, u, x, locale, body)
+    db.commit()
+    return prod.view(db, x, locale_of(request))
+
+
+@router.post("/products/{product_id}/skus", status_code=201, tags=["seller/products"])
+def add_product_sku(product_id: str, body: dict, request: Request, p=P, db=DB):
+    u, ids = _seller(p, db)
+    x = prod.owned_product(db, ids, as_uuid(product_id, "product"), lock=True)
+    prod.add_sku(db, u, x, body)
+    db.commit()
+    db.refresh(x)
+    return prod.view(db, x, locale_of(request))
+
+
+@router.put("/products/{product_id}/skus/{sku_id}", tags=["seller/products"])
+def update_product_sku(product_id: str, sku_id: str, body: dict, request: Request, p=P, db=DB):
+    u, ids = _seller(p, db)
+    x = prod.owned_product(db, ids, as_uuid(product_id, "product"), lock=True)
+    prod.update_sku(db, u, x, as_uuid(sku_id, "sku"), body)
+    db.commit()
+    db.refresh(x)
+    return prod.view(db, x, locale_of(request))
+
+
+@router.post("/products/{product_id}/submit", tags=["seller/products"])
+def submit_product(product_id: str, request: Request, p=P, db=DB):
+    u, ids = _seller(p, db)
+    x = prod.submit(db, u, prod.owned_product(db, ids, as_uuid(product_id, "product"), lock=True))
+    db.commit()
+    return prod.view(db, x, locale_of(request))
+
+
+@router.post("/products/{product_id}/withdraw", tags=["seller/products"])
+def withdraw_product(product_id: str, request: Request, p=P, db=DB):
+    u, ids = _seller(p, db)
+    x = prod.withdraw(db, u, prod.owned_product(db, ids, as_uuid(product_id, "product"), lock=True))
+    db.commit()
+    return prod.view(db, x, locale_of(request))

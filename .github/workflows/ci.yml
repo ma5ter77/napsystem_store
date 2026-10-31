@@ -134,6 +134,18 @@ jobs:
           curl -sf localhost:8000/api/v1/ready || { docker compose ps; docker compose logs --tail 200; exit 1; }
           # NAP-006: one manual backup cycle inside the backup service must succeed
           docker compose exec -T -e BACKUP_ONCE=1 backup bash /ops/backup-loop.sh && grep -q '"status":"ok"' backups/last-status.json || { cat backups/last-status.json; docker compose logs --tail 100 backup; exit 1; }
+      - name: switch to the private S3 bucket and move the files (NAP-004)
+        env: { COMPOSE_PROFILES: s3, NAP_STORAGE_BACKEND: s3 }
+        run: |
+          # same volumes: the demo files written to the local volume above must arrive in the bucket
+          docker compose up -d
+          for i in $(seq 1 60); do curl -sf localhost:8000/api/v1/ready && break; sleep 5; done
+          curl -sf localhost:8000/api/v1/ready || { docker compose ps; docker compose logs --tail 200 s3 api; exit 1; }
+          docker compose exec -T api python -m app.tools.storage migrate --from /app/var/storage
+          docker compose exec -T api python -m app.tools.storage check
+          # the bucket server publishes no port: nothing on the host answers S3 requests
+          ! curl -s -m 3 localhost:8333 >/dev/null
+          docker compose exec -T -e BACKUP_ONCE=1 backup bash /ops/backup-loop.sh && ls backups/storage-s3-*.tar
       - if: always()
         run: docker compose down -v
 

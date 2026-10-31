@@ -49,7 +49,7 @@
 
 ## Дополнительно проверено
 
-- S3-хранилище (загрузка, скачивание, Range) — на S3-совместимом эмуляторе moto (`test_s3_storage.py`); MinIO в compose — not run.
+- S3-хранилище (загрузка, скачивание, Range) — на S3-совместимом эмуляторе moto (`test_s3_storage.py`); SeaweedFS в compose — шаг CI (NAP-004).
 - Конвертация через настоящий Celery-воркер и Redis (SDK-пример, очередь `media`).
 - TypeScript: `tsc --noEmit` для фронтенда и SDK; сборка `next build`.
 

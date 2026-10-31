@@ -10,7 +10,7 @@ import shutil
 import time
 import uuid
 from pathlib import Path
-from typing import BinaryIO, Protocol
+from typing import BinaryIO, Iterator, Protocol
 
 from .config import get_settings
 
@@ -30,6 +30,9 @@ class Storage(Protocol):
     def size(self, key: str) -> int: ...
     def delete(self, key: str) -> None: ...
     def signed_get_url(self, key: str, filename: str, content_type: str, ttl: int | None = None) -> str: ...
+    def sha256(self, key: str) -> str: ...
+    def ping(self) -> None: ...
+    def iter_keys(self, prefix: str = "") -> Iterator[tuple[str, int]]: ...
 
 
 def _sign(payload: dict) -> str:
@@ -104,16 +107,101 @@ class LocalStorage:
         tok = _sign({"k": key, "exp": int(time.time()) + ttl, "ct": content_type, "fn": filename})
         return f"/api/v1/files/{tok}"
 
+    def sha256(self, key: str) -> str:
+        h = hashlib.sha256()
+        with open(self._p(key), "rb") as fh:
+            for chunk in iter(lambda: fh.read(1 << 20), b""):
+                h.update(chunk)
+        return h.hexdigest()
+
+    def ping(self) -> None:
+        if not os.access(self.root, os.W_OK):
+            raise OSError("storage root is not writable")
+
+    def iter_keys(self, prefix: str = ""):
+        for p in sorted(self.root.rglob("*")):
+            if p.is_file() and not p.name.endswith(".part"):
+                key = p.relative_to(self.root).as_posix()
+                if key.startswith(prefix):
+                    yield key, p.stat().st_size
+
 
 class S3Storage:
-    """S3-compatible private bucket (MinIO in docker compose)."""
+    """S3-compatible private bucket: SeaweedFS in the compose `s3` profile, or any external S3 service.
+
+    The bucket is never exposed: objects reach browsers only through the API after a short-lived signed token.
+    """
 
     def __init__(self):
         import boto3
+        from botocore.config import Config
         s = get_settings()
         self.bucket = s.s3_bucket
-        self.client = boto3.client("s3", endpoint_url=s.s3_endpoint_url, aws_access_key_id=s.s3_access_key,
-                                   aws_secret_access_key=s.s3_secret_key, region_name=s.s3_region)
+        self.client = boto3.client(
+            "s3", endpoint_url=s.s3_endpoint_url, aws_access_key_id=s.s3_access_key,
+            aws_secret_access_key=s.s3_secret_key, region_name=s.s3_region,
+            config=Config(s3={"addressing_style": "path"}, retries={"max_attempts": 4, "mode": "standard"},
+                          connect_timeout=5, read_timeout=60,
+                          # SeaweedFS/older S3 servers reject the new default CRC32 trailers on uploads
+                          request_checksum_calculation="when_required",
+                          response_checksum_validation="when_required"))
+        self._bucket_ready = False
+
+    def ensure_bucket(self) -> None:
+        """Create the bucket when missing (first start) and refuse to run on a publicly readable bucket."""
+        if self._bucket_ready:
+            return
+        from botocore.exceptions import ClientError, EndpointConnectionError
+        missing = False
+        for attempt in range(30):  # the bundled S3 server may still be starting together with the stack
+            try:
+                self.client.head_bucket(Bucket=self.bucket)
+                break
+            except EndpointConnectionError:
+                if attempt == 29:
+                    raise
+                time.sleep(2)
+            except ClientError as e:
+                if e.response.get("Error", {}).get("Code") not in ("404", "NoSuchBucket", "NotFound"):
+                    raise
+                missing = True
+                break
+        if missing:
+            kw = {"Bucket": self.bucket}
+            if get_settings().s3_region not in ("", "us-east-1"):
+                kw["CreateBucketConfiguration"] = {"LocationConstraint": get_settings().s3_region}
+            self.client.create_bucket(**kw)
+        if self.public_policy():
+            raise RuntimeError(f"bucket {self.bucket} has a public policy; storage must stay private")
+        self._bucket_ready = True
+
+    def public_policy(self) -> bool:
+        """True when a bucket policy grants anything to everyone (Principal "*")."""
+        from botocore.exceptions import ClientError
+        try:
+            pol = json.loads(self.client.get_bucket_policy(Bucket=self.bucket)["Policy"])
+        except ClientError:
+            return False  # no policy (or the server has no policy API): private by default
+        for st in pol.get("Statement", []):
+            pr = st.get("Principal")
+            if st.get("Effect") == "Allow" and (pr == "*" or (isinstance(pr, dict) and pr.get("AWS") in ("*", ["*"]))):
+                return True
+        return False
+
+    def ping(self) -> None:
+        self.ensure_bucket()
+
+    def sha256(self, key):
+        h = hashlib.sha256()
+        body = self.client.get_object(Bucket=self.bucket, Key=key)["Body"]
+        for chunk in body.iter_chunks(1 << 20):
+            h.update(chunk)
+        return h.hexdigest()
+
+    def iter_keys(self, prefix=""):
+        for page in self.client.get_paginator("list_objects_v2").paginate(Bucket=self.bucket, Prefix=prefix):
+            for o in page.get("Contents", []):
+                yield o["Key"], int(o["Size"])
 
     def put_file(self, key, path, content_type):
         self.client.upload_file(path, self.bucket, key, ExtraArgs={"ContentType": content_type})
@@ -161,7 +249,12 @@ def get_storage() -> Storage:
     global _storage
     if _storage is None:
         s = get_settings()
-        _storage = S3Storage() if s.storage_backend == "s3" else LocalStorage(s.storage_root)
+        if s.storage_backend == "s3":
+            st = S3Storage()
+            st.ensure_bucket()
+            _storage = st
+        else:
+            _storage = LocalStorage(s.storage_root)
     return _storage
 
 

@@ -10,7 +10,7 @@
  Stripe / EasyPost / mock ── webhooks (подпись на сыром теле) ──────►│  ├─ адаптеры: PaymentProvider, ShippingAdapter,
                                                                      │  │  FulfillmentAdapter, DeviceAdapter, измерения
                                                                      ▼
-              PostgreSQL 16 (Alembic) ◄── Celery workers (Redis) ──► приватное S3 (MinIO) / локальное FS
+              PostgreSQL 16 (Alembic) ◄── Celery workers (Redis) ──► приватное S3 (SeaweedFS или внешний S3) / локальное FS
                                           ├─ media: конвертация (без внешней сети, лимиты CPU/RAM)
                                           └─ ops: beat, inbox/outbox, сверка, резервы, ретеншн
 ```
@@ -21,7 +21,7 @@
 | Backend | Python, FastAPI, SQLAlchemy 2, Alembic, Pydantic 2 | Python 3.13, fastapi 0.162.0, sqlalchemy 2.1.6, alembic 1.20.1 (`backend/uv.lock`) |
 | DSP | NumPy, SciPy, FFmpeg/ffprobe (soxr) | numpy 2.5.4, scipy 1.18.1, ffmpeg 6.1.1 |
 | Очередь | Celery + Redis | celery 5.6.3 |
-| Хранилище | S3-совместимое (MinIO) или локальная ФС | boto3 |
+| Хранилище | S3-совместимое (SeaweedFS в compose или внешний S3) или локальная ФС | boto3 |
 | SDK | TypeScript | typescript 5.9.3 |
 
 Next.js 15 выбран вместо 16, так как это проверенная стабильная ветка с известным API (асинхронные `params`, middleware); переход на 16 — отдельная задача.

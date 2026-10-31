@@ -14,6 +14,7 @@ function Queue() {
   return (
     <div className="stack">
       <h1>{t("mod.title")}</h1>
+      <h2>{t("mod.apps_title")}</h2>
       {!data.items.length ? <Empty>{t("mod.empty")}</Empty> : data.items.map((x: any) => (
         <Link key={x.version.id} href={`/${locale}/moderation/${x.version.id}`} className="panel flat card">
           <div className="spread"><strong>{x.app.slug} v{x.version.version_label}</strong><span className="hint">{x.app.author} · {date(x.version.submitted_at, locale, true)}</span></div>
@@ -24,6 +25,25 @@ function Queue() {
   );
 }
 
+// NAP-022: supplier products waiting for a decision
+function ProductQueue() {
+  const { t, locale } = useApp();
+  const { data, error, loading, reload } = useLoad<any>("/moderation/products");
+  if (loading && !data) return <Loading />;
+  if (error) return <ErrorBox error={error} onRetry={reload} />;
+  return (
+    <div className="stack">
+      <h2>{t("mod.products_title")}</h2>
+      {!data.items.length ? <Empty>{t("mod.products_empty")}</Empty> : data.items.map((x: any) => (
+        <Link key={x.id} href={`/${locale}/moderation/products/${x.id}`} className="panel flat card">
+          <div className="spread"><strong>{x.title ?? `${x.brand} ${x.model}`}</strong><span className="hint">{x.seller}{x.submitted_at ? ` · ${date(x.submitted_at, locale, true)}` : ""}</span></div>
+          <div className="hint">{x.slug} · {t("sp.col_skus")}: {x.skus} · {x.languages.map((l: string) => l.toUpperCase()).join(", ")}</div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 export default function ModerationPage() {
-  return <div className="section"><RequireAuth role={["moderator", "admin"]}><div className="stack"><Queue /><ModerationReviews /></div></RequireAuth></div>;
+  return <div className="section"><RequireAuth role={["moderator", "admin"]}><div className="stack"><Queue /><ProductQueue /><ModerationReviews /></div></RequireAuth></div>;
 }

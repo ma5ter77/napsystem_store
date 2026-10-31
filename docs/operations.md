@@ -101,3 +101,35 @@ ops/restore_verify.sh ./backups/nap-….dump <SOURCE_URL> <ADMIN_URL>           
 | `NapBackupFailed`, `NapBackupStale`, `NapBackupMissing` | бэкап не удался; старше 26 ч; нет данных |
 
 Оповещения уходят письмом: заполните `ops/monitoring/alertmanager.yml` (адрес получателя и SMTP). CI проверяет обе конфигурации `promtool`/`amtool`.
+
+## Хранилище файлов: локальный том или закрытый S3-бакет (NAP-004)
+
+По умолчанию файлы (исходники, результаты конвертации, превью, этикетки) лежат на томе `storage`. Для боевого стенда — закрытый S3-бакет. Браузер никогда не обращается к бакету: файл отдаёт API по подписанной ссылке, действующей 5 минут (`NAP_SIGNED_URL_TTL_SECONDS`) (поддерживаются Range-запросы для перемотки).
+
+**Вариант 1 — встроенный SeaweedFS** (`chrislusf/seaweedfs:4.45`, Apache-2.0; MinIO больше не подходит: проект в архиве с апреля 2026, образы удалены с Docker Hub в сентябре 2026). В `.env`:
+
+```
+COMPOSE_PROFILES=s3
+NAP_STORAGE_BACKEND=s3
+NAP_S3_ACCESS_KEY=<длинный случайный ключ>
+NAP_S3_SECRET_KEY=<длинный случайный секрет>
+```
+
+Сервис `s3` работает только во внутренней сети compose, порт наружу не открыт, анонимный доступ выключен. Данные — том `s3data`; ежедневный бэкап архивирует его (`backups/storage-s3-*.tar`).
+
+**Вариант 2 — внешний S3** (Hetzner Object Storage, Backblaze B2, AWS S3 и т. п.): `NAP_STORAGE_BACKEND=s3`, `NAP_S3_ENDPOINT_URL`, `NAP_S3_BUCKET`, `NAP_S3_REGION`, ключи; профиль `s3` не нужен. Включите версионирование бакета у провайдера — это и есть копия файлов вне сервера.
+
+Бакет создаётся при первом запуске. Если у бакета есть политика, открывающая доступ всем, API не стартует (`/api/v1/ready` → 503). В production без собственного `NAP_S3_SECRET_KEY` сервис не запустится.
+
+**Перенос существующих файлов с тома в бакет** (ключи в базе не меняются):
+
+```
+docker compose up -d                                   # уже с настройками S3 в .env
+docker compose exec api python -m app.tools.storage migrate --from /app/var/storage --dry-run
+docker compose exec api python -m app.tools.storage migrate --from /app/var/storage
+docker compose exec api python -m app.tools.storage check
+```
+
+`migrate` копирует каждый файл под тем же ключом, сверяет размер и SHA-256 (для файлов приложений), повторный запуск ничего не копирует. `check` проверяет запись, чтение, Range, хэш, подписанную ссылку и то, что бакет не отвечает на анонимный запрос; код выхода 1 при любой проблеме. После успешного переноса том `storage` можно оставить как резервную копию на время приёмки.
+
+Проверено: эмулятор S3 (moto) в тестах `test_s3_storage.py` — создание бакета, отказ на публичной политике, перенос демо-данных с проверкой хэшей и глубокая проверка целостности опубликованных версий из бакета; на настоящем SeaweedFS — шаг CI `switch to the private S3 bucket`.

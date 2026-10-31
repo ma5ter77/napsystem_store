@@ -1,130 +1,207 @@
 {
-  "errors": {
-    "address_invalid": "Check the address: required fields for this country are missing or invalid.",
-    "address_required": "Enter a delivery address first.",
-    "already_answered": "The questionnaire has already been answered.",
-    "already_owned": "You already have access to this app.",
-    "already_shipped": "Part of the order has shipped — it cannot be cancelled; request a return instead.",
-    "asset_not_ready": "The file has not finished uploading.",
-    "auth_required": "Please sign in.",
-    "autorenew_disabled": "Auto-renewal is turned off.",
-    "carrier_timeout": "The carrier did not respond in time. Retry — a retry will not buy a second label.",
-    "cart_empty": "The cart is empty.",
-    "comment_required": "A comment is required to reject.",
-    "consent_required": "Consent to store measurements is required.",
-    "contact_support_to_cancel": "A paid order can be cancelled by the seller or support.",
-    "conversion_not_completed": "The conversion has not finished yet.",
-    "csrf_failed": "Your session is stale. Reload the page and try again.",
-    "custom_quote_required": "This order needs a custom shipping quote.",
-    "destination_not_served": "Some items are not delivered to the selected country.",
-    "device_busy": "Another session is already running on this device.",
-    "device_protocol_unavailable": "The NAP SYSTEM chair protocol is not available yet: use the simulator or headphones.",
-    "draft_exists": "A draft or a version under review already exists.",
-    "eeg_not_supported": "EEG data is not accepted in this release.",
-    "email_taken": "This e-mail is already registered.",
-    "empty_file": "The file is empty.",
-    "exceeds_ordered_quantity": "You cannot pack or ship more than was ordered ({sku}).",
-    "file_too_large": "The file exceeds the size limit.",
-    "forbidden": "You do not have permission.",
-    "idempotency_conflict": "This idempotency key was already used for a different request.",
-    "idempotency_key_required": "An Idempotency-Key header is required.",
-    "incompatible_device": "The device is not compatible with this app.",
-    "integrity_failed": "Files, manifest or profile changed after submission for review.",
-    "internal_error": "Internal error. We have been notified — please retry later.",
-    "invalid_api_key": "Invalid or revoked API key.",
-    "invalid_credentials": "Wrong e-mail or password.",
-    "invalid_device_token": "Invalid device token.",
-    "invalid_signature": "Invalid webhook signature.",
-    "invalid_state": "This action is not available in the current state.",
-    "invalid_transition": "This session state transition is not allowed.",
-    "inventory_below_committed": "Stock cannot go below reserved plus allocated quantity.",
-    "link_expired": "The link has expired. Request a new one.",
-    "manifest_invalid": "The manifest failed schema validation.",
-    "manual_shipment_required": "This shipment must be registered manually (own carrier).",
-    "no_entitlement": "No access: purchase the app or a subscription.",
-    "not_for_sale": "This app is not for sale right now.",
-    "not_found": "Not found.",
-    "nothing_to_pay": "There is no available amount to pay out.",
-    "order_locked": "The order is already paid or closed and cannot be changed.",
-    "out_of_stock": "Not enough stock: {sku}.",
-    "package_too_large": "Size or weight exceeds carrier limits — request a custom quote.",
-    "payment_provider_unavailable": "The payment service is unavailable.",
-    "price_required": "Set a price before publishing.",
-    "profile_unavailable": "The processing profile is unavailable.",
-    "program_empty": "Add at least one session to the program.",
-    "quote_expired": "The quote has expired.",
-    "rate_expired": "The rate has expired — recalculate shipping.",
-    "rate_stale": "The address or order contents changed — recalculate shipping.",
-    "rate_limited": "Too many requests. Try again in {seconds} s.",
-    "refund_exceeds_payment": "The refund exceeds the confirmed payment.",
-    "refund_not_allowed": "This order cannot be refunded.",
-    "return_exceeds_shipped": "The return quantity exceeds what was shipped.",
-    "rights_not_confirmed": "Confirm that you hold the rights to this content.",
-    "route_unsupported": "Delivery on this route is not available. Free shipping is never substituted.",
-    "scope_missing": "The key lacks the {scope} scope.",
-    "sensor_unavailable": "The device has no such sensor.",
-    "shipping_required": "Choose a shipping option first.",
-    "slug_taken": "This app address is already taken.",
-    "synthetic_must_be_marked": "Simulator data must be marked as synthetic.",
-    "too_long": "The duration exceeds the limit.",
-    "too_many_attempts": "Too many sign-in attempts. Try again later.",
-    "too_many_channels": "Only mono and stereo are supported.",
-    "unsupported_format": "Unsupported format.",
-    "unsupported_or_corrupt": "The file is damaged or not a supported audio file.",
-    "no_audio_stream": "The file has no audio stream.",
-    "upload_checksum_mismatch": "Checksum mismatch — upload the file again.",
-    "upload_link_invalid": "The upload link is invalid or already used.",
-    "upload_size_mismatch": "The uploaded size does not match the declared size.",
-    "review_login_required": "Sign in to rate the app.",
-    "review_own_app": "You cannot rate your own app.",
-    "review_no_access": "You can rate apps in your library: install or buy it first.",
-    "review_no_completed_session": "Paid apps can be rated after at least one completed session.",
-    "review_rate_limited": "Too many reviews in 24 hours. Try again tomorrow.",
-    "review_own_vote": "You cannot mark your own review as helpful.",
-    "review_own_product": "You cannot rate your own product.",
-    "review_no_delivered_purchase": "You can rate a product once an order with it has been delivered.",
-    "upload_offset_mismatch": "A file chunk arrived out of order. The upload resumes from byte {offset}.",
-    "validation_failed": "Please check the entered data.",
-    "version_conflict": "The session state changed. Refresh and try again.",
-    "version_frozen": "This version was submitted for review — create a new version to make changes."
+ "errors": {
+  "address_invalid": "Check the address: required fields for this country are missing or invalid.",
+  "address_required": "Enter a delivery address first.",
+  "already_answered": "The questionnaire has already been answered.",
+  "already_owned": "You already have access to this app.",
+  "already_shipped": "Part of the order has shipped — it cannot be cancelled; request a return instead.",
+  "asset_not_ready": "The file has not finished uploading.",
+  "auth_required": "Please sign in.",
+  "autorenew_disabled": "Auto-renewal is turned off.",
+  "carrier_timeout": "The carrier did not respond in time. Retry — a retry will not buy a second label.",
+  "cart_empty": "The cart is empty.",
+  "comment_required": "A comment is required to reject.",
+  "consent_required": "Consent to store measurements is required.",
+  "contact_support_to_cancel": "A paid order can be cancelled by the seller or support.",
+  "conversion_not_completed": "The conversion has not finished yet.",
+  "csrf_failed": "Your session is stale. Reload the page and try again.",
+  "custom_quote_required": "This order needs a custom shipping quote.",
+  "destination_not_served": "Some items are not delivered to the selected country.",
+  "device_busy": "Another session is already running on this device.",
+  "device_protocol_unavailable": "The NAP SYSTEM chair protocol is not available yet: use the simulator or headphones.",
+  "draft_exists": "A draft or a version under review already exists.",
+  "eeg_not_supported": "EEG data is not accepted in this release.",
+  "email_taken": "This e-mail is already registered.",
+  "empty_file": "The file is empty.",
+  "exceeds_ordered_quantity": "You cannot pack or ship more than was ordered ({sku}).",
+  "file_too_large": "The file exceeds the size limit.",
+  "forbidden": "You do not have permission.",
+  "idempotency_conflict": "This idempotency key was already used for a different request.",
+  "idempotency_key_required": "An Idempotency-Key header is required.",
+  "incompatible_device": "The device is not compatible with this app.",
+  "integrity_failed": "Files, manifest or profile changed after submission for review.",
+  "internal_error": "Internal error. We have been notified — please retry later.",
+  "invalid_api_key": "Invalid or revoked API key.",
+  "invalid_credentials": "Wrong e-mail or password.",
+  "invalid_device_token": "Invalid device token.",
+  "invalid_signature": "Invalid webhook signature.",
+  "invalid_state": "This action is not available in the current state.",
+  "invalid_transition": "This session state transition is not allowed.",
+  "inventory_below_committed": "Stock cannot go below reserved plus allocated quantity.",
+  "link_expired": "The link has expired. Request a new one.",
+  "manifest_invalid": "The manifest failed schema validation.",
+  "manual_shipment_required": "This shipment must be registered manually (own carrier).",
+  "no_entitlement": "No access: purchase the app or a subscription.",
+  "not_for_sale": "This app is not for sale right now.",
+  "not_found": "Not found.",
+  "nothing_to_pay": "There is no available amount to pay out.",
+  "order_locked": "The order is already paid or closed and cannot be changed.",
+  "out_of_stock": "Not enough stock: {sku}.",
+  "package_too_large": "Size or weight exceeds carrier limits — request a custom quote.",
+  "payment_provider_unavailable": "The payment service is unavailable.",
+  "price_required": "Set a price before publishing.",
+  "profile_unavailable": "The processing profile is unavailable.",
+  "program_empty": "Add at least one session to the program.",
+  "quote_expired": "The quote has expired.",
+  "rate_expired": "The rate has expired — recalculate shipping.",
+  "rate_stale": "The address or order contents changed — recalculate shipping.",
+  "rate_limited": "Too many requests. Try again in {seconds} s.",
+  "refund_exceeds_payment": "The refund exceeds the confirmed payment.",
+  "refund_not_allowed": "This order cannot be refunded.",
+  "return_exceeds_shipped": "The return quantity exceeds what was shipped.",
+  "rights_not_confirmed": "Confirm that you hold the rights to this content.",
+  "route_unsupported": "Delivery on this route is not available. Free shipping is never substituted.",
+  "scope_missing": "The key lacks the {scope} scope.",
+  "sensor_unavailable": "The device has no such sensor.",
+  "shipping_required": "Choose a shipping option first.",
+  "slug_taken": "This app address is already taken.",
+  "synthetic_must_be_marked": "Simulator data must be marked as synthetic.",
+  "too_long": "The duration exceeds the limit.",
+  "too_many_attempts": "Too many sign-in attempts. Try again later.",
+  "too_many_channels": "Only mono and stereo are supported.",
+  "unsupported_format": "Unsupported format.",
+  "unsupported_or_corrupt": "The file is damaged or not a supported audio file.",
+  "no_audio_stream": "The file has no audio stream.",
+  "upload_checksum_mismatch": "Checksum mismatch — upload the file again.",
+  "upload_link_invalid": "The upload link is invalid or already used.",
+  "upload_size_mismatch": "The uploaded size does not match the declared size.",
+  "review_login_required": "Sign in to rate the app.",
+  "review_own_app": "You cannot rate your own app.",
+  "review_no_access": "You can rate apps in your library: install or buy it first.",
+  "review_no_completed_session": "Paid apps can be rated after at least one completed session.",
+  "review_rate_limited": "Too many reviews in 24 hours. Try again tomorrow.",
+  "review_own_vote": "You cannot mark your own review as helpful.",
+  "review_own_product": "You cannot rate your own product.",
+  "review_no_delivered_purchase": "You can rate a product once an order with it has been delivered.",
+  "upload_offset_mismatch": "A file chunk arrived out of order. The upload resumes from byte {offset}.",
+  "validation_failed": "Please check the entered data.",
+  "version_conflict": "The session state changed. Refresh and try again.",
+  "version_frozen": "This version was submitted for review — create a new version to make changes.",
+  "product_locked": "A published product card cannot be edited: withdraw it from sale, change it and send it to moderation again. Prices, variant switches and stock can be changed right away.",
+  "product_incomplete": "The product is not ready for moderation yet — complete the items in the “Ready for moderation” list.",
+  "sku_taken": "This SKU already exists in the catalog."
+ },
+ "jobs": {
+  "decode_failed": "The file could not be fully decoded.",
+  "truncated_audio": "The file is truncated or damaged.",
+  "empty_audio": "The file contains no audio.",
+  "insufficient_disk": "Not enough space to process — will retry later.",
+  "worker_lost": "The worker stopped — the job will be retried.",
+  "true_peak_exceeded": "The true-peak ceiling could not be met.",
+  "clipping_detected": "Clipping detected.",
+  "delivery_mismatch": "The delivery file did not match the master.",
+  "encode_failed": "Packaging the result failed.",
+  "render_non_finite": "Numerical error while rendering."
+ },
+ "notifications": {
+  "review_reply": {
+   "subject": "The developer replied to your review: {app}",
+   "body": "Open the app page to read the reply. You can update your review."
   },
-  "jobs": {
-    "decode_failed": "The file could not be fully decoded.",
-    "truncated_audio": "The file is truncated or damaged.",
-    "empty_audio": "The file contains no audio.",
-    "insufficient_disk": "Not enough space to process — will retry later.",
-    "worker_lost": "The worker stopped — the job will be retried.",
-    "true_peak_exceeded": "The true-peak ceiling could not be met.",
-    "clipping_detected": "Clipping detected.",
-    "delivery_mismatch": "The delivery file did not match the master.",
-    "encode_failed": "Packaging the result failed.",
-    "render_non_finite": "Numerical error while rendering."
+  "purchase_paid": {
+   "subject": "Purchase confirmed: {app}",
+   "body": "Payment of {amount} is confirmed. {app} is now in your library."
   },
-  "notifications": {
-    "review_reply": {"subject": "The developer replied to your review: {app}", "body": "Open the app page to read the reply. You can update your review."},
-    "purchase_paid": {"subject": "Purchase confirmed: {app}", "body": "Payment of {amount} is confirmed. {app} is now in your library."},
-    "subscription_paid": {"subject": "Subscription paid", "body": "Paid through {until} ({amount})."},
-    "subscription_payment_failed": {"subject": "Subscription renewal failed", "body": "The renewal did not go through. Your paid access remains until {until}."},
-    "subscription_canceled": {"subject": "Auto-renewal turned off", "body": "Access remains until {until}."},
-    "refund_done": {"subject": "Refund completed", "body": "{amount} has been refunded to you."},
-    "version_approved": {"subject": "Version {version} approved", "body": "App {app}: version {version} was approved. Comment: {comment}"},
-    "version_rejected": {"subject": "Version {version} rejected", "body": "App {app}: version {version} was rejected. Moderator comment: {comment}"},
-    "hw_paid": {"subject": "Order {order} paid", "body": "Payment received. The order was handed to the supplier for picking."},
-    "hw_exception": {"subject": "Problem with order {order}", "body": "There is a problem with your order. We will contact you to agree on a solution or a refund."},
-    "hw_shipped": {"subject": "Order {order} shipped", "body": "The parcel was handed to {carrier}. Tracking number: {tracking}."},
-    "hw_delivered": {"subject": "Order {order} delivered", "body": "All parcels have been delivered."},
-    "hw_cancelled_refund_pending": {"subject": "Order {order} cancelled", "body": "The order was cancelled. The refund is processed separately."},
-    "quote_ready": {"subject": "Shipping quote for order {order}", "body": "The supplier quoted shipping at {amount}. Accept it before it expires."},
-    "return_approved": {"subject": "Return for order {order} approved", "body": "Ship the items back and enter the tracking number."},
-    "return_rejected": {"subject": "Return for order {order} rejected", "body": "See the seller's note in the order."},
-    "return_in_transit": {"subject": "Return for order {order} in transit", "body": "We are waiting to receive the items."},
-    "return_received": {"subject": "Return for order {order} received", "body": "The items were received and will be inspected."},
-    "return_inspected": {"subject": "Return for order {order} inspected", "body": "Inspection finished. The money refund is processed separately."},
-    "return_closed": {"subject": "Return for order {order} closed", "body": "The return process is complete."},
-    "seller_new_order": {"subject": "New order {order}", "body": "A paid order is waiting to be picked and packed."},
-    "seller_quote_requested": {"subject": "Shipping quote requested for {order}", "body": "The buyer requested a custom shipping quote."}
+  "subscription_paid": {
+   "subject": "Subscription paid",
+   "body": "Paid through {until} ({amount})."
   },
-  "plural": {
-    "sessions": "{count, plural, one {# session} other {# sessions}}"
+  "subscription_payment_failed": {
+   "subject": "Subscription renewal failed",
+   "body": "The renewal did not go through. Your paid access remains until {until}."
+  },
+  "subscription_canceled": {
+   "subject": "Auto-renewal turned off",
+   "body": "Access remains until {until}."
+  },
+  "refund_done": {
+   "subject": "Refund completed",
+   "body": "{amount} has been refunded to you."
+  },
+  "version_approved": {
+   "subject": "Version {version} approved",
+   "body": "App {app}: version {version} was approved. Comment: {comment}"
+  },
+  "version_rejected": {
+   "subject": "Version {version} rejected",
+   "body": "App {app}: version {version} was rejected. Moderator comment: {comment}"
+  },
+  "hw_paid": {
+   "subject": "Order {order} paid",
+   "body": "Payment received. The order was handed to the supplier for picking."
+  },
+  "hw_exception": {
+   "subject": "Problem with order {order}",
+   "body": "There is a problem with your order. We will contact you to agree on a solution or a refund."
+  },
+  "hw_shipped": {
+   "subject": "Order {order} shipped",
+   "body": "The parcel was handed to {carrier}. Tracking number: {tracking}."
+  },
+  "hw_delivered": {
+   "subject": "Order {order} delivered",
+   "body": "All parcels have been delivered."
+  },
+  "hw_cancelled_refund_pending": {
+   "subject": "Order {order} cancelled",
+   "body": "The order was cancelled. The refund is processed separately."
+  },
+  "quote_ready": {
+   "subject": "Shipping quote for order {order}",
+   "body": "The supplier quoted shipping at {amount}. Accept it before it expires."
+  },
+  "return_approved": {
+   "subject": "Return for order {order} approved",
+   "body": "Ship the items back and enter the tracking number."
+  },
+  "return_rejected": {
+   "subject": "Return for order {order} rejected",
+   "body": "See the seller's note in the order."
+  },
+  "return_in_transit": {
+   "subject": "Return for order {order} in transit",
+   "body": "We are waiting to receive the items."
+  },
+  "return_received": {
+   "subject": "Return for order {order} received",
+   "body": "The items were received and will be inspected."
+  },
+  "return_inspected": {
+   "subject": "Return for order {order} inspected",
+   "body": "Inspection finished. The money refund is processed separately."
+  },
+  "return_closed": {
+   "subject": "Return for order {order} closed",
+   "body": "The return process is complete."
+  },
+  "seller_new_order": {
+   "subject": "New order {order}",
+   "body": "A paid order is waiting to be picked and packed."
+  },
+  "seller_quote_requested": {
+   "subject": "Shipping quote requested for {order}",
+   "body": "The buyer requested a custom shipping quote."
+  },
+  "product_published": {
+   "subject": "Product {product} published",
+   "body": "The moderator approved {product}: it is now in the catalog. Comment: {comment}"
+  },
+  "product_rejected": {
+   "subject": "Product {product} rejected",
+   "body": "The moderator rejected {product}. Comment: {comment}. Fix the card in the supplier cabinet and send it again."
   }
+ },
+ "plural": {
+  "sessions": "{count, plural, one {# session} other {# sessions}}"
+ }
 }

@@ -195,3 +195,10 @@ footer.foot { border-top: 1px solid var(--line); margin-top: 56px; padding: 28px
 tr.row-bad td { background: #fbf0f0; }
 .pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
 @media (max-width: 560px) { .rating-summary { grid-template-columns: 1fr; } }
+/* NAP-022: supplier product editor */
+.grid3 { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid3 > * { min-width: 0; }
+@media (max-width: 720px) { .grid3 { grid-template-columns: minmax(0, 1fr); } }
+.dims { display: grid; gap: 6px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sku-card { border-left: 3px solid var(--line, #d3dbdc); }
+.sku-card.off { opacity: .7; }

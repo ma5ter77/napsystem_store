@@ -108,6 +108,8 @@ class Settings(BaseSettings):
                 raise ValueError("Mock shipping is not available in production")
             if self.secret_key.startswith("dev-"):
                 raise ValueError("NAP_SECRET_KEY must be set in production")
+            if self.storage_backend == "s3" and (not self.s3_secret_key or "change-me" in self.s3_secret_key):
+                raise ValueError("NAP_S3_SECRET_KEY must be set in production")
             if not self.cookie_secure:
                 raise ValueError("NAP_COOKIE_SECURE must be true in production")
         return self

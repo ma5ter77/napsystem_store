@@ -1,6 +1,6 @@
 {
   "product": "NAP Store",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "stage": "MVP для тестирования",
   "released": "2026-10-31",
   "spec": {
@@ -253,6 +253,15 @@
     }
   ],
   "releases": [
+    {
+      "version": "0.6.0",
+      "date": "2026-10-31",
+      "spec": "1.0",
+      "summary": {
+        "ru": "Закрытое S3-хранилище с переносом файлов, поставщики сами выставляют товары через модерацию",
+        "en": "Private S3 storage with file migration, suppliers list products themselves through moderation"
+      }
+    },
     {
       "version": "0.5.0",
       "date": "2026-10-31",

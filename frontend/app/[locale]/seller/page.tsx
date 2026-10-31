@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { useApp } from "@/components/Providers";
 import { DeveloperReviews } from "@/components/Reviews";
+import { SellerProducts } from "@/components/SellerProducts";
 import { Empty, ErrorBox, Loading, Price, RequireAuth, StatusBadge, useAction, useLoad } from "@/components/ui";
 import { api } from "@/lib/api";
 import { date } from "@/lib/i18n";
@@ -61,8 +62,8 @@ function Seller() {
   return (
     <div className="stack">
       <h1>{isSeller ? t("seller.title") : t("seller.fulfillment_title")}</h1>
-      {isSeller && <div className="tabs" role="tablist">{["orders", "inventory", "reviews"].map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => router.replace(`/${locale}/seller?tab=${x}`)}>{t(`seller.tab_${x}`)}</button>)}</div>}
-      {tab === "inventory" && isSeller ? <Inventory /> : tab === "reviews" && isSeller ? <DeveloperReviews scope="seller" /> : <Orders />}
+      {isSeller && <div className="tabs" role="tablist">{["orders", "products", "inventory", "reviews"].map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => router.replace(`/${locale}/seller?tab=${x}`)}>{t(`seller.tab_${x}`)}</button>)}</div>}
+      {tab === "products" && isSeller ? <SellerProducts /> : tab === "inventory" && isSeller ? <Inventory /> : tab === "reviews" && isSeller ? <DeveloperReviews scope="seller" /> : <Orders />}
     </div>
   );
 }

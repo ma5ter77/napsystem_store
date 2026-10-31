@@ -74,16 +74,36 @@ def decide(version_id: str, body: DecisionIn, request: Request, p=P, db=DB):
     return version_view(db, v, locale_of(request))
 
 
+@router.get("/moderation/products")
+def product_queue(request: Request, p=P, db=DB):
+    p.require_role("moderator", "admin")
+    from ..services import products as prod
+    return {"items": prod.moderation_queue(db, locale_of(request))}
+
+
+@router.get("/moderation/products/{product_id}")
+def product_for_moderation(product_id: str, request: Request, p=P, db=DB):
+    p.require_role("moderator", "admin")
+    from ..services import products as prod
+    x = db.get(Product, as_uuid(product_id, "product"))
+    if not x:
+        raise ApiError("not_found", 404, entity="product")
+    v = prod.view(db, x, locale_of(request))
+    from ..models import Seller
+    v["seller"] = db.get(Seller, x.seller_id).name
+    return v
+
+
 @router.post("/moderation/products/{product_id}/decision")
-def decide_product(product_id: str, body: DecisionIn, p=P, db=DB):
+def decide_product(product_id: str, body: DecisionIn, request: Request, p=P, db=DB):
     u = p.require_role("moderator", "admin")
-    prod = db.get(Product, as_uuid(product_id, "product"))
-    if not prod or prod.status not in ("submitted", "draft"):
-        raise ApiError("invalid_state", 409)
-    prod.status = "published" if body.decision == "approve" else "rejected"
-    audit(db, u.id, f"product.{prod.status}", "product", prod.id, {"comment": body.comment[:500]})
+    from ..services import products as prod
+    x = db.get(Product, as_uuid(product_id, "product"), with_for_update=True)
+    if not x:
+        raise ApiError("not_found", 404, entity="product")
+    prod.decide(db, u, x, body.decision, body.comment)
     db.commit()
-    return {"status": prod.status}
+    return {"status": x.status}
 
 
 # ------------------------------------------------------------------ admin

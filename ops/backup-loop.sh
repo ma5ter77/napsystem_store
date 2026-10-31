@@ -6,6 +6,7 @@
 #   BACKUP_AT           daily time, UTC, HH:MM              (02:30)
 #   BACKUP_KEEP_DAYS    delete dumps older than this        (14)
 #   BACKUP_STORAGE_DIR  if set, the file storage is archived too (tar, same retention)
+#   BACKUP_S3_DATA_DIR  if set and not empty, the bundled S3 server's data directory is archived too (NAP-004)
 #   BACKUP_ONCE=1       run one cycle and exit (manual run, tests)
 # Every cycle writes $BACKUP_DIR/last-status.json, read by the API for /metrics (nap_backup_age_seconds).
 set -uo pipefail
@@ -25,7 +26,7 @@ status() {  # ok|failed, file, message
 }
 
 cycle() {
-  local f out
+  local f out rc
   if ! f="$("$HERE/backup.sh" "$PG_URL" "$BACKUP_DIR" 2>&1 | tail -1)" || [ ! -f "$f" ]; then
     echo "backup failed: $f"; status failed "" "pg_dump failed: $f"; return 1
   fi
@@ -36,6 +37,12 @@ cycle() {
   if [ -n "${BACKUP_STORAGE_DIR:-}" ] && [ -d "$BACKUP_STORAGE_DIR" ]; then
     local t="$BACKUP_DIR/storage-$(date -u +%Y%m%dT%H%M%SZ).tar"
     tar -C "$BACKUP_STORAGE_DIR" -cf "$t" . && sha256sum "$t" > "$t.sha256" || { status failed "$f" "storage archive failed"; return 1; }
+  fi
+  if [ -n "${BACKUP_S3_DATA_DIR:-}" ] && [ -d "$BACKUP_S3_DATA_DIR" ] && [ -n "$(ls -A "$BACKUP_S3_DATA_DIR" 2>/dev/null)" ]; then
+    local t3="$BACKUP_DIR/storage-s3-$(date -u +%Y%m%dT%H%M%SZ).tar"
+    # tar exit 1 = "file changed as we read it" (the server is live): the archive is still usable
+    tar -C "$BACKUP_S3_DATA_DIR" -cf "$t3" . ; rc=$?
+    [ $rc -le 1 ] && sha256sum "$t3" > "$t3.sha256" || { status failed "$f" "s3 data archive failed"; return 1; }
   fi
   find "$BACKUP_DIR" -maxdepth 1 -type f \( -name 'nap-*.dump*' -o -name 'storage-*.tar*' \) -mtime +"$KEEP" -print -delete
   status ok "$f" "$(echo "$out" | tail -1)"
