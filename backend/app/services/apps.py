@@ -124,6 +124,18 @@ def update_version(db: Session, app: App, v: AppVersion, data: dict, actor_id: u
     if data.get("confirm_rights"):
         v.rights_confirmed_at = utcnow()
         audit(db, actor_id, "version.rights_confirmed", "app_version", v.id)
+    if "cover_asset_id" in data:  # NAP-025: set or remove (null) the uploaded cover of this draft version
+        cid = data["cover_asset_id"]
+        if cid is None:
+            v.cover_asset_id = None
+        else:
+            try:
+                a = db.get(Asset, uuid.UUID(str(cid)))
+            except ValueError:
+                a = None
+            if not a or a.kind != "cover" or a.app_id != app.id or a.status != "uploaded":
+                raise ApiError("validation_failed", 422, details={"field": "cover_asset_id"})
+            v.cover_asset_id = a.id
     if "category" in data:
         cat = db.scalar(select(Category).where(Category.kind == "app", Category.slug == data["category"]))
         if not cat:
@@ -211,7 +223,8 @@ def build_manifest(db: Session, app: App, v: AppVersion) -> dict:
         "dsp": dsp or {"profile": "none", "profile_version": 0, "engine_version": ENGINE_VERSION},
         "sessions": sessions,
         "questionnaires": {"pre": v.questionnaire_pre, "post": v.questionnaire_post},
-    }
+    } | ({"cover": {"asset_id": str(v.cover_asset_id), "sha256": db.get(Asset, v.cover_asset_id).sha256}}
+         if v.cover_asset_id else {})
 
 
 def submit(db: Session, app: App, v: AppVersion, actor_id: uuid.UUID) -> AppVersion:
@@ -232,6 +245,8 @@ def submit(db: Session, app: App, v: AppVersion, actor_id: uuid.UUID) -> AppVers
     for s in v.sessions:  # freeze referenced objects
         for aid in (s.delivery_asset_id, s.master_asset_id):
             db.get(Asset, aid).immutable = True
+    if v.cover_asset_id:
+        db.get(Asset, v.cover_asset_id).immutable = True
     audit(db, actor_id, "version.submitted", "app_version", v.id, {"manifest_sha256": v.manifest_sha256})
     return v
 
@@ -252,6 +267,13 @@ def verify_integrity(db: Session, app: App, v: AppVersion, deep: bool = False) -
                     problems.append(f"object_changed:{s.key}")
             except Exception:
                 problems.append(f"object_missing:{s.key}")
+    if v.cover_asset_id and deep:  # NAP-025: the cover object is checked like the audio
+        c = db.get(Asset, v.cover_asset_id)
+        try:
+            if get_storage().sha256(c.storage_key) != c.sha256:
+                problems.append("object_changed:cover")
+        except Exception:
+            problems.append("object_missing:cover")
     # the DSP profile snapshot of every session is part of the manifest hash above
     return problems
 
@@ -325,6 +347,7 @@ def publish(db: Session, app: App, v: AppVersion, actor_id: uuid.UUID) -> AppVer
     v.state = "published"
     v.published_at = utcnow()
     app.published_version_id = v.id
+    app.cover_asset_id = v.cover_asset_id  # NAP-025: the moderated cover of this version (None -> generated cover)
     for loc, m in v.metadata_.items():
         upsert_translation(db, "app", app.id, loc, m, "published")
     audit(db, actor_id, "version.published", "app_version", v.id)
@@ -341,7 +364,8 @@ def new_version(db: Session, app: App, actor_id: uuid.UUID) -> AppVersion:
                    metadata_=dict(last.metadata_) if last else {}, requirements=dict(last.requirements) if last else {},
                    questionnaire_pre=last.questionnaire_pre if last else None,
                    questionnaire_post=last.questionnaire_post if last else None,
-                   auto_release=last.auto_release if last else True)
+                   auto_release=last.auto_release if last else True,
+                   cover_asset_id=last.cover_asset_id if last else None)
     db.add(v)
     db.flush()
     if last:

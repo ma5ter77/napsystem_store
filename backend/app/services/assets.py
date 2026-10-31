@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
+from .covers import REQUIREMENTS as COVER_REQUIREMENTS
 from ..db import utcnow
 from ..dsp.media import MediaError, probe
 from ..errors import ApiError
@@ -28,7 +29,8 @@ COVER_EXT = {"png", "jpg", "jpeg", "webp"}
 def limits_public() -> dict:
     s = get_settings()
     return {"max_upload_bytes": s.max_upload_bytes, "max_duration_seconds": s.max_duration_seconds,
-            "accepted": sorted(SOURCE_EXT), "channels": [1, 2], "preview_seconds": s.preview_seconds}
+            "accepted": sorted(SOURCE_EXT), "channels": [1, 2], "preview_seconds": s.preview_seconds,
+            "cover": COVER_REQUIREMENTS}
 
 
 def create_upload(db: Session, owner_id: uuid.UUID, app: App, kind: str, filename: str, size: int,
@@ -45,8 +47,12 @@ def create_upload(db: Session, owner_id: uuid.UUID, app: App, kind: str, filenam
         if size > s.max_upload_bytes:
             raise ApiError("file_too_large", 413, max_bytes=s.max_upload_bytes)
     elif kind == "cover":
-        if ext not in COVER_EXT or size > 10 * 1024 * 1024:
+        if ext not in COVER_EXT:
             raise ApiError("unsupported_format", 415)
+        if size <= 0:
+            raise ApiError("empty_file", 422)
+        if size > 10 * 1024 * 1024:
+            raise ApiError("file_too_large", 413, max_bytes=10 * 1024 * 1024)
     else:
         raise ApiError("validation_failed", 422)
     if sha256 is not None and (len(sha256) != 64 or any(c not in "0123456789abcdef" for c in sha256)):
@@ -190,6 +196,24 @@ def _finalize(db: Session, ticket: UploadTicket, asset: Asset, tmp: str) -> Asse
             ticket.used_at = utcnow()
             db.commit()
             raise ApiError("too_long", 422)
+    if asset.kind == "cover":  # NAP-025: decode, check, strip metadata, crop 4:3, re-encode — only that is stored
+        from .covers import normalize
+        try:
+            out, info = normalize(tmp)
+        except ApiError:
+            asset.status = "rejected"
+            ticket.used_at = utcnow()
+            db.commit()
+            raise
+        os.replace(out, tmp)
+        size = os.path.getsize(tmp)
+        h = hashlib.sha256()
+        with open(tmp, "rb") as fh:
+            h.update(fh.read())
+        digest = h.hexdigest()
+        asset.storage_key = new_key("cover", asset.owner_id, "webp")
+        asset.content_type = "image/webp"
+        asset.probe = info
     get_storage().put_file(asset.storage_key, tmp, asset.content_type)
     asset.size_bytes = size
     asset.sha256 = digest

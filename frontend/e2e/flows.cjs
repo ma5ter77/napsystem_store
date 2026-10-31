@@ -16,6 +16,23 @@ function wav(seconds = 4, fs_ = 48000) {
   const p = path.join(out, "e2e.wav"); fs.writeFileSync(p, b); return p;
 }
 
+// NAP-025: a small valid PNG for the cover upload (no image libraries needed)
+function png(w = 900, h = 675) {
+  const zlib = require("zlib");
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    const td = Buffer.concat([Buffer.from(type), data]);
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(zlib.crc32(td) >>> 0);
+    return Buffer.concat([len, td, crc]);
+  };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2;
+  const raw = Buffer.alloc((w * 3 + 1) * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const o = y * (w * 3 + 1) + 1 + x * 3; raw[o] = 40 + (x % 200); raw[o + 1] = 90; raw[o + 2] = 140 + (y % 100); }
+  const p = path.join(out, "cover.png");
+  fs.writeFileSync(p, Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk("IHDR", ihdr), chunk("IDAT", zlib.deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]));
+  return p;
+}
+
 function dict(l) {
   const d = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "messages", `${l}.json`), "utf8"));
   return (k, params = {}) => {
@@ -108,6 +125,9 @@ async function run(L) {
     await d.getByText(t("dev.unsaved_rights")).waitFor();
     await d.getByRole("button", { name: t("common.save"), exact: true }).click();
     await d.getByText(t("dev.saved_details")).waitFor();
+    // NAP-025: own cover, moderated with the version
+    await d.locator("input[type=file][accept^='image']").setInputFiles(png());
+    await d.getByText(t("dev.cover_saved")).waitFor({ timeout: 30000 });
     await d.getByRole("tab", { name: t("dev.tab_program") }).click();
     // the first finished track is already session 1, titled like the app
     await d.getByLabel(t("dev.track")).waitFor(); // the Program tab is shown (Details also has title fields)
@@ -153,6 +173,12 @@ async function run(L) {
     await d.reload();
     await d.getByText(t("dev.next_published")).waitFor();
     await d.locator(".badge", { hasText: t("version_state.published") }).first().waitFor();
+    // the uploaded cover is now public on the store page
+    const r = await d.request.get(`${BASE}/api/v1/catalog/apps/${slug}`);
+    const card = await r.json();
+    if (!card.cover_url) throw new Error("published app has no cover_url");
+    const img = await d.request.get(`${BASE}${card.cover_url}`);
+    if (img.status() !== 200 || img.headers()["content-type"] !== "image/webp") throw new Error("cover not served: " + img.status());
   });
   const buyer = await register(browser, L, t, false);
   const b = buyer.p;

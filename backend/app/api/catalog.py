@@ -39,6 +39,7 @@ def app_card(db, app: App, locale: str, detail: bool = False, user_id=None, rati
            "total_duration_seconds": round(sum(s.duration_seconds for s in v.sessions), 1) if v else 0,
            "requirements": v.requirements if v else {}, "version": v.version_label if v else None,
            "has_public_preview": app.public_preview_asset_id is not None,
+           "cover_url": cover_url(db, app),
            "rating": rating if rating is not None else reviews.summaries(db, [app.id])[app.id]}
     if detail:
         out["rating_summary"] = reviews.summary(db, app)
@@ -96,6 +97,33 @@ def catalog(request: Request, q: str | None = None, category: str | None = None,
                                                              if t.status == "published"]).lower() for a in apps}
         cards = [c for c in cards if ql in hay[c["id"]]]
     return page(cards[offset:offset + limit], len(cards), limit, offset)
+
+
+def cover_url(db, app: App) -> str | None:
+    """NAP-025: public URL of the moderated cover; the sha in the query makes it cacheable for good."""
+    if not app.cover_asset_id:
+        return None
+    a = db.get(Asset, app.cover_asset_id)
+    return f"/api/v1/catalog/apps/{app.slug}/cover?v={a.sha256[:12]}" if a and a.sha256 else None
+
+
+@router.get("/catalog/apps/{slug}/cover")
+def app_cover(slug: str, db=DB):
+    """Cover of a published app — public like the store card itself; drafts and other files are never exposed."""
+    app = db.scalar(select(App).where(App.slug == slug))
+    if not app or not app.published_version_id or app.deleted_at or not app.cover_asset_id:
+        raise ApiError("not_found", 404, entity="cover")
+    a = db.get(Asset, app.cover_asset_id)
+    st = get_storage()
+    headers = {"Cache-Control": "public, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff"}
+    path = st.local_path(a.storage_key)
+    if path:
+        if not os.path.exists(path):
+            raise ApiError("not_found", 404, entity="cover")
+        return FileResponse(path, media_type="image/webp", headers=headers)
+    body, _, length = st.open_range(a.storage_key, None)
+    return StreamingResponse(body.iter_chunks(1 << 16), media_type="image/webp",
+                             headers=headers | {"Content-Length": str(length)})
 
 
 @router.get("/catalog/apps/{slug}")

@@ -202,3 +202,5 @@ tr.row-bad td { background: #fbf0f0; }
 .dims { display: grid; gap: 6px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .sku-card { border-left: 3px solid var(--line, #d3dbdc); }
 .sku-card.off { opacity: .7; }
+/* NAP-025: uploaded covers fill the same 4:3 frame as generated ones */
+.cover-img { display: block; width: 100%; height: 100%; object-fit: cover; }

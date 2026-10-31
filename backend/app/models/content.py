@@ -67,6 +67,9 @@ class AppVersion(Base):
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # NAP-083: publish as soon as the moderator approves (and a price is set), like "release automatically"
     auto_release: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    # NAP-025: uploaded cover of this version — moderated with the version, becomes the app cover on publish
+    cover_asset_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("assets.id", use_alter=True,
+                                                                        name="fk_app_versions_cover"))
     sessions: Mapped[list["ProgramSession"]] = relationship(order_by="ProgramSession.position",
                                                            cascade="all, delete-orphan", lazy="selectin")
     __table_args__ = (UniqueConstraint("app_id", "number"),

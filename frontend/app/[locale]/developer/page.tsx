@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import { BeatCover } from "@/components/Art";
+import { AppCover } from "@/components/Art";
 import { useApp } from "@/components/Providers";
 import { DeveloperReviews } from "@/components/Reviews";
 import { Empty, ErrorBox, errorFields, Loading, Price, RequireAuth, StatusBadge, useAction, useDraft, useLoad } from "@/components/ui";
@@ -62,7 +62,7 @@ function Apps() {
         <div className="grid">
           {data.items.map((a: any) => (
             <Link key={a.id} className="card" href={`/${locale}/developer/apps/${a.id}`}>
-              <div className="art"><BeatCover hue={a.cover_hue} seed={a.slug} /></div>
+              <div className="art"><AppCover a={a} /></div>
               <h3>{a.title}</h3>
               <div className="meta">{a.slug} · v{a.latest_version?.label} <StatusBadge ns="version_state" value={a.latest_version?.state} /></div>
             </Link>

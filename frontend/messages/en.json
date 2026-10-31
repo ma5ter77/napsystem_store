@@ -220,7 +220,17 @@
   "auto_release_on": "The version will be published right after approval.",
   "auto_release_off": "After approval publish the version with “Publish”.",
   "saved_price_published": "Price saved — the approved version is published, the app is in the store.",
-  "next_approved_price_auto": "The moderator approved the version. Set a price and it appears in the store right away."
+  "next_approved_price_auto": "The moderator approved the version. Set a price and it appears in the store right away.",
+  "cover": "Cover",
+  "cover_upload": "Upload cover",
+  "cover_replace": "Replace cover",
+  "cover_remove": "Use generated cover",
+  "cover_generated": "The generated cover based on the program's frequencies is used now.",
+  "cover_uploaded": "Your own cover is uploaded. The moderator checks it with the version; it appears in the store after publishing.",
+  "cover_rules": "PNG, JPEG or WebP up to 10 MB, at least 800×600 pixels. The image is centre-cropped to 4:3 and saved as 1200×900; camera data and location are removed. Avoid small text — it is unreadable on the card.",
+  "cover_frozen": "The cover of a version in moderation or published cannot change — create a new version to replace it.",
+  "cover_saved": "Cover saved.",
+  "cover_removed": "The generated cover will be used."
  },
  "mod": {
   "done_approve": "Version approved.",

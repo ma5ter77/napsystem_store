@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BeatCover } from "@/components/Art";
+import { AppCover } from "@/components/Art";
 import { useApp } from "@/components/Providers";
 import { Empty, ErrorBox, Loading, RequireAuth, useLoad } from "@/components/ui";
 import { date } from "@/lib/i18n";
@@ -19,7 +19,7 @@ function Library() {
           {data.items.map((a: any) => (
             <div key={a.id} className="stack">
               <Link className="card" href={`/${locale}/apps/${a.slug}`}>
-                <div className="art"><BeatCover hue={a.cover_hue} seed={a.slug} title={a.title} /></div>
+                <div className="art"><AppCover a={a} /></div>
                 <h3>{a.title}</h3>
               </Link>
               {a.access.has_access ? (
