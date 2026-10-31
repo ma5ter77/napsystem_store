@@ -99,16 +99,14 @@ def list_products(db: Session, locale: str, category: str | None = None, q: str 
     if sort == "rating":
         items.sort(key=lambda i: (i["rating"]["average"] is not None, i["rating"]["average"] or 0,
                                   i["rating"]["count"]), reverse=True)
-    if q:
-        ql = q.lower()
-        trs = get_translations(db, "product", [p.id for p in rows])
-        keep = set()
-        for p in rows:
-            hay = " ".join([p.brand, p.model, p.slug] + [" ".join(str(v) for v in t.data.values())
-                                                         for t in trs.get(p.id, {}).values()]).lower()
-            if ql in hay:
-                keep.add(str(p.id))
-        items = [i for i in items if i["id"] in keep]
+    if q:  # NAP-028: full-text search with RU/EN morphology
+        from .search import rank_products
+        ranks = rank_products(db, [p.id for p in rows], q)
+        if ranks is not None:
+            keep = {str(k): v for k, v in ranks.items()}
+            items = [i for i in items if i["id"] in keep]
+            if not sort:
+                items.sort(key=lambda i: -keep[i["id"]])
     return items[offset:offset + limit], len(items)
 
 
