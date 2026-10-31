@@ -560,6 +560,17 @@ M.update({
 })
 
 
+M.update({  # NAP-023: saved addresses
+"address.saved_title": ("Сохранённые адреса", "Saved addresses"),
+"address.use": ("Доставить сюда", "Deliver here"),
+"address.or_new": ("Или введите новый адрес — он сохранится для следующих заказов.", "Or enter a new address — it is saved for your next orders."),
+"address.delete": ("Удалить", "Delete"),
+"address.deleted": ("Адрес удалён.", "Address deleted."),
+"address.recheck_hint": ("Правила страны и перевозчика проверяются заново для каждого заказа.", "Country and carrier rules are checked again for every order."),
+"account.tab_addresses": ("Адреса", "Addresses"),
+"account.no_addresses": ("Сохранённых адресов пока нет. Адрес сохранится, когда вы укажете его в заказе оборудования.", "No saved addresses yet. An address is saved when you enter it for a hardware order."),
+})
+
 def nest(lang):
     out = {}
     for key, pair in M.items():

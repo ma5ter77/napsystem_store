@@ -202,3 +202,6 @@ tr.row-bad td { background: #fbf0f0; }
 .dims { display: grid; gap: 6px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .sku-card { border-left: 3px solid var(--line, #d3dbdc); }
 .sku-card.off { opacity: .7; }
+/* NAP-023: saved addresses */
+ul.plain { list-style: none; padding: 0; margin: 0; }
+.row.between { justify-content: space-between; }

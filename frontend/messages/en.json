@@ -496,7 +496,13 @@
  "address": {
   "invalid_field": "Check this field",
   "save": "Save address",
-  "latin_hint": "The carrier requires Latin characters for international labels. Add a Latin spelling — your original address is kept."
+  "latin_hint": "The carrier requires Latin characters for international labels. Add a Latin spelling — your original address is kept.",
+  "saved_title": "Saved addresses",
+  "use": "Deliver here",
+  "or_new": "Or enter a new address — it is saved for your next orders.",
+  "delete": "Delete",
+  "deleted": "Address deleted.",
+  "recheck_hint": "Country and carrier rules are checked again for every order."
  },
  "returns": {
   "title": "Return items",
@@ -613,7 +619,9 @@
   "consent_box": "I allow storing my measurements",
   "delete_measurements": "Delete all my measurements",
   "deleted": "Records deleted: {count}",
-  "no_notifications": "No notifications."
+  "no_notifications": "No notifications.",
+  "tab_addresses": "Addresses",
+  "no_addresses": "No saved addresses yet. An address is saved when you enter it for a hardware order."
  },
  "fin": {
   "sales": "One-time sales",

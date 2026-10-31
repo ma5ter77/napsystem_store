@@ -282,6 +282,21 @@ async function run(L) {
     await b.getByText(t("orders.parcels")).waitFor();
     await b.screenshot({ path: `${out}/${L}-order.png`, fullPage: true });
   });
+  await step("saved address: one click on the next order, listed in the account (NAP-023)", async () => {
+    await b.goto(`${BASE}/${L}/devices/nap-cable-35`);
+    await b.getByRole("button", { name: t("cart.add") }).first().click();
+    await b.getByRole("link", { name: t("cart.added") }).waitFor();
+    await b.goto(`${BASE}/${L}/cart`);
+    await b.getByRole("button", { name: t("cart.checkout") }).click();
+    await b.waitForURL("**/orders?group=**");
+    await b.locator("a.card").first().click();
+    await b.waitForURL(/\/orders\/[0-9a-f-]{36}$/);
+    const row = b.getByTestId("saved-addresses").locator("li", { hasText: "Abovyan st. 10" }).first();
+    await row.getByRole("button", { name: t("address.use") }).click();
+    await b.getByRole("button", { name: t("orders.calculate") }).waitFor();
+    await b.goto(`${BASE}/${L}/account?tab=addresses`);
+    await b.getByTestId("saved-addresses").getByText("Abovyan st. 10").first().waitFor();
+  });
   await step("product ratings: verified purchases only (NAP-079)", async () => {
     await b.goto(`${BASE}/${L}/devices/nap-studio-headphones`);
     await b.getByRole("heading", { name: t("rev.title_section") }).waitFor();
