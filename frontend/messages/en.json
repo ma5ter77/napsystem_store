@@ -17,7 +17,8 @@
   "close_menu": "Close",
   "login": "Sign in",
   "language": "Interface language",
-  "content": "Site content"
+  "content": "Site content",
+  "skip": "Skip to content"
  },
  "about": {
   "spec_draft": "draft, awaiting approval",
@@ -79,7 +80,8 @@
   "unprocessed": "Unprocessed webhooks",
   "outbox": "Outbox items",
   "run_ops": "Process queues now",
-  "i18n_missing": "Missing dictionary keys: RU {ru}, EN {en}"
+  "i18n_missing": "Missing dictionary keys: RU {ru}, EN {en}",
+  "role_for": "Role for {email}"
  },
  "dev": {
   "saved_details": "Details saved.",
@@ -580,7 +582,8 @@
   "after": "After",
   "diff": "Difference",
   "self_report_note": "This is your self-rating on a 0–10 scale, not a medical index.",
-  "history": "Session history"
+  "history": "Session history",
+  "progress": "Session progress"
  },
  "account": {
   "title": "Account",

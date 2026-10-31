@@ -17,7 +17,7 @@ export function BeatCover({ hue = 210, seed = "x", beats = 3, title }: { hue?: n
   }).join(" ");
   const bg = `hsl(${hue} 32% 22%)`;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title ?? ""} preserveAspectRatio="xMidYMid slice">
+    <svg viewBox={`0 0 ${W} ${H}`} {...(title ? { role: "img", "aria-label": title } : { "aria-hidden": true })} preserveAspectRatio="xMidYMid slice">
       <rect width={W} height={H} fill={bg} />
       <rect width={W} height={H} fill={`hsl(${(hue + 40) % 360} 40% 30%)`} opacity=".35" />
       <polyline points={env} fill="none" stroke="#fff" strokeOpacity=".22" strokeWidth="26" strokeLinecap="round" />
@@ -39,7 +39,7 @@ const SHAPES: Record<string, string> = {
 
 export function ProductArt({ category, hue = 30, title }: { category: string; hue?: number; title?: string }) {
   return (
-    <svg viewBox="0 0 400 300" role="img" aria-label={title ?? ""} preserveAspectRatio="xMidYMid slice">
+    <svg viewBox="0 0 400 300" {...(title ? { role: "img", "aria-label": title } : { "aria-hidden": true })} preserveAspectRatio="xMidYMid slice">
       <rect width="400" height="300" fill={`hsl(${hue} 22% 88%)`} />
       <circle cx="320" cy="60" r="90" fill={`hsl(${hue} 35% 80%)`} />
       <path d={SHAPES[category] ?? SHAPES.controllers} fill="none" stroke={`hsl(${hue} 30% 24%)`} strokeWidth="7"

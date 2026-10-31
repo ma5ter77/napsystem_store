@@ -58,6 +58,7 @@ function Questionnaire({ q, onDone, phase }: { q: any; phase: "pre" | "post"; on
       {q.items.map((it: any) => (
         <label key={it.id} className="field">{it.label}: <strong>{answers[it.id] ?? "—"}</strong>
           <input type="range" min={it.min} max={it.max} step={1} value={answers[it.id] ?? Math.round((it.min + it.max) / 2)}
+                 aria-valuetext={`${answers[it.id] ?? Math.round((it.min + it.max) / 2)} (${it.low} — ${it.high})`}
                  onChange={(e) => setAnswers({ ...answers, [it.id]: Number(e.target.value) })} />
           <span className="spread hint"><span>{it.low}</span><span>{it.high}</span></span>
         </label>
@@ -291,7 +292,9 @@ function Player() {
       {phase === "player" && audio.current && (
         <div className="panel stack">
           <div className="player-time">{duration(pos, locale)} <span className="muted" style={{ fontSize: "1rem" }}>/ {duration(audio.current.buf.duration, locale)}</span></div>
-          <div className="progress"><i style={{ width: `${(pos / audio.current.buf.duration) * 100}%` }} /></div>
+          <div className="progress" role="progressbar" aria-label={t("player.progress")} aria-valuemin={0}
+            aria-valuemax={Math.round(audio.current.buf.duration)} aria-valuenow={Math.round(pos)}
+            aria-valuetext={`${duration(pos, locale)} / ${duration(audio.current.buf.duration, locale)}`}><i style={{ width: `${(pos / audio.current.buf.duration) * 100}%` }} /></div>
           <div className="row">
             {state === "running" ? <button className="btn" onClick={onPause}>{t("player.pause")}</button>
               : <button className="btn" onClick={onPlay}>{state === "paused" ? t("player.resume") : t("player.play")}</button>}
