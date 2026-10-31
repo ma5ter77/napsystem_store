@@ -1,0 +1,284 @@
+{
+  "product": "NAP Store",
+  "version": "0.2.0",
+  "stage": "MVP для тестирования",
+  "released": "2026-10-31",
+  "spec": {
+    "version": "1.0",
+    "status": "принято в работу",
+    "date": "2026-10-30",
+    "document": "spec/TZ-v1.0.md"
+  },
+  "description_version": "1.0",
+  "backlog_url": "https://claude.ai/artifact/SuaJbgYtbHjtc9r4pYJGWu",
+  "acceptance": {
+    "passed": 35,
+    "failed": 0,
+    "not_run": 3,
+    "total": 38,
+    "not_run_items": [
+      "21 — docker compose на чистой машине",
+      "23 — live sandbox Stripe",
+      "33 — live EasyPost"
+    ]
+  },
+  "coverage": [
+    {
+      "section": "1",
+      "title": {
+        "ru": "Идея и назначение",
+        "en": "Purpose"
+      },
+      "status": "done",
+      "note": {
+        "ru": "Магазин приложений и оборудования, 30/70 только для цифровых товаров",
+        "en": "Apps and hardware store, 30/70 for digital goods only"
+      }
+    },
+    {
+      "section": "2",
+      "title": {
+        "ru": "Что считается приложением",
+        "en": "What an app is"
+      },
+      "status": "done",
+      "note": {
+        "ru": "Декларативный пакет, сторонний код не исполняется",
+        "en": "Declarative package, no third-party code runs"
+      }
+    },
+    {
+      "section": "3",
+      "title": {
+        "ru": "Методическая база",
+        "en": "Methodological basis"
+      },
+      "status": "done",
+      "note": {
+        "ru": "Собственный генератор двух несущих, без обещаний состояния",
+        "en": "Own two-carrier generator, no state promises"
+      }
+    },
+    {
+      "section": "4",
+      "title": {
+        "ru": "Роли и доступ",
+        "en": "Roles and access"
+      },
+      "status": "done",
+      "note": {
+        "ru": "8 ролей, проверка на сервере",
+        "en": "8 roles, server-side checks"
+      }
+    },
+    {
+      "section": "5",
+      "title": {
+        "ru": "Интерфейсы и сценарии",
+        "en": "Interfaces and flows"
+      },
+      "status": "done",
+      "note": {
+        "ru": "Все кабинеты; товары поставщик пока заводит через администратора",
+        "en": "All cabinets; supplier product editing goes through admin for now"
+      }
+    },
+    {
+      "section": "6",
+      "title": {
+        "ru": "Русский и английский",
+        "en": "Russian and English"
+      },
+      "status": "done",
+      "note": {
+        "ru": "SSR /ru /en, hreflang, словари с проверкой",
+        "en": "SSR /ru /en, hreflang, checked dictionaries"
+      }
+    },
+    {
+      "section": "7",
+      "title": {
+        "ru": "Архитектура",
+        "en": "Architecture"
+      },
+      "status": "done",
+      "note": {
+        "ru": "Next.js 15, FastAPI, PostgreSQL, Celery; MinIO — опционально",
+        "en": "Next.js 15, FastAPI, PostgreSQL, Celery; MinIO optional"
+      }
+    },
+    {
+      "section": "8",
+      "title": {
+        "ru": "Бинауральный конвертер",
+        "en": "Binaural converter"
+      },
+      "status": "done",
+      "note": {
+        "ru": "Реальная обработка, QA, очередь; частоты постоянные (переходы — бэклог)",
+        "en": "Real processing, QA, queue; constant frequencies (transitions in backlog)"
+      }
+    },
+    {
+      "section": "9",
+      "title": {
+        "ru": "Версии и модерация",
+        "en": "Versions and moderation"
+      },
+      "status": "done",
+      "note": {
+        "ru": "JSON Schema, заморозка, контроль подмены",
+        "en": "JSON Schema, freezing, substitution checks"
+      }
+    },
+    {
+      "section": "10",
+      "title": {
+        "ru": "Покупки, подписки, 30/70",
+        "en": "Purchases, subscriptions, 30/70"
+      },
+      "status": "partial",
+      "note": {
+        "ru": "Mock полностью; Stripe test — без live-проверки; налоги = 0",
+        "en": "Mock complete; Stripe test not run live; tax = 0"
+      }
+    },
+    {
+      "section": "11",
+      "title": {
+        "ru": "Оборудование и комплекты",
+        "en": "Hardware and kits"
+      },
+      "status": "done",
+      "note": {
+        "ru": "Demo-данные поставщиков",
+        "en": "Demo supplier data"
+      }
+    },
+    {
+      "section": "12",
+      "title": {
+        "ru": "Заказы и склад",
+        "en": "Orders and stock"
+      },
+      "status": "done",
+      "note": {
+        "ru": "Резервы, allocated, поздняя оплата, посылки, возвраты",
+        "en": "Reservations, allocation, late payment, parcels, returns"
+      }
+    },
+    {
+      "section": "13",
+      "title": {
+        "ru": "Международная доставка",
+        "en": "International shipping"
+      },
+      "status": "partial",
+      "note": {
+        "ru": "Mock и ручной режим; EasyPost test — без live-проверки",
+        "en": "Mock and manual; EasyPost test not run live"
+      }
+    },
+    {
+      "section": "14",
+      "title": {
+        "ru": "Кресло и сеансы",
+        "en": "Chair and sessions"
+      },
+      "status": "simulated",
+      "note": {
+        "ru": "Симулятор и веб-проигрыватель; протокол кресла не предоставлен",
+        "en": "Simulator and web player; chair protocol not provided"
+      }
+    },
+    {
+      "section": "15",
+      "title": {
+        "ru": "Оценка состояния",
+        "en": "State assessment"
+      },
+      "status": "done",
+      "note": {
+        "ru": "Анкеты, согласие; реальные датчики — бэклог",
+        "en": "Questionnaires, consent; real sensors in backlog"
+      }
+    },
+    {
+      "section": "16",
+      "title": {
+        "ru": "API, SDK и данные",
+        "en": "API, SDK and data"
+      },
+      "status": "done",
+      "note": {
+        "ru": "OpenAPI, SDK с рабочим примером",
+        "en": "OpenAPI, SDK with a working example"
+      }
+    },
+    {
+      "section": "17",
+      "title": {
+        "ru": "Безопасность и эксплуатация",
+        "en": "Security and operations"
+      },
+      "status": "partial",
+      "note": {
+        "ru": "Есть health/метрики/бэкап; SMTP, мониторинг и CI — бэклог",
+        "en": "Health, metrics, backup done; SMTP, monitoring, CI in backlog"
+      }
+    },
+    {
+      "section": "18",
+      "title": {
+        "ru": "Критерии приёмки",
+        "en": "Acceptance criteria"
+      },
+      "status": "partial",
+      "note": {
+        "ru": "35 passed, 0 failed, 3 not run",
+        "en": "35 passed, 0 failed, 3 not run"
+      }
+    },
+    {
+      "section": "19",
+      "title": {
+        "ru": "Demo и поставка",
+        "en": "Demo and delivery"
+      },
+      "status": "done",
+      "note": {
+        "ru": "Demo RU/EN, документация, отчёты",
+        "en": "RU/EN demo, documentation, reports"
+      }
+    }
+  ],
+  "releases": [
+    {
+      "version": "0.2.0",
+      "date": "2026-10-31",
+      "spec": "1.0",
+      "summary": {
+        "ru": "Версионность ТЗ и продукта, страница «О версии», бэклог",
+        "en": "Spec and product versioning, About page, backlog"
+      }
+    },
+    {
+      "version": "0.1.1",
+      "date": "2026-10-31",
+      "spec": "1.0",
+      "summary": {
+        "ru": "Исправления Docker Compose, скрипт развёртывания на VPS",
+        "en": "Docker Compose fixes, VPS deployment script"
+      }
+    },
+    {
+      "version": "0.1.0",
+      "date": "2026-10-31",
+      "spec": "1.0",
+      "summary": {
+        "ru": "Первая поставка MVP по ТЗ v1.0",
+        "en": "First MVP delivery for spec v1.0"
+      }
+    }
+  ]
+}

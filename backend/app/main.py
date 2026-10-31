@@ -46,7 +46,8 @@ METRICS = {"requests": 0, "errors_5xx": 0, "errors_4xx": 0, "duration_ms_sum": 0
 def create_app() -> FastAPI:
     setup_logging()
     s = get_settings()
-    app = FastAPI(title="NAP Store API", version="1.0.0", openapi_url="/api/v1/openapi.json",
+    from .api.about import release
+    app = FastAPI(title="NAP Store API", version=release()["version"], openapi_url="/api/v1/openapi.json",
                   docs_url="/api/v1/docs", redoc_url=None,
                   description="NAP Store platform API. Machine error codes are stable; messages are localized "
                               "(ru/en). Mutating requests with duplicate risk accept an Idempotency-Key header.")

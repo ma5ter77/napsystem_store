@@ -5,7 +5,8 @@ import "../globals.css";
 import { Header } from "@/components/Header";
 import { Providers } from "@/components/Providers";
 import { isLocale, translator } from "@/lib/i18n";
-import { alternates } from "@/lib/server";
+import { alternates, serverApi } from "@/lib/server";
+import Link from "next/link";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
@@ -22,6 +23,7 @@ export default async function LocaleLayout({ children, params }: { children: Rea
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const t = translator(locale);
+  const rel = await serverApi<any>("/version", locale);
   return (
     <html lang={locale}>
       <body>
@@ -32,6 +34,7 @@ export default async function LocaleLayout({ children, params }: { children: Rea
             <div className="wrap stack">
               <p>{t("footer.disclaimer")}</p>
               <p>{t("footer.methods")}</p>
+              {rel.ok && <p><Link href={`/${locale}/about`}>{t("footer.version", { version: rel.data.version, spec: rel.data.spec.version })}</Link></p>}
             </div>
           </footer>
         </Providers>

@@ -19,6 +19,7 @@ x-backend-env: &backend-env
   NAP_EASYPOST_API_KEY: ${NAP_EASYPOST_API_KEY:-}
   NAP_EASYPOST_WEBHOOK_SECRET: ${NAP_EASYPOST_WEBHOOK_SECRET:-}
   NAP_JOB_WORKDIR: /app/var/jobs
+  NAP_BUILD: ${NAP_BUILD:-docker}
 
 services:
   postgres:

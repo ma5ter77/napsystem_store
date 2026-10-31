@@ -106,3 +106,21 @@ def test_openapi_and_ops_endpoints():
     assert "nap_webhooks_unprocessed" in m and "nap_conversion_jobs" in m
     # pagination limits
     assert c.get("/catalog/apps?limit=1000").status_code == 422
+
+
+def test_version_endpoint_matches_repository_release():
+    import json
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2]
+    repo = json.loads((root / "release.json").read_text())
+    c = Client()
+    v = ok(c.get("/version"))
+    assert v["version"] == repo["version"] and v["spec"]["version"] == repo["spec"]["version"]
+    assert v == ok(c.get("/version")) and "spec-1.0" in v["documents"]
+    # served documents are byte-identical to the versioned repository files (run ops/release.py after edits)
+    assert c.get("/about/documents/spec-1.0").text == (root / "docs/spec/TZ-v1.0.md").read_text()
+    assert c.get("/about/documents/changelog").text == (root / "CHANGELOG.md").read_text()
+    assert c.get("/about/documents/project").text == (root / "docs/PROJECT.md").read_text()
+    assert f"## [{repo['version']}]" in (root / "CHANGELOG.md").read_text()
+    assert c.get("/about/documents/nope").status_code == 404
+    assert ok(c.get("/openapi.json"))["info"]["version"] == repo["version"]

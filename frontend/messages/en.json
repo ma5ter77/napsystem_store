@@ -18,7 +18,41 @@
  },
  "footer": {
   "disclaimer": "NAP Store verifies technical signal parameters. It is not a medical service: neither the frequencies in a file nor a session guarantee any brain state or therapeutic result.",
-  "methods": "The converter is our own two-carrier generator. Published approaches of The Monroe Institute and the Center for Neuroacoustic Research served as methodological references; there is no licence, partnership or access to proprietary algorithms."
+  "methods": "The converter is our own two-carrier generator. Published approaches of The Monroe Institute and the Center for Neuroacoustic Research served as methodological references; there is no licence, partnership or access to proprietary algorithms.",
+  "version": "NAP Store {version} · spec v{spec}"
+ },
+ "about": {
+  "title": "About this version",
+  "lead": "Which product version you are looking at and which version of the specification it implements.",
+  "product": "Product version",
+  "spec": "Specification version",
+  "stage": "Stage",
+  "released": "Release date",
+  "build": "Build",
+  "environment": "Environment",
+  "description": "Project description",
+  "acceptance": "Acceptance for spec v{spec}",
+  "acc_line": "{passed} of {total} criteria passed, {failed} failed, {not_run} not run",
+  "coverage": "Specification coverage",
+  "section": "Section",
+  "status": "Status",
+  "note": "Note",
+  "releases": "Release history",
+  "implements": "implements spec v{spec}",
+  "documents": "Documents",
+  "doc_spec": "Specification v{v}",
+  "doc_project": "Project description v{v}",
+  "doc_changelog": "Changelog",
+  "backlog": "Improvement backlog",
+  "backlog_hint": "Interface, service and feature work is requested and tracked in the backlog.",
+  "back": "Back to About",
+  "doc_lang_note": "This document is maintained in Russian."
+ },
+ "coverage": {
+  "done": "implemented",
+  "partial": "partial",
+  "simulated": "simulated",
+  "not_started": "not started"
  },
  "home": {
   "meta": "Store for neuroacoustic programs and NAP SYSTEM equipment.",
