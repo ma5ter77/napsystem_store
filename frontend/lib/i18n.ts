@@ -35,10 +35,24 @@ export function format(template: string, locale: Locale, params: Record<string, 
   return out;
 }
 
-export function translator(locale: Locale) {
+/** NAP-084: every built-in UI text as a flat key -> text map (for the content editor). */
+export function flatDict(locale: Locale): Record<string, string> {
+  const out: Record<string, string> = {};
+  const walk = (o: Record<string, unknown>, prefix: string) => {
+    for (const [k, v] of Object.entries(o)) {
+      if (typeof v === "string") out[prefix + k] = v;
+      else if (v && typeof v === "object") walk(v as Record<string, unknown>, `${prefix}${k}.`);
+    }
+  };
+  walk(DICTS[locale], "");
+  return out;
+}
+
+/** overrides: texts published by a content editor (NAP-084) — they win over the built-in dictionary. */
+export function translator(locale: Locale, overrides: Record<string, string> = {}) {
   const d = DICTS[locale];
   return (key: string, params?: Record<string, string | number>) => {
-    const tpl = lookup(d, key) ?? lookup(DICTS.ru, key);
+    const tpl = overrides[key] ?? lookup(d, key) ?? lookup(DICTS.ru, key);
     if (tpl === undefined) {
       if (process.env.NODE_ENV !== "production") console.warn("missing i18n key", key);
       return key;

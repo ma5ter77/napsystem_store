@@ -39,6 +39,10 @@ class App(Base):
         ForeignKey("products.id", use_alter=True, name="fk_apps_kit"))
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = created_at()
+    # NAP-084: soft delete by a moderator — hidden from the store, buyers keep access, restorable for 30 days
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deleted_reason: Mapped[str | None] = mapped_column(String(300))
+    deleted_prev_sales: Mapped[str | None] = mapped_column(String(16))
     __table_args__ = (CheckConstraint("sales_status IN ('active','withdrawn')", name="sales_status"),)
 
 

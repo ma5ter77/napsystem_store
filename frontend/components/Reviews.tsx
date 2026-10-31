@@ -112,10 +112,10 @@ function ReviewItem({ r, onChange }: { r: any; onChange: () => void }) {
   return (
     <article className="review" lang={r.lang}>
       <div className="spread"><span className="row"><Stars value={r.rating} label={t("rev.stars_n", { count: r.rating })} />{r.title && <strong>{r.title}</strong>}</span>
-        <span className="hint">{r.author ?? t("rev.deleted_user")} · {date(r.created_at, locale)}{r.edited ? ` · ${t("rev.edited")}` : ""}</span></div>
+        <span className="hint">{r.author ?? t("rev.deleted_user")} · {date(r.created_at, locale)}{r.edited ? ` · ${t("rev.edited")}` : ""}{r.edited_by_moderator ? ` · ${t("rev.edited_by_moderator")}` : ""}</span></div>
       <div className="hint">{r.verified_purchase ? <><span className="badge ok">{t("rev.verified")}</span> {t("rev.variant", { v: r.version })}</> : t("rev.version", { v: r.version })}{r.lang !== locale ? ` · ${langName(r.lang, locale)}` : ""}</div>
       {r.body && <p className="pre">{r.body}</p>}
-      {r.reply && <div className="reply"><strong>{t("rev.dev_reply")}</strong> <span className="hint">{date(r.reply.updated_at, locale)}</span><p className="pre">{r.reply.body}</p></div>}
+      {r.reply && <div className="reply"><strong>{t("rev.dev_reply")}</strong> <span className="hint">{date(r.reply.updated_at, locale)}{r.reply.edited_by_moderator ? ` · ${t("rev.edited_by_moderator")}` : ""}</span><p className="pre">{r.reply.body}</p></div>}
       {me && !r.mine && (
         <div className="row">
           <button className="btn ghost small" aria-pressed={helpful.mine} disabled={act.pending} onClick={async () => {

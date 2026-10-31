@@ -18,7 +18,15 @@ interface Ctx {
 const C = createContext<Ctx | null>(null);
 
 export function Providers({ locale, children }: { locale: Locale; children: React.ReactNode }) {
-  const t = useMemo(() => translator(locale), [locale]);
+  // NAP-084: texts rewritten by the content editor are merged over the built-in dictionary
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let alive = true;
+    api<{ texts: Record<string, string> }>(`/content/texts?locale=${locale}`)
+      .then((r) => { if (alive) setOverrides(r.texts ?? {}); }).catch(() => {});
+    return () => { alive = false; };
+  }, [locale]);
+  const t = useMemo(() => translator(locale, overrides), [locale, overrides]);
   const [me, setMe] = useState<Me | null | undefined>(undefined);
   const [cartCount, setCart] = useState(0);
   const refreshMe = useCallback(async () => {

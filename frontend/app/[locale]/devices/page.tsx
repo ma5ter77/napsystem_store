@@ -2,17 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ProductCard } from "@/components/cards";
 import { isLocale, Locale, translator } from "@/lib/i18n";
-import { alternates, serverApi } from "@/lib/server";
+import { alternates, serverApi, serverTranslator } from "@/lib/server";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
-  return { title: translator(isLocale(locale) ? locale : "ru")("devices.title"), alternates: alternates(locale, "/devices") };
+  return { title: (await serverTranslator(isLocale(locale) ? locale : "ru"))("devices.title"), alternates: alternates(locale, "/devices") };
 }
 
 export default async function Devices({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const { locale: l } = await params;
   const locale = (isLocale(l) ? l : "ru") as Locale;
-  const t = translator(locale);
+  const t = (await serverTranslator(locale));
   const sp = await searchParams;
   const qs = new URLSearchParams({ kind: "devices", limit: "100" });
   if (sp.category) qs.set("category", sp.category);

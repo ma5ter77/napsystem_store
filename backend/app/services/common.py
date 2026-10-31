@@ -40,8 +40,13 @@ def notify(db: Session, user_id: uuid.UUID | None, locale: str, template: str, d
     """Render a localized notification in the order/user locale and queue it for delivery once."""
     if user_id is None:
         return
-    subject = t(f"notifications.{template}.subject", locale, **params)
-    body = t(f"notifications.{template}.body", locale, **params)
+    # NAP-084: a content editor may have rewritten this e-mail template
+    from ..i18n import format_message
+    from .site_texts import published_map
+    over = published_map(db, locale)
+    sk, bk = f"notifications.{template}.subject", f"notifications.{template}.body"
+    subject = format_message(over[sk], locale, params) if sk in over else t(sk, locale, **params)
+    body = format_message(over[bk], locale, params) if bk in over else t(bk, locale, **params)
     stmt = insert(Notification).values(id=uuid.uuid4(), user_id=user_id, locale=locale, template=template,
                                        subject=subject, body=body, dedupe_key=dedupe_key)
     db.execute(stmt.on_conflict_do_nothing(index_elements=["dedupe_key"]))

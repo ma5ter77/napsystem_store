@@ -11,7 +11,7 @@ from ..db import Base, created_at, uuid_pk
 from ..db import created_at as _ts
 from .system import _in
 
-REVIEW_STATUSES = ("published", "pending", "hidden")
+REVIEW_STATUSES = ("published", "pending", "hidden", "deleted")
 
 
 class Review(Base):
@@ -32,6 +32,7 @@ class Review(Base):
     status: Mapped[str] = mapped_column(String(12), default="published")
     moderation_note: Mapped[str | None] = mapped_column(String(300))
     helpful_count: Mapped[int] = mapped_column(Integer, default=0)
+    edited_by_moderator_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # NAP-084
     created_at: Mapped[datetime] = created_at()
     updated_at: Mapped[datetime] = _ts()
     reply: Mapped["ReviewReply | None"] = relationship(back_populates="review", uselist=False,
@@ -57,6 +58,7 @@ class ReviewReply(Base):
     body: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(12), default="published")
     moderation_note: Mapped[str | None] = mapped_column(String(300))
+    edited_by_moderator_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # NAP-084
     created_at: Mapped[datetime] = created_at()
     updated_at: Mapped[datetime] = _ts()
     review: Mapped[Review] = relationship(back_populates="reply")

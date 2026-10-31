@@ -101,7 +101,7 @@ def catalog(request: Request, q: str | None = None, category: str | None = None,
 @router.get("/catalog/apps/{slug}")
 def app_detail(slug: str, request: Request, p=P, db=DB):
     app = db.scalar(select(App).where(App.slug == slug))
-    if not app or not app.published_version_id:
+    if not app or not app.published_version_id or app.deleted_at:  # deleted by a moderator: gone from the store
         raise ApiError("not_found", 404, entity="app")
     return app_card(db, app, locale_of(request), detail=True, user_id=p.id)
 

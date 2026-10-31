@@ -16,7 +16,8 @@
   "menu": "Menu",
   "close_menu": "Close",
   "login": "Sign in",
-  "language": "Interface language"
+  "language": "Interface language",
+  "content": "Site content"
  },
  "about": {
   "spec_draft": "draft, awaiting approval",
@@ -738,7 +739,11 @@
   "comment": "Comment",
   "warehouse_id": "Warehouse",
   "freight_mode": "Shipping",
-  "contains_battery": "Battery"
+  "contains_battery": "Battery",
+  "reason": "Reason",
+  "names": "Names",
+  "value": "Text",
+  "seller_id": "Supplier"
  },
  "rev": {
   "title_section": "Ratings and reviews",
@@ -837,7 +842,8 @@
   "mod_hide": "Hide review",
   "mod_publish_reply": "Publish reply",
   "mod_hide_reply": "Hide reply",
-  "card": "Rated {avg} out of 5, {count} ratings"
+  "card": "Rated {avg} out of 5, {count} ratings",
+  "edited_by_moderator": "edited by a moderator"
  },
  "caps": {
   "stereo_output": "stereo output",
@@ -1060,7 +1066,8 @@
   "draft": "Draft",
   "submitted": "In moderation",
   "published": "In the catalog",
-  "rejected": "Rejected"
+  "rejected": "Rejected",
+  "deleted": "Deleted"
  },
  "sp": {
   "new": "New product",
@@ -1156,7 +1163,11 @@
    "submitted": "Sent to moderation",
    "published": "Approved",
    "rejected": "Rejected",
-   "withdrawn": "Withdrawn"
+   "withdrawn": "Withdrawn",
+   "unpublished": "Taken off sale by a moderator",
+   "deleted": "Deleted by a moderator",
+   "restored": "Restored by a moderator",
+   "mod_edited": "Changed by a moderator"
   },
   "saved": "Saved.",
   "sku_added": "Variant added.",
@@ -1172,5 +1183,123 @@
  "tr_status": {
   "draft": "draft",
   "published": "published"
+ },
+ "roles": {
+  "user": "User",
+  "developer": "Developer",
+  "seller": "Supplier",
+  "fulfillment": "Fulfillment",
+  "moderator": "Moderator",
+  "content_editor": "Site content editor",
+  "admin": "Administrator"
+ },
+ "rev_status": {
+  "published": "published",
+  "pending": "pending",
+  "hidden": "hidden",
+  "deleted": "deleted"
+ },
+ "mm": {
+  "tab_queue": "Queue",
+  "tab_apps": "Apps",
+  "tab_products": "Products",
+  "tab_reviews": "Reviews",
+  "tab_actions": "Publishing & deletion",
+  "search": "Search by title, address, author",
+  "status_all": "All statuses",
+  "nothing_found": "Nothing found.",
+  "app_filter": {
+   "published": "In the store",
+   "withdrawn": "Sales stopped",
+   "unpublished": "Not published",
+   "deleted": "Deleted"
+  },
+  "col_app": "App",
+  "col_author": "Author",
+  "col_version": "Latest version",
+  "in_store": "in the store",
+  "not_published": "not published",
+  "sales_stopped": "sales stopped",
+  "deleted": "deleted",
+  "back_apps": "Moderation → Apps",
+  "back_products": "Moderation → Products",
+  "reason": "Reason",
+  "reason_hint": "The owner sees it in the notification and the change history. Required to delete, take off sale and edit someone else's content.",
+  "edit_reason": "Reason for changes (the owner will see it)",
+  "edit_reason_ph": "For example: fixed a typo in the title",
+  "live_hint": "The product is on sale: your changes are visible to buyers at once and the supplier is notified. A reason is required.",
+  "draft_hint": "The product is not on sale: changes become visible after publishing.",
+  "publish": "Publish",
+  "unpublish": "Take off sale",
+  "delete": "Delete",
+  "restore": "Restore",
+  "delete_hint": "Deletion is soft: the product is hidden, order history and reviews are kept, it can be restored within 30 days.",
+  "app_delete_hint": "Deletion is soft: the app leaves the store, buyers keep access, it can be restored within 30 days.",
+  "app_scope_hint": "A moderator changes the store texts and category. Sound, program and price are changed only by the author — via a new version and the Price tab. The author's next version replaces texts corrected here.",
+  "app_title": "Title",
+  "app_subtitle": "Subtitle",
+  "app_description": "Description",
+  "save_changes": "Save changes",
+  "deleted_note": "Deleted on {date}. Reason: {reason}.",
+  "restore_expired": "The 30-day restore period has passed.",
+  "done_saved": "Changes saved, the owner was notified.",
+  "done_published": "The product is published.",
+  "done_unpublished": "The product was taken off sale.",
+  "done_deleted": "Deleted. It can be restored within 30 days.",
+  "done_restored": "Restored.",
+  "done_sales_stopped": "Sales stopped.",
+  "done_sales_resumed": "Sales resumed.",
+  "audit": "Change history",
+  "who": "Who",
+  "what": "Action",
+  "kind": "Type",
+  "kind_all": "Apps and products",
+  "kind_app": "Apps",
+  "kind_product": "Products",
+  "reviews_hint": "All customer reviews. Editing, hiding and deleting need a reason; the author is notified, the review gets an “edited by a moderator” mark, the original text stays in the audit log.",
+  "reports": "reports: {count}",
+  "reply": "Reply",
+  "reply_text": "Reply text",
+  "edit": "Edit",
+  "edit_reply": "Edit reply",
+  "cancel": "Cancel",
+  "show": "Show",
+  "hide": "Hide"
+ },
+ "ce": {
+  "title": "Site content",
+  "tab_texts": "Site texts",
+  "tab_mail": "E-mails",
+  "tab_categories": "Categories",
+  "texts_hint": "Any interface text: find it by words or key, save a draft and publish. Visitors see the new text right after publishing; earlier versions can be restored.",
+  "mail_hint": "Notification e-mail templates. Words in curly braces such as {app} or {comment} are filled in automatically — keep them in the text.",
+  "params_hint": "Keep the words in curly braces — values are inserted there.",
+  "search": "Search by text or key",
+  "only_changed": "Changed only",
+  "found": "Shown: {count}",
+  "changed": "changed",
+  "overridden": "custom text published",
+  "has_draft": "draft pending",
+  "builtin": "Built-in text",
+  "builtin_short": "built-in text",
+  "save_draft": "Save draft",
+  "publish": "Publish",
+  "discard": "Discard draft",
+  "reset": "Restore built-in",
+  "history": "History",
+  "no_history": "No publications yet.",
+  "revert": "Restore this version",
+  "note": {
+   "publish": "published",
+   "reset": "built-in restored",
+   "revert": "version restored"
+  },
+  "kind_app": "App categories",
+  "kind_hardware": "Hardware categories",
+  "position": "Order",
+  "used": "Used",
+  "missing": "missing translation: {langs}",
+  "new_category": "New category",
+  "add": "Add"
  }
 }

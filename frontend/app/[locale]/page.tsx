@@ -2,12 +2,12 @@ import Link from "next/link";
 import { BeatCover } from "@/components/Art";
 import { AppCard, ProductCard } from "@/components/cards";
 import { isLocale, Locale, translator } from "@/lib/i18n";
-import { serverApi } from "@/lib/server";
+import { serverApi, serverTranslator } from "@/lib/server";
 
 export default async function Home({ params }: { params: Promise<{ locale: string }> }) {
   const { locale: l } = await params;
   const locale = (isLocale(l) ? l : "ru") as Locale;
-  const t = translator(locale);
+  const t = (await serverTranslator(locale));
   const [apps, kits, devices] = await Promise.all([
     serverApi<any>("/catalog/apps?limit=6", locale),
     serverApi<any>("/hardware/products?kind=kits&limit=3", locale),

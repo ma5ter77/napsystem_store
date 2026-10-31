@@ -1,5 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { Locale, translator } from "@/lib/i18n";
 
 const BACKEND = process.env.BACKEND_URL || "http://127.0.0.1:8000";
 
@@ -26,4 +27,13 @@ export function alternates(locale: string, path: string) {
     canonical: `${SITE}/${locale}${path}`,
     languages: { ru: `${SITE}/ru${path}`, en: `${SITE}/en${path}`, "x-default": `${SITE}/ru${path}` },
   };
+}
+
+/** NAP-084: server-rendered pages use the texts published by the content editor too. */
+export async function serverTranslator(locale: Locale) {
+  try {
+    const res = await fetch(`${BACKEND}/api/v1/content/texts?locale=${locale}`, { next: { revalidate: 10 } });
+    if (res.ok) return translator(locale, ((await res.json()).texts ?? {}) as Record<string, string>);
+  } catch { /* backend unavailable: built-in texts */ }
+  return translator(locale);
 }

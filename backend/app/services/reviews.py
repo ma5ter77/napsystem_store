@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from ..config import get_settings
 from ..db import utcnow
 from ..errors import ApiError
-from ..models import (App, AppVersion, HardwareOrder, HardwareOrderItem, Parcel, ParcelItem, PlaySession, Price,
+from ..models import (App, AppVersion, AuditLog, HardwareOrder, HardwareOrderItem, Parcel, ParcelItem, PlaySession, Price,
                       Product, Review, ReviewHelpful, ReviewReply, ReviewReport, SellerMember, Sku, User)
 from . import billing
 from .common import audit, notify
@@ -151,6 +151,7 @@ def upsert(db: Session, user: User, app: Target, rating: int, title: str | None,
         r.sku_id = sku.id
         r.version_label = (" / ".join(str(x) for x in (sku.variant or {}).values()) or sku.code)[:64]
     r.rating, r.title, r.body = rating, title, body
+    r.edited_by_moderator_at = None  # the author rewrote it: the moderator mark no longer applies
     r.lang = lang if lang in ("ru", "en") else "ru"
     r.status = status
     r.moderation_note = ",".join(reasons) or None
@@ -211,13 +212,14 @@ def view(db: Session, r: Review, viewer_id: uuid.UUID | None = None, *, with_sta
            "author": (author.display_name if author and not author.deleted_at else None),
            "created_at": r.created_at.isoformat(), "updated_at": r.updated_at.isoformat(),
            "edited": (r.updated_at - r.created_at).total_seconds() > 60, "mine": viewer_id == r.user_id,
-           "reply": None}
+           "edited_by_moderator": r.edited_by_moderator_at is not None, "reply": None}
     if viewer_id:
         out["helpful_by_me"] = db.get(ReviewHelpful, (r.id, viewer_id)) is not None
     rp = r.reply
     if rp and (rp.status == "published" or with_status):
         out["reply"] = {"body": rp.body, "created_at": rp.created_at.isoformat(),
-                        "updated_at": rp.updated_at.isoformat()}
+                        "updated_at": rp.updated_at.isoformat(),
+                        "edited_by_moderator": rp.edited_by_moderator_at is not None}
         if with_status:
             out["reply"]["status"] = rp.status
     if with_status:
@@ -373,22 +375,78 @@ def moderation_queue(db: Session) -> list[dict]:
     return out
 
 
-def moderate(db: Session, moderator: User, review_id: uuid.UUID, target: str, action: str, note: str | None) -> None:
+def moderate(db: Session, moderator: User, review_id: uuid.UUID, target: str, action: str, note: str | None,
+             title: str | None = None, body: str | None = None) -> None:
+    """publish / hide (queue decisions) and, NAP-084: delete (soft, restorable by "publish") and edit the text.
+
+    Edits are free (decision 31.10.2026) but marked "edited by moderator"; the original text stays in the audit log.
+    Hiding, deleting and editing someone's review need a reason and notify its author."""
     r = db.get(Review, review_id, with_for_update=True)
     if r is None or (target == "reply" and r.reply is None):
         raise ApiError("not_found", 404, entity="review")
-    if target not in ("review", "reply") or action not in ("publish", "hide"):
+    if target not in ("review", "reply") or action not in ("publish", "hide", "delete", "edit"):
         raise ApiError("validation_failed", 422, details={"field": "action"})
     obj = r if target == "review" else r.reply
     was = obj.status
-    obj.status = "published" if action == "publish" else "hidden"
-    obj.moderation_note = (note or "").strip()[:300] or None
-    for rep in db.scalars(select(ReviewReport).where(ReviewReport.review_id == r.id, ReviewReport.target == target,
-                                                     ReviewReport.resolved_at.is_(None))):
-        rep.resolved_at = utcnow()
-    if target == "reply" and was != "published" and obj.status == "published":
-        _notify_reply(db, r, _target_of(db, r))
-    audit(db, moderator.id, f"review.moderated.{action}", "review", r.id, {"target": target, "note": note})
+    reason = (note or "").strip()[:300]
+    if action in ("delete", "edit") and not reason:
+        raise ApiError("reason_required", 422, details={"fields": ["reason"]})
+    if action == "edit":
+        new_body = (body if body is not None else obj.body or "").strip()
+        if target == "reply" and not new_body:
+            raise ApiError("validation_failed", 422, details={"fields": ["body"]})
+        if len(new_body) > 4000 or (title and len(title.strip()) > 100):
+            raise ApiError("validation_failed", 422, details={"fields": ["body"]})
+        before = {"body": obj.body, **({"title": r.title} if target == "review" else {})}
+        obj.body = new_body or None
+        if target == "review" and title is not None:
+            r.title = title.strip() or None
+        obj.edited_by_moderator_at = utcnow()
+        audit(db, moderator.id, "review.moderated.edit", "review", r.id,
+              {"target": target, "reason": reason, "before": before})
+    else:
+        obj.status = {"publish": "published", "hide": "hidden", "delete": "deleted"}[action]
+        obj.moderation_note = reason or None
+        for rep in db.scalars(select(ReviewReport).where(ReviewReport.review_id == r.id, ReviewReport.target == target,
+                                                         ReviewReport.resolved_at.is_(None))):
+            rep.resolved_at = utcnow()
+        if target == "reply" and was != "published" and obj.status == "published":
+            _notify_reply(db, r, _target_of(db, r))
+        audit(db, moderator.id, f"review.moderated.{action}", "review", r.id, {"target": target, "note": note})
+    if action in ("hide", "delete", "edit") and (action == "edit" or was != obj.status):
+        owner_id = r.user_id if target == "review" else r.reply.developer_id
+        owner = db.get(User, owner_id)
+        if owner and owner_id != moderator.id:
+            n = db.scalar(select(func.count()).select_from(AuditLog).where(AuditLog.entity_type == "review",
+                                                                            AuditLog.entity_id == str(r.id)))
+            notify(db, owner.id, owner.locale, "review_moderator_action", f"review:{r.id}:{target}:{action}:{n}",
+                   action=action, target=target, reason=reason or "—")
+
+
+def moderator_list(db: Session, kind: str | None, status: str | None, q: str | None, rating: int | None,
+                   limit: int, offset: int) -> dict:
+    """NAP-084: every review and reply, not only the queue — search, filter, act."""
+    stmt = select(Review)
+    if kind == "app":
+        stmt = stmt.where(Review.app_id.isnot(None))
+    elif kind == "product":
+        stmt = stmt.where(Review.product_id.isnot(None))
+    if status in ("published", "pending", "hidden", "deleted"):
+        stmt = stmt.where(Review.status == status)
+    if rating:
+        stmt = stmt.where(Review.rating == rating)
+    if q:
+        like = f"%{q.strip().lower()}%"
+        stmt = stmt.where(func.lower(func.coalesce(Review.title, "") + " " + func.coalesce(Review.body, "")).like(like))
+    total = db.scalar(select(func.count()).select_from(stmt.subquery()))
+    out = []
+    for r in db.scalars(stmt.order_by(Review.created_at.desc()).limit(limit).offset(offset)):
+        d = view(db, r, with_status=True)
+        d["app"] = _target_view(db, _target_of(db, r))
+        d["open_reports"] = db.scalar(select(func.count()).select_from(ReviewReport).where(
+            ReviewReport.review_id == r.id, ReviewReport.resolved_at.is_(None)))
+        out.append(d)
+    return {"items": out, "total": total, "limit": limit, "offset": offset}
 
 
 def seller_list(db: Session, user: User, product_id: uuid.UUID | None, filt: str | None, rating: int | None,

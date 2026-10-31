@@ -336,6 +336,22 @@ async function run(L) {
     await s.p.getByText(t("sp.next_published")).waitFor();
     await s.ctx.close();
   });
+  await step("moderator manages the catalog: stop and resume sales with a reason (NAP-084)", async () => {
+    const m = await login(browser, L, t, "moderator@nap.demo");
+    CUR = m.p;
+    await m.p.goto(`${BASE}/${L}/moderation?tab=apps`);
+    await m.p.getByPlaceholder(t("mm.search")).fill(slug);
+    await m.p.locator("table a").first().click();
+    await m.p.waitForURL(/moderation\/catalog\/apps\//);
+    await m.p.locator(".panel label.field", { hasText: t("mm.reason_hint") }).locator("textarea").fill("E2E check");
+    await m.p.getByRole("button", { name: t("dev.stop_sales") }).click();
+    await m.p.getByText(t("mm.done_sales_stopped")).waitFor();
+    await m.p.locator(".badge", { hasText: t("mm.sales_stopped") }).first().waitFor();
+    await m.p.getByRole("button", { name: t("dev.resume_sales") }).click();
+    await m.p.getByText(t("mm.done_sales_resumed")).waitFor();
+    await m.p.getByText("app.mod_sales_withdrawn").waitFor();  // change history
+    await m.ctx.close();
+  });
   await browser.close();
 }
 

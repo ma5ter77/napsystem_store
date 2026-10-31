@@ -2,17 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ProductCard } from "@/components/cards";
 import { isLocale, Locale, translator } from "@/lib/i18n";
-import { alternates, serverApi } from "@/lib/server";
+import { alternates, serverApi, serverTranslator } from "@/lib/server";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
-  return { title: translator(isLocale(locale) ? locale : "ru")("kits.title"), alternates: alternates(locale, "/kits") };
+  return { title: (await serverTranslator(isLocale(locale) ? locale : "ru"))("kits.title"), alternates: alternates(locale, "/kits") };
 }
 
 export default async function Kits({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const { locale: l } = await params;
   const locale = (isLocale(l) ? l : "ru") as Locale;
-  const t = translator(locale);
+  const t = (await serverTranslator(locale));
   const { app } = await searchParams;
   if (app) {
     const [r, a] = await Promise.all([serverApi<any>(`/hardware/compatible?app=${encodeURIComponent(app)}`, locale),

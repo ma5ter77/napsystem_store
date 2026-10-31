@@ -6,10 +6,10 @@ import { AddToCart } from "@/components/AddToCart";
 import { BomBuilder } from "@/components/BomBuilder";
 import { langName, Locale, money, num1, translator } from "@/lib/i18n";
 import { ReviewsSection, Stars } from "@/components/Reviews";
-import { serverApi } from "@/lib/server";
+import { serverApi, serverTranslator } from "@/lib/server";
 
 export async function ProductDetail({ locale, slug, app }: { locale: Locale; slug: string; app?: string }) {
-  const t = translator(locale);
+  const t = (await serverTranslator(locale));
   const r = await serverApi<any>(`/hardware/products/${slug}`, locale);
   if (!r.ok) {
     if (r.status === 404) notFound();

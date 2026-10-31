@@ -27,7 +27,7 @@ function Users() {
           <tr key={u.id}><td>{u.email ?? <span className="muted">{t("admin.anonymized")}</span>}<div className="hint">{u.display_name}</div></td>
             <td>{u.roles.map((r: string) => <span key={r} className="badge gray" style={{ marginRight: 4 }}>{r} <button className="btn ghost small" style={{ minHeight: 18, padding: "0 4px" }} aria-label={t("admin.revoke")} onClick={async () => { if (await act.run(() => api(`/admin/users/${u.id}/roles/${r}`, { method: "DELETE" }))) reload(); }}>×</button></span>)}</td>
             <td><div className="row"><select value={role[u.id] ?? "developer"} onChange={(e) => setRole({ ...role, [u.id]: e.target.value })} style={{ width: 150 }}>
-              {["user", "developer", "seller", "fulfillment", "moderator", "admin"].map((r) => <option key={r}>{r}</option>)}</select>
+              {["user", "developer", "seller", "fulfillment", "moderator", "content_editor", "admin"].map((r) => <option key={r} value={r}>{t(`roles.${r}`)}</option>)}</select>
               <button className="btn small" onClick={async () => { if (await act.run(() => api(`/admin/users/${u.id}/roles`, { body: { role: role[u.id] ?? "developer", seller_id: seller || null } }))) reload(); }}>{t("admin.grant")}</button></div></td></tr>))}</tbody></table></div>
       <ErrorBox error={act.error} />
     </div>

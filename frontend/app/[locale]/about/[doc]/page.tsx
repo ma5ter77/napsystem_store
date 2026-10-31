@@ -1,3 +1,4 @@
+import { serverTranslator } from "@/lib/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { isLocale, Locale, translator } from "@/lib/i18n";
@@ -7,7 +8,7 @@ const BACKEND = process.env.BACKEND_URL || "http://127.0.0.1:8000";
 export default async function Doc({ params }: { params: Promise<{ locale: string; doc: string }> }) {
   const { locale: l, doc } = await params;
   const locale = (isLocale(l) ? l : "ru") as Locale;
-  const t = translator(locale);
+  const t = (await serverTranslator(locale));
   if (!/^[a-z0-9.-]+$/.test(doc)) notFound();
   const res = await fetch(`${BACKEND}/api/v1/about/documents/${doc}`, { cache: "no-store" });
   if (res.status === 404) notFound();

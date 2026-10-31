@@ -26,6 +26,7 @@ export function Header() {
     ...(roles.includes("developer") ? [{ href: `/${locale}/developer`, label: t("nav.developer") }] : []),
     ...(roles.includes("seller") || roles.includes("fulfillment") ? [{ href: `/${locale}/seller`, label: t("nav.seller") }] : []),
     ...(roles.includes("moderator") || roles.includes("admin") ? [{ href: `/${locale}/moderation`, label: t("nav.moderation") }] : []),
+    ...(roles.includes("content_editor") || roles.includes("admin") ? [{ href: `/${locale}/content`, label: t("nav.content") }] : []),
     ...(roles.includes("admin") ? [{ href: `/${locale}/admin`, label: t("nav.admin") }] : []),
   ] : [];
   // phone menu (NAP-041): one-row header, everything else behind a keyboard-accessible button

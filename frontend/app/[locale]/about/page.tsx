@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { date, isLocale, Locale, translator } from "@/lib/i18n";
-import { alternates, serverApi } from "@/lib/server";
+import { alternates, serverApi, serverTranslator } from "@/lib/server";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
-  return { title: translator(isLocale(locale) ? locale : "ru")("about.title"), alternates: alternates(locale, "/about") };
+  return { title: (await serverTranslator(isLocale(locale) ? locale : "ru"))("about.title"), alternates: alternates(locale, "/about") };
 }
 
 const TONE: Record<string, string> = { done: "ok", partial: "warn", simulated: "r", not_started: "gray" };
@@ -13,7 +13,7 @@ const TONE: Record<string, string> = { done: "ok", partial: "warn", simulated: "
 export default async function About({ params }: { params: Promise<{ locale: string }> }) {
   const { locale: l } = await params;
   const locale = (isLocale(l) ? l : "ru") as Locale;
-  const t = translator(locale);
+  const t = (await serverTranslator(locale));
   const r = await serverApi<any>("/version", locale);
   if (!r.ok) return <div className="section notice bad">{t("common.error")}</div>;
   const v = r.data;

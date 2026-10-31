@@ -2,20 +2,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AppCard } from "@/components/cards";
 import { isLocale, langName, Locale, translator } from "@/lib/i18n";
-import { alternates, serverApi } from "@/lib/server";
+import { alternates, serverApi, serverTranslator } from "@/lib/server";
 
 type SP = Promise<Record<string, string | undefined>>;
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
-  const t = translator(isLocale(locale) ? locale : "ru");
+  const t = (await serverTranslator(isLocale(locale) ? locale : "ru"));
   return { title: t("catalog.title"), alternates: alternates(locale, "/apps") };
 }
 
 export default async function Catalog({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: SP }) {
   const { locale: l } = await params;
   const locale = (isLocale(l) ? l : "ru") as Locale;
-  const t = translator(locale);
+  const t = (await serverTranslator(locale));
   const sp = await searchParams;
   const qs = new URLSearchParams();
   for (const k of ["q", "category", "price", "content_language", "min_rating", "sort"]) if (sp[k]) qs.set(k, sp[k]!);

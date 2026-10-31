@@ -45,7 +45,11 @@ def owned_product(db: Session, seller_ids: set[uuid.UUID], product_id: uuid.UUID
     return p
 
 
-def _require_editable(p: Product) -> None:
+def _require_editable(p: Product, force: bool = False) -> None:
+    if p.status == "deleted":
+        raise ApiError("product_locked", 409, details={"status": p.status})
+    if force:  # NAP-084: a moderator edits any card, including a published one, without taking it off sale
+        return
     if p.status not in EDITABLE:
         raise ApiError("product_locked", 409, details={"status": p.status})
 
@@ -131,8 +135,8 @@ def create(db: Session, user: User, seller_ids: set[uuid.UUID], d: dict) -> Prod
     return p
 
 
-def update(db: Session, user: User, p: Product, d: dict) -> Product:
-    _require_editable(p)
+def update(db: Session, user: User, p: Product, d: dict, force: bool = False) -> Product:
+    _require_editable(p, force)
     if "warehouse_id" in d and d["warehouse_id"]:
         p.warehouse_id = _warehouse(db, p.seller_id, d["warehouse_id"]).id
     _apply_fields(db, p, d)
@@ -140,8 +144,8 @@ def update(db: Session, user: User, p: Product, d: dict) -> Product:
     return p
 
 
-def save_texts(db: Session, user: User, p: Product, locale: str, d: dict) -> None:
-    _require_editable(p)
+def save_texts(db: Session, user: User, p: Product, locale: str, d: dict, force: bool = False) -> None:
+    _require_editable(p, force)
     if locale not in ("ru", "en"):
         raise ApiError("validation_failed", 422, details={"fields": ["locale"]})
     data, bad = {}, []
@@ -161,7 +165,8 @@ def save_texts(db: Session, user: User, p: Product, locale: str, d: dict) -> Non
     if not any(data.get(k) for k in TEXT_FIELDS) and not box:  # empty form = remove this language
         db.query(Translation).filter_by(entity_type="product", entity_id=p.id, locale=locale).delete()
     else:
-        upsert_translation(db, "product", p.id, locale, data, "draft")
+        # a moderator's edit of a product on sale is live at once; everything else waits for approval
+        upsert_translation(db, "product", p.id, locale, data, "published" if force and p.status == "published" else "draft")
     audit(db, user.id, "product.texts_saved", "product", p.id, {"locale": locale})
 
 
@@ -212,8 +217,8 @@ def _sku_fields(sku: Sku, d: dict, physical: bool) -> list[str]:
     return bad
 
 
-def add_sku(db: Session, user: User, p: Product, d: dict) -> Sku:
-    _require_editable(p)
+def add_sku(db: Session, user: User, p: Product, d: dict, force: bool = False) -> Sku:
+    _require_editable(p, force)
     code = (d.get("code") or "").strip().upper()
     if not code:
         n = db.scalar(select(func.count()).select_from(Sku).where(Sku.product_id == p.id)) + 1
@@ -235,11 +240,12 @@ def add_sku(db: Session, user: User, p: Product, d: dict) -> Sku:
     return sku
 
 
-def update_sku(db: Session, user: User, p: Product, sku_id: uuid.UUID, d: dict) -> Sku:
+def update_sku(db: Session, user: User, p: Product, sku_id: uuid.UUID, d: dict, force: bool = False) -> Sku:
     sku = db.get(Sku, sku_id)
     if not sku or sku.product_id != p.id:
         raise ApiError("not_found", 404, entity="sku")
-    physical = p.status in EDITABLE
+    _require_editable(p, force=True)  # deleted products are frozen for everyone
+    physical = force or p.status in EDITABLE
     if not physical and set(d) - {"price_minor", "active"}:
         raise ApiError("product_locked", 409, details={"status": p.status})  # a published card changes via withdraw/resubmit
     old = sku.price_minor
@@ -297,9 +303,12 @@ def withdraw(db: Session, user: User, p: Product) -> Product:
 def history(db: Session, p: Product) -> list[dict]:
     rows = db.scalars(select(AuditLog).where(AuditLog.entity_type == "product", AuditLog.entity_id == str(p.id),
                                              AuditLog.action.in_(("product.submitted", "product.published",
-                                                                  "product.rejected", "product.withdrawn")))
+                                                                  "product.rejected", "product.withdrawn",
+                                                                  "product.unpublished", "product.deleted",
+                                                                  "product.restored", "product.mod_edited")))
                       .order_by(AuditLog.created_at.desc()).limit(20))
-    return [{"action": r.action.split(".", 1)[1], "comment": (r.data or {}).get("comment") or None,
+    return [{"action": r.action.split(".", 1)[1],
+             "comment": (r.data or {}).get("comment") or (r.data or {}).get("reason") or None,
              "at": r.created_at.isoformat()} for r in rows]
 
 

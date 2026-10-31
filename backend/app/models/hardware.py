@@ -84,6 +84,10 @@ class Product(Base):
     hue: Mapped[int] = mapped_column(Integer, default=30)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = created_at()
+    # NAP-084: soft delete by a moderator (status "deleted"); restorable for 30 days to the previous status
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deleted_reason: Mapped[str | None] = mapped_column(String(300))
+    deleted_prev_status: Mapped[str | None] = mapped_column(String(16))
     skus: Mapped[list["Sku"]] = relationship(lazy="selectin", order_by="Sku.code")
     __table_args__ = (CheckConstraint("kind IN ('simple','kit_component','kit_stock')", name="kind"),)
 

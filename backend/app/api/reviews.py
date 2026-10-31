@@ -195,15 +195,26 @@ def moderation_reviews(p=P, db=DB):
     return {"items": rv.moderation_queue(db)}
 
 
+@router.get("/moderation/reviews/all")
+def moderation_reviews_all(kind: str | None = None, status: str | None = None, q: str | None = None,
+                           rating: int | None = Query(None, ge=1, le=5), limit: int = Query(30, le=100),
+                           offset: int = Query(0, ge=0), p=P, db=DB):
+    """NAP-084: every review, filterable — not only the ones waiting in the queue."""
+    p.require_role("moderator", "admin")
+    return rv.moderator_list(db, kind, status, q, rating, limit, offset)
+
+
 class DecisionIn(BaseModel):
     target: str = "review"
-    action: str
-    note: str | None = Field(None, max_length=300)
+    action: str  # publish | hide | delete | edit
+    note: str | None = Field(None, max_length=300)  # reason; required for delete and edit
+    title: str | None = Field(None, max_length=100)
+    body: str | None = Field(None, max_length=4000)
 
 
 @router.post("/moderation/reviews/{review_id}/decision")
 def moderation_decision(review_id: str, body: DecisionIn, p=P, db=DB):
     u = p.require_role("moderator", "admin")
-    rv.moderate(db, u, as_uuid(review_id, "review"), body.target, body.action, body.note)
+    rv.moderate(db, u, as_uuid(review_id, "review"), body.target, body.action, body.note, body.title, body.body)
     db.commit()
     return {"status": "ok"}

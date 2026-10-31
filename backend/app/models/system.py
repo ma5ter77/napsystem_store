@@ -11,7 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..db import Base, created_at, uuid_pk
 
-ROLES = ("user", "developer", "seller", "fulfillment", "moderator", "admin", "device")
+ROLES = ("user", "developer", "seller", "fulfillment", "moderator", "admin", "device", "content_editor")
 
 
 def _in(col: str, values: tuple[str, ...]) -> str:
@@ -172,3 +172,30 @@ class Category(Base):
     names: Mapped[dict] = mapped_column(JSONB)  # {"ru": "...", "en": "..."} platform-owned
     position: Mapped[int] = mapped_column(Integer, default=0)
     __table_args__ = (UniqueConstraint("kind", "slug"), CheckConstraint("kind IN ('app','hardware')", name="kind"))
+
+
+class SiteText(Base):
+    """NAP-084: content editor overrides of UI texts and e-mail templates (key = dictionary key).
+
+    No row = the built-in text. `draft` is being edited; `published` is what visitors see (None = built-in)."""
+    __tablename__ = "site_texts"
+    id: Mapped[uuid.UUID] = uuid_pk()
+    key: Mapped[str] = mapped_column(String(160))
+    locale: Mapped[str] = mapped_column(String(5))
+    draft: Mapped[str | None] = mapped_column(Text)
+    published: Mapped[str | None] = mapped_column(Text)
+    updated_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    updated_at: Mapped[datetime] = created_at()
+    __table_args__ = (UniqueConstraint("key", "locale"), CheckConstraint("locale IN ('ru','en')", name="locale"))
+
+
+class SiteTextVersion(Base):
+    """Every publication (and rollback) of a site text — the history the content editor can return to."""
+    __tablename__ = "site_text_versions"
+    id: Mapped[uuid.UUID] = uuid_pk()
+    key: Mapped[str] = mapped_column(String(160), index=True)
+    locale: Mapped[str] = mapped_column(String(5))
+    value: Mapped[str | None] = mapped_column(Text)  # None = back to the built-in text
+    published_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    published_at: Mapped[datetime] = created_at()
+    note: Mapped[str | None] = mapped_column(String(160))

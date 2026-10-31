@@ -6,7 +6,7 @@ import { priceLabel } from "@/components/cards";
 import { AppActions } from "@/components/AppActions";
 import { ReviewsSection, Stars } from "@/components/Reviews";
 import { duration, isLocale, langName, Locale, num1, translator } from "@/lib/i18n";
-import { alternates, serverApi } from "@/lib/server";
+import { alternates, serverApi, serverTranslator } from "@/lib/server";
 
 type P = Promise<{ locale: string; slug: string }>;
 
@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: { params: P }): Promise<Metad
 export default async function AppPage({ params }: { params: P }) {
   const { locale: l, slug } = await params;
   const locale = (isLocale(l) ? l : "ru") as Locale;
-  const t = translator(locale);
+  const t = (await serverTranslator(locale));
   const r = await serverApi<any>(`/catalog/apps/${slug}`, locale);
   if (!r.ok) {
     if (r.status === 404) notFound();

@@ -89,7 +89,11 @@
   "version_frozen": "This version was submitted for review — create a new version to make changes.",
   "product_locked": "A published product card cannot be edited: withdraw it from sale, change it and send it to moderation again. Prices, variant switches and stock can be changed right away.",
   "product_incomplete": "The product is not ready for moderation yet — complete the items in the “Ready for moderation” list.",
-  "sku_taken": "This SKU already exists in the catalog."
+  "sku_taken": "This SKU already exists in the catalog.",
+  "reason_required": "Give a reason — the owner receives it in a notification.",
+  "restore_expired": "Restoring is possible only within {days} days after deletion.",
+  "nothing_changed": "Nothing changed.",
+  "category_in_use": "The category is in use ({count}) — move the apps and products to another one first."
  },
  "jobs": {
   "decode_failed": "The file could not be fully decoded.",
@@ -203,6 +207,18 @@
   "version_published_auto": {
    "subject": "App “{app}” is published",
    "body": "The moderator approved version {version} of “{app}” and it was published right away — the app is in the store. Comment: {comment}"
+  },
+  "product_moderator_action": {
+   "subject": "Moderator: product {product} — {action}",
+   "body": "A moderator performed an action on product {product}: {action}. Reason: {reason}. Details are in the supplier cabinet, Products tab."
+  },
+  "app_moderator_action": {
+   "subject": "Moderator: app “{app}” — {action}",
+   "body": "A moderator performed an action on the app “{app}”: {action}. Reason: {reason}. Details are in the developer cabinet."
+  },
+  "review_moderator_action": {
+   "subject": "A moderator changed your review or reply",
+   "body": "A moderator performed an action on your {target}: {action}. Reason: {reason}."
   }
  },
  "plural": {

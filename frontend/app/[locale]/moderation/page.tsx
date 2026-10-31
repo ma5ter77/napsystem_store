@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+import { ManageApps, ManageProducts, ManageReviews } from "@/components/ModeratorManage";
 import { useApp } from "@/components/Providers";
 import { ModerationReviews } from "@/components/Reviews";
 import { Empty, ErrorBox, Loading, RequireAuth, useLoad } from "@/components/ui";
@@ -13,7 +16,6 @@ function Queue() {
   if (error) return <ErrorBox error={error} onRetry={reload} />;
   return (
     <div className="stack">
-      <h1>{t("mod.title")}</h1>
       <h2>{t("mod.apps_title")}</h2>
       {!data.items.length ? <Empty>{t("mod.empty")}</Empty> : data.items.map((x: any) => (
         <Link key={x.version.id} href={`/${locale}/moderation/${x.version.id}`} className="panel flat card">
@@ -44,6 +46,27 @@ function ProductQueue() {
   );
 }
 
+// NAP-084: the moderator's workspace — the decision queue plus management of every app, product and review
+const TABS = ["queue", "apps", "products", "reviews"] as const;
+
+function Workspace() {
+  const { t, locale, me } = useApp();
+  const router = useRouter();
+  const tab = (useSearchParams()?.get("tab") as (typeof TABS)[number]) || "queue";
+  const roles = me?.roles ?? [];
+  return (
+    <div className="stack">
+      <div className="spread"><h1>{t("mod.title")}</h1>
+        {(roles.includes("content_editor") || roles.includes("admin")) && <Link className="btn ghost" href={`/${locale}/content`}>{t("nav.content")}</Link>}</div>
+      <div className="tabs" role="tablist">{TABS.map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => router.replace(`/${locale}/moderation?tab=${x}`)}>{t(`mm.tab_${x}`)}</button>)}</div>
+      {tab === "queue" && <div className="stack"><Queue /><ProductQueue /><ModerationReviews /></div>}
+      {tab === "apps" && <ManageApps />}
+      {tab === "products" && <ManageProducts />}
+      {tab === "reviews" && <ManageReviews />}
+    </div>
+  );
+}
+
 export default function ModerationPage() {
-  return <div className="section"><RequireAuth role={["moderator", "admin"]}><div className="stack"><Queue /><ProductQueue /><ModerationReviews /></div></RequireAuth></div>;
+  return <div className="section"><RequireAuth role={["moderator", "admin"]}><Suspense><Workspace /></Suspense></RequireAuth></div>;
 }
