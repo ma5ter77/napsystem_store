@@ -1,6 +1,6 @@
 {
   "product": "NAP Store",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "stage": "MVP для тестирования",
   "released": "2026-10-31",
   "spec": {
@@ -221,10 +221,10 @@
         "ru": "Безопасность и эксплуатация",
         "en": "Security and operations"
       },
-      "status": "partial",
+      "status": "done",
       "note": {
-        "ru": "Есть health/метрики/бэкап; SMTP, мониторинг и CI — бэклог",
-        "en": "Health, metrics, backup done; SMTP, monitoring, CI in backlog"
+        "ru": "Health/метрики, лимиты запросов, письма, ежедневный бэкап с проверкой, мониторинг и оповещения, CI",
+        "en": "Health/metrics, rate limits, e-mail, daily verified backup, monitoring and alerts, CI"
       }
     },
     {
@@ -253,6 +253,15 @@
     }
   ],
   "releases": [
+    {
+      "version": "0.5.0",
+      "date": "2026-10-31",
+      "spec": "1.0",
+      "summary": {
+        "ru": "Письма, ежедневный бэкап с проверкой восстановления, мониторинг, черновик ТЗ v1.1",
+        "en": "E-mail delivery, daily backup with restore check, monitoring, spec v1.1 draft"
+      }
+    },
     {
       "version": "0.4.0",
       "date": "2026-10-31",

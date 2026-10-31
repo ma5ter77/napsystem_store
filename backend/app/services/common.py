@@ -45,7 +45,8 @@ def notify(db: Session, user_id: uuid.UUID | None, locale: str, template: str, d
     stmt = insert(Notification).values(id=uuid.uuid4(), user_id=user_id, locale=locale, template=template,
                                        subject=subject, body=body, dedupe_key=dedupe_key)
     db.execute(stmt.on_conflict_do_nothing(index_elements=["dedupe_key"]))
-    enqueue(db, "notification.email", {"user_id": str(user_id), "template": template}, f"mail:{dedupe_key}")
+    enqueue(db, "notification.email", {"user_id": str(user_id), "template": template, "dedupe_key": dedupe_key},
+            f"mail:{dedupe_key}")
 
 
 def enqueue(db: Session, topic: str, payload: dict, dedupe_key: str) -> None:

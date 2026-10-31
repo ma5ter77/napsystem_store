@@ -62,3 +62,42 @@ ops/restore_verify.sh ./backups/nap-….dump <SOURCE_URL> <ADMIN_URL>           
 ## CI (NAP-003)
 
 `.github/workflows/ci.yml`: `backend` (pytest + `alembic check`), `frontend` (словари, шаблоны полей, типы, сборка), `e2e` (полный стек, сценарии RU/EN, скриншоты и логи в артефактах), `docker` (сборка и запуск compose до `/ready`), `ci-ok`. В настройках репозитория (Branch protection → Require status checks) отметьте `ci-ok` обязательной проверкой — тогда пулреквест не сливается при красном CI.
+
+## Отправка писем (NAP-007)
+
+Уведомления (оплата, подписка, модерация, ответы на отзывы, заказы оборудования) рендерятся на языке получателя и попадают в outbox; воркер `ops` отправляет их и отмечает `notifications.emailed_at`. Одно уведомление — одно письмо (ключ `X-NAP-Ref`), повтор при сбое с экспоненциальной паузой 30 с … 1 ч (до 20 попыток).
+
+| `NAP_EMAIL_BACKEND` | Что происходит |
+|---|---|
+| `log` (по умолчанию) | письмо пишется в журнал воркера — для демо |
+| `file` | `.eml`-файлы в `/app/var/mail` — удобно для тестового стенда |
+| `smtp` | любой SMTP-провайдер: `NAP_SMTP_HOST`, `NAP_SMTP_PORT` (587 STARTTLS / 465 SSL), `NAP_SMTP_USER`, `NAP_SMTP_PASSWORD`, `NAP_SMTP_SECURITY` |
+
+Для production отправителю нужны SPF, DKIM и DMARC на домене `NAP_EMAIL_FROM`. Метрики: `nap_emails_failed`, `nap_outbox_stuck`.
+
+## Ежедневный бэкап с проверкой восстановления (NAP-006)
+
+Сервис `backup` в `docker-compose.yml` каждый день в `BACKUP_AT` (UTC, по умолчанию 02:30):
+1. `pg_dump` в `./backups/nap-YYYYMMDDTHHMMSSZ.dump` + контрольная сумма;
+2. восстановление дампа во временную базу и сверка с источником: количество строк ключевых таблиц, сумма журнала проводок, версия миграции, наличие триггеров неизменяемости (`ops/restore_verify.sh`);
+3. архив файлового хранилища (`storage-*.tar`) — аудио, обложки, документы;
+4. удаление файлов старше `BACKUP_KEEP_DAYS` (14);
+5. итог в `./backups/last-status.json` — его читает API: `/metrics` (`nap_backup_ok`, `nap_backup_age_seconds`, `nap_backup_size_bytes`) и «Администрирование → Эксплуатация».
+
+Ручной запуск: `docker compose exec -e BACKUP_ONCE=1 backup bash /ops/backup-loop.sh`. Восстановление из дампа: `pg_restore --clean --no-owner -d <URL> backups/nap-….dump`, файлов — `tar -xf backups/storage-….tar -C <том storage>`.
+Копии на том же сервере не защищают от потери сервера: синхронизируйте `./backups` во внешнее хранилище (S3/другой сервер, NAP-004).
+
+## Мониторинг и оповещения (NAP-005)
+
+`docker compose --profile monitoring up -d` поднимает Prometheus (UI на `127.0.0.1:9090`, хранение 30 дней) и Alertmanager. Правила — `ops/monitoring/alerts.yml`:
+
+| Оповещение | Условие |
+|---|---|
+| `NapApiDown` | API недоступен 2 мин |
+| `NapHigh5xxRate` | > 10 ответов 5xx за 10 мин |
+| `NapConversionsFailing`, `NapConversionQueueStuck` | > 3 неудачных конвертаций в час; очередь > 20 дольше 15 мин |
+| `NapWebhooksBacklog` | вебхуки оплат/доставки не обработаны 30 мин |
+| `NapOutboxStuck`, `NapEmailsFailing` | исходящие события повторяются 5+ раз; письма не доставляются 30 мин |
+| `NapBackupFailed`, `NapBackupStale`, `NapBackupMissing` | бэкап не удался; старше 26 ч; нет данных |
+
+Оповещения уходят письмом: заполните `ops/monitoring/alertmanager.yml` (адрес получателя и SMTP). CI проверяет обе конфигурации `promtool`/`amtool`.

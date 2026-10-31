@@ -122,12 +122,18 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - run: docker compose build
+      - name: monitoring config is valid (promtool, amtool)
+        run: |
+          docker run --rm -v "$PWD/ops/monitoring:/etc/prometheus:ro" --entrypoint promtool prom/prometheus:v2.53.2 check config /etc/prometheus/prometheus.yml
+          docker run --rm -v "$PWD/ops/monitoring:/etc/am:ro" --entrypoint amtool prom/alertmanager:v0.27.0 check-config /etc/am/alertmanager.yml
+      - run: docker compose config -q && docker compose build
       - name: stack starts and is ready
         run: |
           docker compose up -d
-          for i in $(seq 1 60); do curl -sf localhost:8000/api/v1/ready && curl -sf localhost:3000/ru >/dev/null && exit 0; sleep 5; done
-          docker compose ps; docker compose logs --tail 200; exit 1
+          for i in $(seq 1 60); do curl -sf localhost:8000/api/v1/ready && curl -sf localhost:3000/ru >/dev/null && break; sleep 5; done
+          curl -sf localhost:8000/api/v1/ready || { docker compose ps; docker compose logs --tail 200; exit 1; }
+          # NAP-006: one manual backup cycle inside the backup service must succeed
+          docker compose exec -T -e BACKUP_ONCE=1 backup bash /ops/backup-loop.sh && grep -q '"status":"ok"' backups/last-status.json || { cat backups/last-status.json; docker compose logs --tail 100 backup; exit 1; }
       - if: always()
         run: docker compose down -v
 

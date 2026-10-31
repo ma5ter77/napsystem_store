@@ -138,6 +138,7 @@ class Outbox(Base):
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     last_error: Mapped[str | None] = mapped_column(Text)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # backoff after failures
 
 
 class Notification(Base):
@@ -152,6 +153,8 @@ class Notification(Base):
     dedupe_key: Mapped[str] = mapped_column(String(160), unique=True)
     created_at: Mapped[datetime] = created_at()
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    emailed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # NAP-007
+    email_error: Mapped[str | None] = mapped_column(String(300))
 
 
 class Setting(Base):

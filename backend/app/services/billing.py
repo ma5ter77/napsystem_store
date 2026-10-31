@@ -494,7 +494,9 @@ def _on_payout_failed(db: Session, provider: str, d: dict) -> None:
 def dispatch_outbox(limit: int = 50) -> int:
     done = 0
     with session_scope() as db:
-        ids = list(db.scalars(select(Outbox.id).where(Outbox.sent_at.is_(None), Outbox.attempts < 20)
+        now = utcnow()
+        ids = list(db.scalars(select(Outbox.id).where(Outbox.sent_at.is_(None), Outbox.attempts < 20,
+                                                      (Outbox.next_attempt_at.is_(None)) | (Outbox.next_attempt_at <= now))
                               .order_by(Outbox.created_at).limit(limit)))
     for oid in ids:
         with session_scope() as db:
@@ -512,7 +514,10 @@ def dispatch_outbox(limit: int = 50) -> int:
         except Exception as e:  # retried later
             log.warning("outbox %s failed: %r", topic, e)
             with session_scope() as db:
-                db.get(Outbox, oid).last_error = repr(e)[:1000]
+                it = db.get(Outbox, oid)
+                it.last_error = repr(e)[:1000]
+                # exponential backoff: 30 s, 1 min, 2 min ... capped at 1 h; 20 attempts span about a day
+                it.next_attempt_at = utcnow() + timedelta(seconds=min(3600, 30 * 2 ** max(0, it.attempts - 1)))
     return done
 
 
@@ -547,10 +552,36 @@ def _dispatch(topic: str, payload: dict) -> None:
             pp = db.get(Payout, p.id)
             pp.provider_ref = pp.provider_ref or ref
     elif topic == "notification.email":
-        pass  # e-mail transport adapter: rendered notifications are stored; SMTP is a production dependency
+        _send_notification_email(payload)
     elif topic.startswith("fulfillment."):
         from .hardware_orders import dispatch_fulfillment
         dispatch_fulfillment(topic, payload)
+
+
+def _send_notification_email(payload: dict) -> None:
+    """NAP-007: deliver a rendered notification by e-mail exactly once (dedupe key), retry on transport errors."""
+    from ..adapters.email import EmailError, build_message, send
+    from ..models import Notification
+    key = payload.get("dedupe_key")
+    with session_scope() as db:
+        n = db.scalar(select(Notification).where(Notification.dedupe_key == key)) if key else None
+        if n is None or n.emailed_at is not None:
+            return  # old payloads without a key, or already delivered
+        u = db.get(User, n.user_id) if n.user_id else None
+        if u is None or not u.email or u.deleted_at:
+            n.email_error = "no_address"
+            return
+        msg = build_message(u.email, n.subject, n.body, n.locale, n.dedupe_key)
+        nid = n.id
+    try:
+        send(msg)
+    except EmailError as e:
+        with session_scope() as db:
+            db.get(Notification, nid).email_error = str(e)[:300]
+        raise
+    with session_scope() as db:
+        n = db.get(Notification, nid)
+        n.emailed_at, n.email_error = utcnow(), None
 
 
 # ------------------------------------------------------------------ mock helpers (non-production only)

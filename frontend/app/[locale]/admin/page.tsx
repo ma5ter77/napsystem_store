@@ -106,9 +106,14 @@ function Ops() {
   const { data, reload } = useLoad<any>("/admin/ops");
   const i18n = useLoad<any>("/admin/i18n/missing");
   const act = useAction();
+  const { locale } = useApp();
   if (!data) return <Loading />;
+  const b = data.backup;
   return (
     <div className="stack">
+      {b ? <div className={`notice ${b.stale ? "bad" : "ok"}`}>{b.status === "ok" ? t("admin.backup_ok", { date: date(b.finished_at, locale, true), file: b.file }) : t("admin.backup_failed", { date: date(b.finished_at, locale, true), msg: b.message })}{b.stale && b.status === "ok" ? ` ${t("admin.backup_stale")}` : ""}</div>
+        : <div className="notice warn">{t("admin.backup_none")}</div>}
+      {data.emails_failed > 0 && <div className="notice warn">{t("admin.emails_failed", { count: data.emails_failed })}</div>}
       <dl className="kv"><dt>{t("admin.unprocessed")}</dt><dd>{data.webhooks_unprocessed}</dd><dt>{t("admin.outbox")}</dt><dd>{data.outbox_pending}</dd>
         {Object.entries(data.jobs).map(([k, v]) => <Fragment key={k}><dt>{t(`job_state.${k}`)}</dt><dd>{String(v)}</dd></Fragment>)}</dl>
       <button className="btn ghost" onClick={async () => { const r = await act.run(() => api("/admin/ops/run", { method: "POST" })); if (r) reload(); }}>{t("admin.run_ops")}</button>

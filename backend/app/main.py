@@ -44,6 +44,19 @@ def setup_logging() -> None:
 METRICS = {"requests": 0, "errors_5xx": 0, "errors_4xx": 0, "duration_ms_sum": 0.0}
 
 
+def backup_status() -> dict | None:
+    """Last backup cycle as reported by ops/backup-loop.sh (None when the file is not mounted)."""
+    import datetime as dt
+    try:
+        with open(get_settings().backup_status_file, encoding="utf-8") as fh:
+            d = json.load(fh)
+        t = dt.datetime.fromisoformat(d["finished_at"].replace("Z", "+00:00"))
+        d["age_seconds"] = int((dt.datetime.now(dt.timezone.utc) - t).total_seconds())
+        return d
+    except (OSError, ValueError, KeyError):
+        return None
+
+
 def create_app() -> FastAPI:
     setup_logging()
     s = get_settings()
@@ -134,12 +147,22 @@ def create_app() -> FastAPI:
                                   "WHERE state='completed'")).scalar()
             inbox = db.scalar(select(func.count()).select_from(WebhookInbox).where(WebhookInbox.processed_at.is_(None)))
             outbox = db.scalar(select(func.count()).select_from(Outbox).where(Outbox.sent_at.is_(None)))
+            from .models import Notification
+            mail_failed = db.scalar(select(func.count()).select_from(Notification).where(
+                Notification.emailed_at.is_(None), Notification.email_error.isnot(None)))
+            outbox_stuck = db.scalar(select(func.count()).select_from(Outbox).where(
+                Outbox.sent_at.is_(None), Outbox.attempts >= 5))
         lines = [f"nap_http_requests_total {METRICS['requests']}", f"nap_http_errors_5xx_total {METRICS['errors_5xx']}",
                  f"nap_http_errors_4xx_total {METRICS['errors_4xx']}",
                  f"nap_http_duration_ms_sum {METRICS['duration_ms_sum']:.1f}",
                  f"nap_webhooks_unprocessed {inbox}", f"nap_outbox_pending {outbox}",
+                 f"nap_outbox_stuck {outbox_stuck}", f"nap_emails_failed {mail_failed}",
                  f"nap_conversion_avg_seconds {float(dur or 0):.2f}"]
         lines += [f'nap_conversion_jobs{{state="{k}"}} {v}' for k, v in q.items()]
+        b = backup_status()
+        if b:  # NAP-006
+            lines += [f"nap_backup_age_seconds {b['age_seconds']}", f"nap_backup_ok {1 if b['status'] == 'ok' else 0}",
+                      f"nap_backup_size_bytes {b.get('size_bytes', 0)}"]
         from fastapi.responses import PlainTextResponse
         return PlainTextResponse("\n".join(lines) + "\n")
 

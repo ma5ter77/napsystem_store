@@ -62,7 +62,7 @@ Demo-каталог: опубликованные приложения разн�
 ## Тесты и проверки
 
 ```bash
-cd backend && uv run pytest                      # 79 тестов: DSP, задания, права, деньги, webhooks, склад, доставка, сеансы, i18n, S3
+cd backend && uv run pytest                      # 82 тестов: DSP, задания, права, деньги, webhooks, склад, доставка, сеансы, i18n, S3
 cd frontend && npm run check-i18n && npm run check-patterns && npx tsc --noEmit
 cd frontend && node e2e/flows.cjs                # браузерные сквозные сценарии RU и EN (нужен Playwright)
 cd sdk && npm run build && NAP_API_KEY=napk_… npm run example

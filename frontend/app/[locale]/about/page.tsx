@@ -70,7 +70,8 @@ export default async function About({ params }: { params: Promise<{ locale: stri
         <section className="panel stack">
           <h2>{t("about.documents")}</h2>
           <ul className="steps">
-            {specDocs.map((d: string) => <li key={d}><Link href={`/${locale}/about/${d}`}>{t("about.doc_spec", { v: d.replace("spec-", "") })}</Link></li>)}
+            {specDocs.map((d: string) => { const sv = d.replace("spec-", ""); const draft = Number(sv) > Number(v.spec.version);
+              return <li key={d}><Link href={`/${locale}/about/${d}`}>{t("about.doc_spec", { v: sv })}</Link>{draft ? ` · ${t("about.spec_draft")}` : sv === v.spec.version ? ` · ${t("about.spec_current")}` : ""}</li>; })}
             <li><Link href={`/${locale}/about/project`}>{t("about.doc_project", { v: v.description_version })}</Link></li>
             <li><Link href={`/${locale}/about/changelog`}>{t("about.doc_changelog")}</Link></li>
           </ul>

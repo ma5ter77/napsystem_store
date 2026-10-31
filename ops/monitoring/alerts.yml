@@ -1,0 +1,50 @@
+# Alert rules. Thresholds are starting points for a test stand; tune them with real traffic.
+groups:
+  - name: nap
+    rules:
+      - alert: NapApiDown
+        expr: up{job="nap-api"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "API не отвечает на /metrics 2 минуты / API metrics unreachable for 2 minutes" }
+      - alert: NapHigh5xxRate
+        expr: increase(nap_http_errors_5xx_total[10m]) > 10
+        labels: { severity: warning }
+        annotations: { summary: "Больше 10 ответов 5xx за 10 минут / more than 10 HTTP 5xx in 10 minutes" }
+      - alert: NapConversionsFailing
+        expr: increase(nap_conversion_jobs{state="failed"}[1h]) > 3
+        labels: { severity: warning }
+        annotations: { summary: "Больше 3 неудачных конвертаций за час / more than 3 failed conversions per hour" }
+      - alert: NapConversionQueueStuck
+        expr: nap_conversion_jobs{state="queued"} > 20
+        for: 15m
+        labels: { severity: warning }
+        annotations: { summary: "Очередь конвертаций не уменьшается 15 минут / conversion queue not draining" }
+      - alert: NapWebhooksBacklog
+        expr: nap_webhooks_unprocessed > 0
+        for: 30m
+        labels: { severity: critical }
+        annotations: { summary: "Вебхуки оплат/доставки не обрабатываются 30 минут / payment or shipping webhooks pending" }
+      - alert: NapOutboxStuck
+        expr: nap_outbox_stuck > 0
+        for: 15m
+        labels: { severity: warning }
+        annotations: { summary: "Исходящие события повторяются 5+ раз (письма, возвраты, выплаты) / outbox items retried 5+ times" }
+      - alert: NapEmailsFailing
+        expr: nap_emails_failed > 0
+        for: 30m
+        labels: { severity: warning }
+        annotations: { summary: "Письма не доставляются — проверьте SMTP / e-mails failing, check SMTP" }
+      - alert: NapBackupFailed
+        expr: nap_backup_ok == 0
+        labels: { severity: critical }
+        annotations: { summary: "Последний бэкап не удался / last backup failed" }
+      - alert: NapBackupStale
+        expr: nap_backup_age_seconds > 26 * 3600
+        labels: { severity: critical }
+        annotations: { summary: "Бэкапа не было больше 26 часов / no backup for more than 26 hours" }
+      - alert: NapBackupMissing
+        expr: absent(nap_backup_age_seconds)
+        for: 1h
+        labels: { severity: warning }
+        annotations: { summary: "Нет данных о бэкапах / no backup status reported" }

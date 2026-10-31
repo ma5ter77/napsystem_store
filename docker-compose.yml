@@ -19,6 +19,15 @@ x-backend-env: &backend-env
   NAP_EASYPOST_API_KEY: ${NAP_EASYPOST_API_KEY:-}
   NAP_EASYPOST_WEBHOOK_SECRET: ${NAP_EASYPOST_WEBHOOK_SECRET:-}
   NAP_JOB_WORKDIR: /app/var/jobs
+  # e-mail (NAP-007): log (default) / file (/app/var/mail/*.eml) / smtp with NAP_SMTP_* below
+  NAP_EMAIL_BACKEND: ${NAP_EMAIL_BACKEND:-log}
+  NAP_EMAIL_FROM: ${NAP_EMAIL_FROM:-NAP Store <no-reply@nap.local>}
+  NAP_EMAIL_FILE_DIR: /app/var/mail
+  NAP_SMTP_HOST: ${NAP_SMTP_HOST:-}
+  NAP_SMTP_PORT: ${NAP_SMTP_PORT:-587}
+  NAP_SMTP_USER: ${NAP_SMTP_USER:-}
+  NAP_SMTP_PASSWORD: ${NAP_SMTP_PASSWORD:-}
+  NAP_SMTP_SECURITY: ${NAP_SMTP_SECURITY:-starttls}
   NAP_BUILD: ${NAP_BUILD:-docker}
 
 services:
@@ -47,7 +56,7 @@ services:
     build: ./backend
     environment: *backend-env
     ports: ["8000:8000"]
-    volumes: [storage:/app/var/storage]
+    volumes: [storage:/app/var/storage, ./backups:/backups:ro]
     depends_on: { migrate: { condition: service_completed_successfully }, redis: { condition: service_healthy } }
     healthcheck: { test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/api/v1/ready')"], interval: 10s, retries: 10 }
     networks: [core, edge]
@@ -71,6 +80,39 @@ services:
     depends_on: { migrate: { condition: service_completed_successfully }, redis: { condition: service_healthy } }
     networks: [core, edge]
 
+  # NAP-006: daily pg_dump + restore check into a scratch DB + retention; status in ./backups/last-status.json
+  backup:
+    image: postgres:16-bookworm
+    environment:
+      PG_URL: postgresql://nap:${POSTGRES_PASSWORD:-nap}@postgres:5432/nap
+      PG_ADMIN_URL: postgresql://nap:${POSTGRES_PASSWORD:-nap}@postgres:5432/postgres
+      BACKUP_DIR: /backups
+      BACKUP_AT: ${BACKUP_AT:-02:30}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_STORAGE_DIR: /storage
+    entrypoint: ["bash", "/ops/backup-loop.sh"]
+    volumes: [./ops:/ops:ro, ./backups:/backups, storage:/storage:ro]
+    depends_on: { migrate: { condition: service_completed_successfully } }
+    networks: [core]
+
+  # NAP-005: optional monitoring — `docker compose --profile monitoring up -d`; Prometheus UI on 127.0.0.1:9090.
+  # Alert e-mails: fill ops/monitoring/alertmanager.yml (placeholders) first.
+  prometheus:
+    image: prom/prometheus:v2.53.2
+    profiles: [monitoring]
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=30d"]
+    volumes: [./ops/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro,
+              ./ops/monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro, promdata:/prometheus]
+    ports: ["127.0.0.1:9090:9090"]
+    depends_on: [api]
+    networks: [core, edge]
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    profiles: [monitoring]
+    volumes: [./ops/monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro]
+    networks: [core, edge]
+
   web:
     build: { context: ./frontend, args: { BACKEND_URL: "http://api:8000" } }
     environment: { BACKEND_URL: "http://api:8000", PUBLIC_BASE_URL: "${NAP_PUBLIC_BASE_URL:-http://localhost:3000}" }
@@ -82,4 +124,4 @@ networks:
   core: { internal: true }
   edge: {}
 
-volumes: { pgdata: {}, storage: {}, jobs: {} }
+volumes: { pgdata: {}, storage: {}, jobs: {}, promdata: {} }

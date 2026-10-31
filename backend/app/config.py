@@ -48,6 +48,21 @@ class Settings(BaseSettings):
     login_max_attempts: int = 8
     login_window_seconds: int = 900
 
+    # e-mail (NAP-007): log (demo) / file (.eml files) / smtp
+    email_backend: Literal["log", "file", "smtp"] = "log"
+    email_from: str = "NAP Store <no-reply@nap.local>"
+    email_reply_to: str | None = None
+    email_file_dir: str = "./var/mail"
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_security: Literal["starttls", "ssl", "none"] = "starttls"
+
+    # backups (NAP-006): status file written by ops/backup-loop.sh
+    backup_status_file: str = "/backups/last-status.json"
+    backup_max_age_hours: int = 26
+
     # rate limits (NAP-052); per-bucket overrides: NAP_RATE_LIMITS="checkout=10/600,global=600/60"
     rate_limits_enabled: bool = True
     rate_limits: str = ""

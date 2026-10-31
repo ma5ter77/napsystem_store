@@ -11,7 +11,7 @@ from ..db import utcnow
 from ..dsp.engine import Profile
 from ..errors import ApiError
 from ..models import (App, AppVersion, Asset, AuditLog, Category, ConversionJob, DigitalOrder, DspProfile,
-                      Entitlement, HardwareOrder, LedgerEntry, Outbox, Product, RoleGrant, Seller, SellerMember,
+                      Entitlement, HardwareOrder, LedgerEntry, Notification, Outbox, Product, RoleGrant, Seller, SellerMember,
                       User, WebhookInbox)
 from ..models.system import ROLES
 from ..services import apps as appsvc
@@ -288,7 +288,18 @@ def ops(p=P, db=DB):
             "failed_webhooks": [{"source": w.source, "event_id": w.event_id, "type": w.event_type,
                                  "attempts": w.attempts, "error": w.last_error}
                                 for w in db.scalars(select(WebhookInbox).where(WebhookInbox.processed_at.is_(None))
-                                                    .limit(20))]}
+                                                    .limit(20))],
+            "emails_failed": db.scalar(select(func.count()).select_from(Notification).where(
+                Notification.emailed_at.is_(None), Notification.email_error.isnot(None))),
+            "backup": _backup()}
+
+
+def _backup() -> dict | None:
+    from ..main import backup_status
+    b = backup_status()
+    if b:
+        b["stale"] = b["age_seconds"] > get_settings().backup_max_age_hours * 3600 or b["status"] != "ok"
+    return b
 
 
 @router.post("/admin/ops/run")
