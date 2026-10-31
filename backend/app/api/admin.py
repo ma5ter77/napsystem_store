@@ -185,8 +185,11 @@ def create_profile(body: ProfileIn, p=P, db=DB):
     a = admin(p)
     allowed = {"carrier_center_hz", "beat_hz", "source_gain_db", "tone_gain_dbfs", "fade_in_seconds",
                "fade_out_seconds"}
-    if set(body.params) != allowed:
-        raise ApiError("validation_failed", 422, details={"field": "params", "allowed": sorted(allowed)})
+    # NAP-021: an optional frequency transition [[t_seconds, beat_hz], ...] on top of the fixed parameters
+    if set(body.params) - {"beat_curve"} != allowed:
+        raise ApiError("validation_failed", 422, details={"field": "params", "allowed": sorted(allowed | {"beat_curve"})})
+    if "beat_curve" in body.params and not body.params["beat_curve"]:
+        body.params.pop("beat_curve")
     last = db.scalar(select(func.max(DspProfile.version)).where(DspProfile.slug == body.slug)) or 0
     try:
         Profile.from_dict({"slug": body.slug, "version": last + 1, **body.params})

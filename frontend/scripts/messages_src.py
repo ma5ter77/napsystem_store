@@ -560,6 +560,16 @@ M.update({
 })
 
 
+# NAP-021: frequency transitions
+M.update({
+"admin.curve": ("Переход разницы частот (необязательно)", "Frequency difference transition (optional)"),
+"admin.curve_short": ("переход", "transition"),
+"admin.curve_hint": ("По строке на точку: «секунда = разница в Гц», например «0 = 10» и «900 = 4» — за 15 минут от 10 до 4 Гц. Между точками — плавно, после последней — держится. Несущая не меняется, частота интегрируется в фазу без щелчков.", "One point per line: “second = difference in Hz”, e.g. “0 = 10” and “900 = 4” — from 10 to 4 Hz over 15 minutes. Smooth between points, held after the last. The carrier stays; frequency is integrated into phase without clicks."),
+"qa.curve": ("Переход частот", "Frequency transition"),
+"qa.curve_value": ("проверено точек: {points}, наибольшее отклонение {err} Гц", "points checked: {points}, largest deviation {err} Hz"),
+})
+
+
 def nest(lang):
     out = {}
     for key, pair in M.items():

@@ -232,3 +232,64 @@ def test_gamma_40_profile_left_200_right_240():
     for side in ("left", "right"):  # the other ear's carrier is absent (strict stereo)
         s = a["opposite_suppression_db"][side]
         assert s == ">200" or s >= 60.0
+
+
+CURVE = {**ALPHA, "slug": "alpha-to-theta-test", "beat_curve": [[0, 10.0], [20, 4.0]], "fade_in_seconds": 0.0,
+         "fade_out_seconds": 0.0}
+
+
+def test_frequency_transition_matches_closed_form_without_phase_resets():
+    """NAP-021: instantaneous frequency follows the curve; phase is the integral of frequency (no resets),
+    for any block split, against the closed-form integral of the linear ramp (<= 1e-6)."""
+    p = Profile.from_dict(CURVE)
+    n = FS * 30  # 20 s ramp 10 -> 4 Hz, then 10 s held at 4 Hz
+    one = BinauralRenderer(p, n).layer(n)
+    rng = np.random.default_rng(3)
+    r, parts, i = BinauralRenderer(p, n), [], 0
+    while i < n:
+        k = int(rng.integers(1, 90000))
+        parts.append(r.layer(min(k, n - i)))
+        i += k
+    blk = np.concatenate(parts)
+    assert np.max(np.abs(blk - one)) <= 1e-6
+    # closed form: beat b(t) = 10 - 0.3 t for t < 20, then 4; phase_L = 2 pi (c t - B(t)/2), B = integral of b
+    t = np.arange(n, dtype=np.float64) / FS
+    B = np.where(t < 20, 10 * t - 0.15 * t * t, 10 * 20 - 0.15 * 400 + 4 * (t - 20))
+    c = p.carrier_center_hz
+    amp = 10 ** (-30 / 20)
+    ref_l = amp * np.sin(2 * np.pi * (c * t - B / 2))
+    ref_r = amp * np.sin(2 * np.pi * (c * t + B / 2))
+    assert np.max(np.abs(one[:, 0] - ref_l)) <= 1e-5 and np.max(np.abs(one[:, 1] - ref_r)) <= 1e-5
+    # no phase reset: sample-to-sample steps stay bounded by the instantaneous frequency
+    assert np.max(np.abs(np.diff(one[:, 0]))) <= amp * 2 * np.pi * (c + 6) / FS * 1.01
+
+
+def test_frequency_transition_measured_along_the_curve():
+    p = Profile.from_dict(CURVE)
+    pts = __import__("app.dsp.engine", fromlist=["curve_checkpoints"]).curve_checkpoints(p, FS * 30)
+    assert len(pts) >= 2  # middle of the ramp + the held part
+    for x in pts:
+        assert x["error_hz"] <= 0.05, x
+    held = [x for x in pts if x["t"] >= 21]
+    assert held and abs(held[0]["beat_hz"] - 4.0) <= 0.05
+
+
+def test_frequency_transition_validation_and_snapshot_compat():
+    assert "beat_curve" not in ALPHA_DEMO_V1.to_dict()  # constant profiles keep their snapshot and manifest hash
+    for bad in ([[0, 10.0]], [[0, 10.0], [0, 4.0]], [[0, 10.0], [10, 50.0]], [[5, 10.0], [2, 4.0]]):
+        with pytest.raises(ValueError):
+            Profile.from_dict({**ALPHA, "beat_curve": bad})
+    p = Profile.from_dict(CURVE)
+    assert p.to_dict()["beat_curve"] == [[0.0, 10.0], [20.0, 4.0]]
+    assert float(p.beat_at(np.array([10.0]))[0]) == pytest.approx(7.0)
+
+
+def test_frequency_transition_full_conversion(tmp_path):
+    """A real file through the pipeline with a curved profile: QA reports the curve check."""
+    n = 44100 * 25
+    src = write_wav(tmp_path / "in.wav", np.stack([speechlike(n, 44100), speechlike(n, 44100, 2)], 1), 44100)
+    p = {**CURVE, "fade_in_seconds": 1.0, "fade_out_seconds": 1.0}
+    res = convert(str(src), str(tmp_path / "out"), p, LIM)
+    lay = res.report["qa"]["layer"] if "qa" in res.report else res.report["layer"]
+    assert lay["curve"]["points"] and lay["curve"]["max_error_hz"] <= 0.05
+

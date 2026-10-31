@@ -79,7 +79,10 @@
   "unprocessed": "Unprocessed webhooks",
   "outbox": "Outbox items",
   "run_ops": "Process queues now",
-  "i18n_missing": "Missing dictionary keys: RU {ru}, EN {en}"
+  "i18n_missing": "Missing dictionary keys: RU {ru}, EN {en}",
+  "curve": "Frequency difference transition (optional)",
+  "curve_short": "transition",
+  "curve_hint": "One point per line: “second = difference in Hz”, e.g. “0 = 10” and “900 = 4” — from 10 to 4 Hz over 15 minutes. Smooth between points, held after the last. The carrier stays; frequency is integrated into phase without clicks."
  },
  "dev": {
   "saved_details": "Details saved.",
@@ -263,7 +266,9 @@
   "gain": "Common gain on both channels",
   "duration": "Duration",
   "not_measurable": "not measurable (file too short)",
-  "layer_disabled": "layer disabled"
+  "layer_disabled": "layer disabled",
+  "curve": "Frequency transition",
+  "curve_value": "points checked: {points}, largest deviation {err} Hz"
  },
  "cart": {
   "remove": "Remove",
