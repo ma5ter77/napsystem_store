@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# NAP-085: deploy one exact commit of the store to /srv/nap-store next to the existing platform.
+# NAP-085: deploy one exact commit of the store (repository BrothersB/nap-store) to /srv/nap-store
+# next to the existing platform.  INACTIVE EXAMPLE — not applied anywhere yet; the first server install,
+# DNS and TLS need a separate permission of the owner (handoff 31.10.2026, section 7).
 #   bash deploy-cohost.sh <release.tar.gz|release-dir> <commit-sha>
-# The archive is made from the agreed commit:  git archive --format=tar.gz -o store-<sha>.tar.gz <sha> [apps/store]
+# The archive is made from the agreed, checked commit:  git archive --format=tar.gz -o store-<sha>.tar.gz <sha>
+# Run as a dedicated deploy user (e.g. "napstore", member of the docker group), not as the shared root.
 # Layout:  /srv/nap-store/releases/<sha>/   code of that commit (read-only use)
 #          /srv/nap-store/current -> releases/<sha>
 #          /srv/nap-store/shared/.env       secrets, written by the owner (never in git or chat)
@@ -28,8 +31,7 @@ if [ ! -d "$REL" ]; then
   mkdir -p "$REL"
   if [ -d "$SRC" ]; then cp -a "$SRC/." "$REL/"; else tar -xzf "$SRC" -C "$REL"; fi
 fi
-# a monorepo archive keeps the store in apps/store
-if [ -f "$REL/docker-compose.yml" ]; then APP="$REL"; else APP="$REL/apps/store"; fi
+APP="$REL"
 [ -f "$APP/docker-compose.yml" ] || { echo "docker-compose.yml not found in $REL"; exit 1; }
 echo "$SHA" > "$APP/.release-sha"
 ln -sfn "$SHARED/.env" "$APP/.env"
