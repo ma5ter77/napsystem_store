@@ -45,7 +45,7 @@ def test_file_backend_writes_localized_message_once(mail):
     files = list(d.glob("*.eml"))
     msgs = [email.message_from_bytes(f.read_bytes(), policy=policy.default) for f in files]
     m = next(x for x in msgs if x["X-NAP-Ref"] == key)
-    assert m["Subject"] == "Версия 1.0 одобрена" and m["Content-Language"] == "ru"
+    assert m["Subject"] == "Версия 1.0 приложения «Океан» одобрена" and m["Content-Language"] == "ru"
     assert "Океан" in m.get_body(("plain",)).get_content() and m.get_body(("html",)) is not None
     with session_scope() as db:
         n = db.query(Notification).filter(Notification.dedupe_key == key).one()
@@ -89,5 +89,5 @@ def test_smtp_failure_backoff_then_delivery(mail):
         db.query(Outbox).filter(Outbox.dedupe_key == f"mail:{key}").one().next_attempt_at = None
     billing.dispatch_outbox(limit=500)
     m = next(x for x in sent if x["X-NAP-Ref"] == key)
-    assert m["Subject"] == "Version 1.0 approved" and m["To"].endswith("@example.com")
+    assert m["Subject"] == "Version 1.0 of “Ocean” approved" and m["To"].endswith("@example.com")
     assert _outbox(key)[0] is not None

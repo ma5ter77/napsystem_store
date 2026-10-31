@@ -129,8 +129,8 @@
    "body": "{amount} has been refunded to you."
   },
   "version_approved": {
-   "subject": "Version {version} approved",
-   "body": "App {app}: version {version} was approved. Comment: {comment}"
+   "subject": "Version {version} of “{app}” approved",
+   "body": "The moderator approved version {version} of “{app}”. To put it in the store, open the app in the developer cabinet: set a price (if missing) and press “Publish” — or turn on “Publish right after approval”. Comment: {comment}"
   },
   "version_rejected": {
    "subject": "Version {version} rejected",
@@ -199,6 +199,10 @@
   "product_rejected": {
    "subject": "Product {product} rejected",
    "body": "The moderator rejected {product}. Comment: {comment}. Fix the card in the supplier cabinet and send it again."
+  },
+  "version_published_auto": {
+   "subject": "App “{app}” is published",
+   "body": "The moderator approved version {version} of “{app}” and it was published right away — the app is in the store. Comment: {comment}"
   }
  },
  "plural": {

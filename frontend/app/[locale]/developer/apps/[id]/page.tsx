@@ -282,7 +282,7 @@ function PriceTab({ app, reload, done }: { app: any; reload: () => void; done: (
   return (
     <form className="panel stack" onSubmit={async (e) => {
       e.preventDefault();
-      if (await act.run(() => api(`/developer/apps/${app.id}/price`, { method: "PUT", body: { kind, amount_minor: Math.round(amount * 100), currency, interval: kind === "subscription" ? interval : null } }))) { reload(); done(t("dev.saved_price")); }
+      if (await act.run(() => api(`/developer/apps/${app.id}/price`, { method: "PUT", body: { kind, amount_minor: Math.round(amount * 100), currency, interval: kind === "subscription" ? interval : null } }))) { const before = app.versions[0]?.state; const fresh = await api<any>(`/developer/apps/${app.id}`).catch(() => null); reload(); done(before === "approved" && fresh?.versions?.[0]?.state === "published" ? t("dev.saved_price_published") : t("dev.saved_price")); }
     }}>
       {cur && <p>{t("dev.current_price")}: <Price minor={cur.amount_minor} currency={cur.currency} /> ({t(`kinds.${cur.kind}`)}{cur.interval ? `, ${t(`interval.${cur.interval}`)}` : ""})</p>}
       <div className="form wide">
@@ -316,6 +316,12 @@ function Versions({ app, reload, done, ready }: { app: any; reload: () => void; 
           : <button className="btn ghost" onClick={() => go(`/developer/apps/${app.id}/sales`, t("dev.done_sales_resumed"), { status: "active" })}>{t("dev.resume_sales")}</button>)}
       </div>
       {app.sales_status === "withdrawn" && <div className="notice warn">{t("dev.sales_withdrawn")}</div>}
+      {["draft", "submitted", "approved"].includes(latest?.state) && (
+        <label className="check panel flat">
+          <input type="checkbox" checked={!!latest.auto_release} disabled={act.pending}
+            onChange={(e) => go(`/developer/apps/${app.id}/versions/${latest.id}/auto-release`, e.target.checked ? t("dev.auto_release_on") : t("dev.auto_release_off"), { on: e.target.checked })} />
+          <span>{t("dev.auto_release")}<span className="hint" style={{ display: "block" }}>{t("dev.auto_release_hint")}</span></span>
+        </label>)}
       <ErrorBox error={act.error} />
       <div className="panel flat stack">
         <h3>{t("dev.public_preview")}</h3>
@@ -358,7 +364,8 @@ function NextStep({ v, app, ready, checks, decision, goTab }: { v: any; app: any
   if (v.state === "draft" && !ready) body = <>{t("dev.next_fill")} {missing.map((c, i) => <span key={c.key}>{i ? ", " : ""}<button type="button" className="linklike" onClick={() => goTab(c.tab)}>{t(`dev.todo.${c.key}`)}</button></span>)}</>;
   else if (v.state === "draft") body = <>{t("dev.next_submit")} <button type="button" className="btn small" onClick={() => goTab("versions")}>{t("dev.go_submit")}</button></>;
   else if (v.state === "submitted") { cls = "notice warn"; body = t("dev.next_wait", { date: date(v.submitted_at, locale, true) }); }
-  else if (v.state === "approved") { cls = "notice ok"; body = <>{t("dev.next_publish")}{!(app.prices ?? []).length && ` ${t("dev.next_publish_price")}`} <button type="button" className="btn small" onClick={() => goTab((app.prices ?? []).length ? "versions" : "price")}>{(app.prices ?? []).length ? t("dev.go_publish") : t("dev.tab_price")}</button></>; }
+  else if (v.state === "approved" && (v.release_blockers ?? []).includes("price")) { cls = "notice ok"; body = <>{v.auto_release ? t("dev.next_approved_price_auto") : `${t("dev.next_publish")} ${t("dev.next_publish_price")}`} <button type="button" className="btn small" onClick={() => goTab("price")}>{t("dev.tab_price")}</button></>; }
+  else if (v.state === "approved") { cls = "notice ok"; body = <>{t("dev.next_publish")} <button type="button" className="btn small" onClick={() => goTab("versions")}>{t("dev.go_publish")}</button></>; }
   else if (v.state === "rejected") { cls = "notice bad"; body = <>{t("dev.next_rejected")}{decision?.comment ? <> «{decision.comment}»</> : null}. {t("dev.next_rejected_fix")}</>; }
   else if (v.state === "published") { cls = "notice ok"; body = <>{t("dev.next_published")} <Link href={`/${locale}/apps/${app.slug}`}>{t("dev.open_in_store")}</Link></>; }
   if (!body) return null;

@@ -61,6 +61,8 @@ class AppVersion(Base):
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # NAP-083: publish as soon as the moderator approves (and a price is set), like "release automatically"
+    auto_release: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     sessions: Mapped[list["ProgramSession"]] = relationship(order_by="ProgramSession.position",
                                                            cascade="all, delete-orphan", lazy="selectin")
     __table_args__ = (UniqueConstraint("app_id", "number"),

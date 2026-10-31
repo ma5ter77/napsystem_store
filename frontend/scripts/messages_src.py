@@ -479,6 +479,24 @@ M.update({
 })
 
 
+# NAP-083: release right after approval; the moderator queue names the app
+M.update({
+"dev.auto_release": ("Публиковать сразу после одобрения", "Publish right after approval"),
+"dev.auto_release_hint": ("Как только модератор одобрит версию, она появится в магазине (если задана цена). Выключите, чтобы публиковать вручную кнопкой «Опубликовать».", "As soon as the moderator approves the version it appears in the store (if a price is set). Turn off to publish manually with “Publish”."),
+"dev.auto_release_on": ("Версия будет опубликована сразу после одобрения.", "The version will be published right after approval."),
+"dev.auto_release_off": ("После одобрения опубликуйте версию кнопкой «Опубликовать».", "After approval publish the version with “Publish”."),
+"dev.saved_price_published": ("Цена сохранена — одобренная версия опубликована, приложение в магазине.", "Price saved — the approved version is published, the app is in the store."),
+"dev.next_approved_price_auto": ("Модератор одобрил версию. Задайте цену — и она сразу появится в магазине.", "The moderator approved the version. Set a price and it appears in the store right away."),
+"mod.no_price_yet": ("автор ещё не задал цену", "the author has not set a price yet"),
+"mod.goes_live_on_approve": ("после одобрения сразу в магазине", "goes live on approval"),
+"mod.author_publishes": ("автор опубликует вручную", "the author publishes manually"),
+"mod.done_published": ("Версия одобрена и опубликована — приложение уже в магазине.", "Version approved and published — the app is in the store."),
+"mod.open_in_store": ("Открыть в магазине", "Open in the store"),
+"mod.waits_for_price": ("В магазине появится, как только автор задаст цену.", "It goes live as soon as the author sets a price."),
+"mod.waits_for_author": ("Автор публикует вручную — в магазине появится после его нажатия «Опубликовать».", "The author publishes manually — it goes live when they press “Publish”."),
+})
+
+
 def nest(lang):
     out = {}
     for key, pair in M.items():

@@ -12,23 +12,24 @@ function Review() {
   const { t, locale } = useApp();
   const { data, error, loading, reload } = useLoad<any>(`/moderation/versions/${id}`);
   const [comment, setComment] = useState("");
-  const [done, setDone] = useState<{ decision: string; next: string | null } | null>(null);
+  const [done, setDone] = useState<{ decision: string; next: string | null; state?: string; blockers?: string[] } | null>(null);
   const act = useAction();
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} onRetry={reload} />;
   const v = data.version;
   // NAP-082: confirm the decision and offer the next version waiting in the queue
   const decide = async (decision: string) => {
-    if (await act.run(() => api(`/moderation/versions/${id}/decision`, { body: { decision, comment } }))) {
+    const r = await act.run(() => api<any>(`/moderation/versions/${id}/decision`, { body: { decision, comment } }));
+    if (r) {
       setComment(""); reload();
       const q = await api<any>("/moderation/queue").catch(() => ({ items: [] }));
-      setDone({ decision, next: q.items.find((x: any) => x.version.id !== id)?.version.id ?? null });
+      setDone({ decision, next: q.items.find((x: any) => x.version.id !== id)?.version.id ?? null, state: r.state, blockers: r.release_blockers });
     }
   };
   return (
     <div className="stack">
       <Link href={`/${locale}/moderation`}>{t("mod.title")}</Link>
-      <div className="spread"><h1>{data.app.slug} v{v.version_label}</h1><StatusBadge ns="version_state" value={v.state} /></div>
+      <div className="spread"><div><h1>{data.app.title} <span className="hint">v{v.version_label}</span></h1><div className="hint">{data.app.slug} · {data.app.author}</div></div><StatusBadge ns="version_state" value={v.state} /></div>
       {data.integrity && data.integrity.length > 0 && <div className="notice bad">{t("mod.integrity")}: {data.integrity.join(", ")}</div>}
       <div className="two">
         {["ru", "en"].map((l) => v.metadata[l] && (
@@ -49,7 +50,11 @@ function Review() {
       {v.moderation.map((d: any, i: number) => <div key={i} className="notice"><StatusBadge ns="decision" value={d.decision} /> {d.comment}</div>)}
       {done && (
         <div className={`notice ${done.decision === "reject" ? "warn" : "ok"}`} role="status">
-          <strong>{t(`mod.done_${done.decision}`)}</strong> {done.decision !== "comment" && t("mod.done_notified")}
+          <strong>{done.state === "published" ? t("mod.done_published") : t(`mod.done_${done.decision}`)}</strong>{" "}
+          {done.state === "published" && <Link href={`/${locale}/apps/${data.app.slug}`}>{t("mod.open_in_store")}</Link>}
+          {done.state === "approved" && (done.blockers ?? []).includes("price") && t("mod.waits_for_price")}
+          {done.state === "approved" && !(done.blockers ?? []).includes("price") && (done.blockers ?? []).includes("manual_release") && t("mod.waits_for_author")}
+          {" "}{done.decision !== "comment" && t("mod.done_notified")}
           <div className="row" style={{ marginTop: 8 }}>
             {done.next ? <Link className="btn small" href={`/${locale}/moderation/${done.next}`}>{t("mod.next")}</Link> : <span className="hint">{t("mod.queue_empty_now")}</span>}
             <Link className="btn ghost small" href={`/${locale}/moderation`}>{t("mod.back_to_queue")}</Link>

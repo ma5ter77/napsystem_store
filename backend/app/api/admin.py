@@ -33,7 +33,10 @@ def queue(request: Request, p=P, db=DB):
     out = []
     for v in appsvc.moderation_queue(db):
         app = db.get(App, v.app_id)
-        out.append({"app": {"id": str(app.id), "slug": app.slug, "author": app.author_name},
+        out.append({"app": {"id": str(app.id), "slug": app.slug, "author": app.author_name,
+                            "title": appsvc.app_title(app, v, locale_of(request)),
+                            "price_set": "price" not in appsvc.release_blockers(db, app, v),
+                            "auto_release": v.auto_release},
                     "version": version_view(db, v, locale_of(request))})
     return {"items": out}
 
@@ -53,7 +56,8 @@ def mod_version(version_id: str, request: Request, p=P, db=DB):
                          "params": (j.report or {}).get("params"),
                          "source_url": signed_url(src, src.original_name or "source"),
                          "delivery_url": signed_url(db.get(Asset, s.delivery_asset_id), f"{s.key}.flac")})
-    return {"app": {"id": str(app.id), "slug": app.slug, "author": app.author_name},
+    return {"app": {"id": str(app.id), "slug": app.slug, "author": app.author_name,
+                    "title": appsvc.app_title(app, v, locale_of(request))},
             "version": version_view(db, v, locale_of(request)), "manifest": v.manifest, "sessions": sessions,
             "integrity": appsvc.verify_integrity(db, app, v) if v.manifest else None}
 

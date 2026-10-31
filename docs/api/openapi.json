@@ -3,7 +3,7 @@
  "info": {
   "title": "NAP Store API",
   "description": "NAP Store platform API. Machine error codes are stable; messages are localized (ru/en). Mutating requests with duplicate risk accept an Idempotency-Key header.",
-  "version": "0.6.0"
+  "version": "0.6.1"
  },
  "paths": {
   "/api/v1/health": {
@@ -1136,6 +1136,66 @@
       }
      }
     ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/developer/apps/{app_id}/versions/{version_id}/auto-release": {
+   "put": {
+    "tags": [
+     "developer"
+    ],
+    "summary": "Auto Release",
+    "description": "NAP-083: publish automatically after approval (default) or wait for the author's \"Publish\".",
+    "operationId": "auto_release_api_v1_developer_apps__app_id__versions__version_id__auto_release_put",
+    "parameters": [
+     {
+      "name": "app_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "App Id"
+      }
+     },
+     {
+      "name": "version_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Version Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AutoReleaseIn"
+       }
+      }
+     }
+    },
     "responses": {
      "200": {
       "description": "Successful Response",
@@ -7062,6 +7122,19 @@
      "metadata"
     ],
     "title": "AppIn"
+   },
+   "AutoReleaseIn": {
+    "properties": {
+     "on": {
+      "type": "boolean",
+      "title": "On"
+     }
+    },
+    "type": "object",
+    "required": [
+     "on"
+    ],
+    "title": "AutoReleaseIn"
    },
    "BomAddIn": {
     "properties": {

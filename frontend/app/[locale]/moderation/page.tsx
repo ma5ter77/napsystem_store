@@ -17,8 +17,8 @@ function Queue() {
       <h2>{t("mod.apps_title")}</h2>
       {!data.items.length ? <Empty>{t("mod.empty")}</Empty> : data.items.map((x: any) => (
         <Link key={x.version.id} href={`/${locale}/moderation/${x.version.id}`} className="panel flat card">
-          <div className="spread"><strong>{x.app.slug} v{x.version.version_label}</strong><span className="hint">{x.app.author} · {date(x.version.submitted_at, locale, true)}</span></div>
-          <div className="hint">{t("dev.sessions_count", { count: x.version.sessions.length })}</div>
+          <div className="spread"><strong>{x.app.title} <span className="hint">v{x.version.version_label}</span></strong><span className="hint">{x.app.author} · {date(x.version.submitted_at, locale, true)}</span></div>
+          <div className="hint">{x.app.slug} · {t("dev.sessions_count", { count: x.version.sessions.length })} · {!x.app.price_set ? t("mod.no_price_yet") : x.app.auto_release ? t("mod.goes_live_on_approve") : t("mod.author_publishes")}</div>
         </Link>
       ))}
     </div>

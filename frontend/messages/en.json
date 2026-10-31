@@ -213,7 +213,13 @@
   "auto_convert": "Convert right after upload with the selected profile",
   "step_files": "Uploaded files",
   "files_hint": "To make another version of a track, pick another profile and press Convert next to the file.",
-  "jobs_hint": "3. When a conversion completes, the track appears in the Program tab. The first finished track becomes session 1 automatically."
+  "jobs_hint": "3. When a conversion completes, the track appears in the Program tab. The first finished track becomes session 1 automatically.",
+  "auto_release": "Publish right after approval",
+  "auto_release_hint": "As soon as the moderator approves the version it appears in the store (if a price is set). Turn off to publish manually with “Publish”.",
+  "auto_release_on": "The version will be published right after approval.",
+  "auto_release_off": "After approval publish the version with “Publish”.",
+  "saved_price_published": "Price saved — the approved version is published, the app is in the store.",
+  "next_approved_price_auto": "The moderator approved the version. Set a price and it appears in the store right away."
  },
  "mod": {
   "done_approve": "Version approved.",
@@ -237,7 +243,14 @@
   "product_done_reject": "The product was rejected.",
   "product_supplier_notified": "The supplier was notified.",
   "reject_needs_comment": "To reject, tell the supplier what to fix.",
-  "apps_title": "Apps in moderation"
+  "apps_title": "Apps in moderation",
+  "no_price_yet": "the author has not set a price yet",
+  "goes_live_on_approve": "goes live on approval",
+  "author_publishes": "the author publishes manually",
+  "done_published": "Version approved and published — the app is in the store.",
+  "open_in_store": "Open in the store",
+  "waits_for_price": "It goes live as soon as the author sets a price.",
+  "waits_for_author": "The author publishes manually — it goes live when they press “Publish”."
  },
  "qa": {
   "disclaimer": "Technical verification of signal parameters only. It does not verify or guarantee any brain state or therapeutic effect.",

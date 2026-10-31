@@ -276,11 +276,38 @@ def moderate(db: Session, v: AppVersion, moderator_id: uuid.UUID, decision: str,
     v.decided_at = utcnow()
     db.add(ModerationDecision(version_id=v.id, moderator_id=moderator_id,
                               decision="approved" if decision == "approve" else "rejected", comment=comment))
-    dev = db.get(User, app.developer_id)
-    notify(db, dev.id, dev.locale, f"version_{v.state}", f"mod:{v.id}:{v.state}",
-           app=app.slug, version=v.version_label, comment=comment or "—")
     audit(db, moderator_id, f"moderation.{v.state}", "app_version", v.id, {"comment": comment[:500]})
+    # NAP-083: approval puts the app in the store right away when the author chose automatic release and set a price
+    released = v.state == "approved" and try_auto_release(db, app, v, moderator_id)
+    dev = db.get(User, app.developer_id)
+    template = "version_published_auto" if released else f"version_{v.state}"
+    notify(db, dev.id, dev.locale, template, f"mod:{v.id}:{v.state}",
+           app=app_title(app, v, dev.locale), version=v.version_label, comment=comment or "—")
     return v
+
+
+def app_title(app: App, v: AppVersion, locale: str) -> str:
+    m = v.metadata_ or {}
+    return (m.get(locale) or {}).get("title") or (m.get("ru") or {}).get("title") or (m.get("en") or {}).get("title") \
+        or app.slug
+
+
+def release_blockers(db: Session, app: App, v: AppVersion) -> list[str]:
+    """Why an approved version is not in the store yet (empty = it can be published now)."""
+    out = []
+    if not db.scalar(select(Price).where(Price.app_id == app.id, Price.active.is_(True))):
+        out.append("price")
+    if not v.auto_release:
+        out.append("manual_release")
+    return out
+
+
+def try_auto_release(db: Session, app: App, v: AppVersion, actor_id: uuid.UUID) -> bool:
+    if v.state != "approved" or release_blockers(db, app, v):
+        return False
+    publish(db, app, v, actor_id)
+    audit(db, actor_id, "version.auto_released", "app_version", v.id)
+    return True
 
 
 def publish(db: Session, app: App, v: AppVersion, actor_id: uuid.UUID) -> AppVersion:
@@ -313,7 +340,8 @@ def new_version(db: Session, app: App, actor_id: uuid.UUID) -> AppVersion:
                    version_label=f"{major}.{int(minor) + 1}", content_language=last.content_language if last else "ru",
                    metadata_=dict(last.metadata_) if last else {}, requirements=dict(last.requirements) if last else {},
                    questionnaire_pre=last.questionnaire_pre if last else None,
-                   questionnaire_post=last.questionnaire_post if last else None)
+                   questionnaire_post=last.questionnaire_post if last else None,
+                   auto_release=last.auto_release if last else True)
     db.add(v)
     db.flush()
     if last:
@@ -359,7 +387,22 @@ def set_price(db: Session, app: App, kind: str, amount_minor: int, currency: str
     price = Price(app_id=app.id, kind=kind, amount_minor=amount_minor, currency=currency, interval=interval)
     db.add(price)
     audit(db, actor_id, "price.set", "app", app.id, {"kind": kind, "amount_minor": amount_minor, "currency": currency})
+    db.flush()
+    # NAP-083: an approved version that was only waiting for a price goes to the store now
+    waiting = latest_version(db, app.id)
+    if waiting and waiting.state == "approved" and waiting.auto_release:
+        try_auto_release(db, app, waiting, actor_id)
     return price
+
+
+def set_auto_release(db: Session, app: App, v: AppVersion, on: bool, actor_id: uuid.UUID) -> AppVersion:
+    if v.state not in ("draft", "submitted", "approved"):
+        raise ApiError("invalid_state", 409)
+    v.auto_release = bool(on)
+    audit(db, actor_id, "version.auto_release", "app_version", v.id, {"on": v.auto_release})
+    if v.auto_release:
+        try_auto_release(db, app, v, actor_id)
+    return v
 
 
 def moderation_queue(db: Session) -> list[AppVersion]:

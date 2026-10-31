@@ -203,7 +203,8 @@ def make_app(db, dev, slug, category, author, meta, lang, price, sessions_spec, 
                                                  "the description and background music rights.")
         return app
     appsvc.moderate(db, v, mod.id, "approve", "OK")
-    appsvc.publish(db, app, v, dev.id)
+    if v.state == "approved":  # auto-release already published it when a price was set (NAP-083)
+        appsvc.publish(db, app, v, dev.id)
     if preview:
         app.public_preview_asset_id = uuid.UUID(db.get(ConversionJob, jobs[0][2]).result["preview"])
     return app

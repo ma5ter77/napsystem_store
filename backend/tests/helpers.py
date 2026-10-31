@@ -54,8 +54,9 @@ def make_published_app(dev: Client, moderator: Client, kind="one_time", amount=1
     ok(dev.put(f"/developer/apps/{a['id']}/price", {"kind": kind, "amount_minor": amount, "currency": "EUR",
                                                      "interval": interval}))
     ok(dev.post(f"/developer/apps/{a['id']}/versions/{v}/submit"))
-    ok(moderator.post(f"/moderation/versions/{v}/decision", {"decision": "approve", "comment": "ok"}))
-    ok(dev.post(f"/developer/apps/{a['id']}/versions/{v}/publish"))
+    r = ok(moderator.post(f"/moderation/versions/{v}/decision", {"decision": "approve", "comment": "ok"}))
+    assert r["state"] == "published"  # price set + automatic release (default): in the store right after approval
+    assert r["release_blockers"] == []
     return {"app_id": a["id"], "slug": slug, "version_id": v, "job": job}
 
 

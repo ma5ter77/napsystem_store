@@ -137,22 +137,21 @@ async function run(L) {
     await d.getByText(t("dev.done_submitted")).waitFor();
     await d.locator(".badge", { hasText: t("version_state.submitted") }).first().waitFor();
   });
-  await step("moderator approves", async () => {
+  await step("moderator approves: the app goes live at once (NAP-083)", async () => {
     const m = await login(browser, L, t, "moderator@nap.demo");
     await m.p.goto(`${BASE}/${L}/moderation`);
+    await m.p.getByText(t("mod.goes_live_on_approve")).first().waitFor();
     await m.p.getByText(slug).click();
     await m.p.getByLabel(t("mod.comment")).fill("OK e2e");
     await m.p.getByRole("button", { name: t("mod.approve") }).click();
-    await m.p.getByText(t("mod.done_approve")).waitFor();
-    await m.p.getByRole("link", { name: t("mod.back_to_queue") }).waitFor();
-    await m.p.locator(".badge", { hasText: t("version_state.approved") }).first().waitFor();
+    await m.p.getByText(t("mod.done_published")).waitFor();
+    await m.p.getByRole("link", { name: t("mod.open_in_store") }).waitFor();
+    await m.p.locator(".badge", { hasText: t("version_state.published") }).first().waitFor();
     await m.ctx.close();
   });
-  await step("author publishes", async () => {
+  await step("author sees the app published without another click", async () => {
     await d.reload();
-    await d.getByText(t("dev.next_publish")).waitFor();
-    await d.getByRole("button", { name: t("dev.publish"), exact: true }).click();
-    await d.getByText(t("dev.done_published")).waitFor();
+    await d.getByText(t("dev.next_published")).waitFor();
     await d.locator(".badge", { hasText: t("version_state.published") }).first().waitFor();
   });
   const buyer = await register(browser, L, t, false);

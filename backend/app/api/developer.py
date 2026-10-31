@@ -42,6 +42,8 @@ def version_view(db, v: AppVersion, locale: str) -> dict:
                           "sha256": s.sha256} for s in v.sessions],
             "moderation": [{"decision": d.decision, "comment": d.comment, "at": d.created_at.isoformat()}
                            for d in decisions],
+            "auto_release": v.auto_release,
+            "release_blockers": appsvc.release_blockers(db, db.get(App, v.app_id), v) if v.state == "approved" else [],
             "submitted_at": v.submitted_at.isoformat() if v.submitted_at else None,
             "published_at": v.published_at.isoformat() if v.published_at else None}
 
@@ -187,6 +189,23 @@ def publish(app_id: str, version_id: str, request: Request, p=P, db=DB):
     if not v or v.app_id != app.id:
         raise ApiError("not_found", 404, entity="version")
     appsvc.publish(db, app, v, u.id)
+    db.commit()
+    return version_view(db, v, locale_of(request))
+
+
+class AutoReleaseIn(BaseModel):
+    on: bool
+
+
+@router.put("/apps/{app_id}/versions/{version_id}/auto-release")
+def auto_release(app_id: str, version_id: str, body: AutoReleaseIn, request: Request, p=P, db=DB):
+    """NAP-083: publish automatically after approval (default) or wait for the author's "Publish"."""
+    u = dev(p, "versions:submit")
+    app = appsvc.own_app(db, as_uuid(app_id), u.id)
+    v = db.get(AppVersion, as_uuid(version_id), with_for_update=True)
+    if not v or v.app_id != app.id:
+        raise ApiError("not_found", 404, entity="version")
+    appsvc.set_auto_release(db, app, v, body.on, u.id)
     db.commit()
     return version_view(db, v, locale_of(request))
 

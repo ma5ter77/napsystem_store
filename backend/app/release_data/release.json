@@ -1,6 +1,6 @@
 {
   "product": "NAP Store",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "stage": "MVP для тестирования",
   "released": "2026-10-31",
   "spec": {
@@ -253,6 +253,15 @@
     }
   ],
   "releases": [
+    {
+      "version": "0.6.1",
+      "date": "2026-10-31",
+      "spec": "1.0",
+      "summary": {
+        "ru": "Одобренное приложение сразу появляется в магазине; очередь модератора показывает названия",
+        "en": "Approved apps go live at once; the moderation queue shows app titles"
+      }
+    },
     {
       "version": "0.6.0",
       "date": "2026-10-31",
