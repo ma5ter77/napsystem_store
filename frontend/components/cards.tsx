@@ -10,10 +10,10 @@ export function priceLabel(prices: any[], t: T, locale: Locale): string {
   return money(p.amount_minor, p.currency, locale);
 }
 
-export function AppCard({ a, locale, t }: { a: any; locale: Locale; t: T }) {
+export function AppCard({ a, locale, t, tone }: { a: any; locale: Locale; t: T; tone?: number }) {
   return (
     <Link className="card" href={`/${locale}/apps/${a.slug}`}>
-      <div className="art"><BeatCover hue={a.cover_hue} seed={a.slug} title={a.title} /></div>
+      <div className="art"><BeatCover hue={a.cover_hue} tone={tone} seed={a.slug} title={a.title} /></div>
       <h3 lang={a.lang ?? undefined}>{a.title ?? a.slug}</h3>
       {a.fallback && a.lang && <span className="badge gray">{t("common.original_lang", { lang: langName(a.lang, locale) })}</span>}
       <div className="meta">{a.author} · {t("app.sessions", { count: a.sessions_count })} · {duration(a.total_duration_seconds, locale)}</div>

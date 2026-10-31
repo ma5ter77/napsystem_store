@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BeatCover } from "@/components/Art";
+import { BeatCover, spreadTones } from "@/components/Art";
 import { useApp } from "@/components/Providers";
 import { Empty, ErrorBox, Loading, RequireAuth, useLoad } from "@/components/ui";
 import { date } from "@/lib/i18n";
@@ -16,10 +16,10 @@ function Library() {
       <h1>{t("library.title")}</h1>
       {data.items.length === 0 ? <Empty action={<Link className="btn" href={`/${locale}/apps`}>{t("home.cta_apps")}</Link>}>{t("library.empty")}</Empty> : (
         <div className="grid">
-          {data.items.map((a: any) => (
+          {((tones) => data.items.map((a: any, i: number) => (
             <div key={a.id} className="stack">
               <Link className="card" href={`/${locale}/apps/${a.slug}`}>
-                <div className="art"><BeatCover hue={a.cover_hue} seed={a.slug} title={a.title} /></div>
+                <div className="art"><BeatCover hue={a.cover_hue} tone={tones[i]} seed={a.slug} title={a.title} /></div>
                 <h3>{a.title}</h3>
               </Link>
               {a.access.has_access ? (
@@ -29,7 +29,7 @@ function Library() {
                 </div>
               ) : <span className="badge gray">{t("library.no_access")}</span>}
             </div>
-          ))}
+          )))(spreadTones(data.items.map((a: any) => a.cover_hue)))}
         </div>
       )}
     </div>
