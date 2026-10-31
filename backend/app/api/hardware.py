@@ -8,6 +8,7 @@ from fastapi.responses import Response as RawResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 
+from .. import ratelimit
 from ..adapters.shipping import get_shipping_adapter
 from ..errors import ApiError
 from ..models import (App, Asset, FreightQuote, HardwareOrder, Parcel, Product, ReturnRequest, Seller, ShippingRate,
@@ -171,6 +172,7 @@ def order_view(db, o: HardwareOrder, locale: str, for_buyer: bool = True, prices
 def checkout(request: Request, response: Response, p=P, db=DB):
     """Split the hardware cart into independent orders (one seller + warehouse + currency each)."""
     u = p.require_user()
+    ratelimit.check(request, "checkout", u.id)
     cart = _cart(request, response, p, db)
     orders = ho.create_orders_from_cart(db, db.merge(u), cart, locale_of(request))
     db.commit()

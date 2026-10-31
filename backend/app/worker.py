@@ -1,6 +1,7 @@
 """Celery worker: conversions run here, never inside the HTTP request. PostgreSQL keeps durable job state."""
 from __future__ import annotations
 
+import logging
 import os
 import threading
 import uuid
@@ -49,9 +50,9 @@ def dispatch_outbox():
 
 @celery.task(name="nap.recover_leases")
 def recover_leases():
-    from .services.conversion import recover_expired_leases
-    ids = recover_expired_leases()
-    for i in ids:
+    from .services.conversion import recover_expired_leases, stale_queued_jobs
+    ids = recover_expired_leases() + stale_queued_jobs()
+    for i in dict.fromkeys(ids):
         dispatch_job(i)
     return len(ids)
 
@@ -89,7 +90,10 @@ def dispatch_job(job_id) -> None:
         t.start()
         _threads.append(t)
         return
-    run_conversion.delay(str(job_id))
+    try:
+        run_conversion.delay(str(job_id))
+    except Exception:  # broker down: the job stays queued in PostgreSQL and recover_leases re-dispatches it
+        logging.getLogger("nap.worker").warning("broker unavailable, job %s stays queued", job_id, exc_info=True)
 
 
 _threads: list[threading.Thread] = []

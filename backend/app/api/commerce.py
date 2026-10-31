@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 
+from .. import ratelimit
 from ..config import get_settings
 from ..errors import ApiError
 from ..models import (App, DigitalOrder, Entitlement, HardwareOrder, PaymentAttempt, Price, Subscription)
@@ -22,6 +23,7 @@ class CheckoutIn(BaseModel):
 
 @router.post("/checkout/digital", status_code=201)
 def checkout(body: CheckoutIn, request: Request, p=P, db=DB, key=Depends(idem)):
+    ratelimit.check(request, "checkout", p.id)
     u = p.require_user()
     if body.kind not in ("one_time", "subscription", "free"):
         raise ApiError("validation_failed", 422, details={"field": "kind"})
@@ -54,9 +56,10 @@ class MockOutcome(BaseModel):
 
 
 @router.post("/mock-checkout/{ref}/complete")
-def mock_complete(ref: str, body: MockOutcome, p=P, db=DB):
+def mock_complete(ref: str, body: MockOutcome, request: Request, p=P, db=DB):
     """TEST MODE ONLY. The redirect does not confirm payment: this emits signed provider webhooks that go through
     the same verification/inbox path as a real provider."""
+    ratelimit.check(request, "checkout", p.id)
     if get_settings().env == "production":
         raise ApiError("not_found", 404, entity="checkout")
     u = p.require_user()
@@ -135,6 +138,7 @@ def entitlement(app_id: str, p=P, db=DB):
 
 @router.post("/webhooks/payments/{provider}", tags=["webhooks"])
 async def payment_webhook(provider: str, request: Request):
+    ratelimit.check(request, "webhook", key=ratelimit.who(request))
     if provider not in ("mock", "stripe") or (provider == "mock" and get_settings().env == "production"):
         raise ApiError("not_found", 404, entity="provider")
     raw = await request.body()  # signature is verified on the exact raw body
@@ -143,6 +147,7 @@ async def payment_webhook(provider: str, request: Request):
 
 @router.post("/webhooks/shipping/{source}", tags=["webhooks"])
 async def shipping_webhook(source: str, request: Request):
+    ratelimit.check(request, "webhook", key=ratelimit.who(request))
     if source not in ("mock_ship", "easypost") or (source == "mock_ship" and get_settings().env == "production"):
         raise ApiError("not_found", 404, entity="provider")
     raw = await request.body()

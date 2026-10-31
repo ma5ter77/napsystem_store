@@ -1,0 +1,139 @@
+# NAP-003: every push and pull request runs backend tests, frontend checks and build, browser E2E (RU/EN)
+# and the Docker image build. Make the "ci-ok" job a required status check in the branch protection rules
+# so a pull request cannot be merged while CI is red.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NAP_DATABASE_URL: postgresql+psycopg://nap:nap@localhost:5432/nap
+  NAP_REDIS_URL: redis://localhost:6379/0
+  NAP_SECRET_KEY: ci-only-secret
+  UV_VERSION: "0.11.32"
+  NODE_VERSION: "22"
+  PLAYWRIGHT_VERSION: "1.63.0"
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: nap, POSTGRES_PASSWORD: nap, POSTGRES_DB: nap_test }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U nap" --health-interval 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    defaults: { run: { working-directory: backend } }
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - uses: astral-sh/setup-uv@v6
+        with: { version: "${{ env.UV_VERSION }}" }
+      - run: uv sync --frozen
+      - name: pytest
+        env: { NAP_DATABASE_URL: "postgresql+psycopg://nap:nap@localhost:5432/nap_test" }
+        run: uv run pytest -q --junitxml=../reports/backend-junit.xml
+      - name: migrations match models
+        env: { NAP_DATABASE_URL: "postgresql+psycopg://nap:nap@localhost:5432/nap_test" }
+        run: uv run alembic upgrade head && uv run alembic check
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: backend-report, path: reports/ }
+
+  frontend:
+    runs-on: ubuntu-24.04
+    defaults: { run: { working-directory: frontend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm, cache-dependency-path: frontend/package-lock.json }
+      - run: npm ci
+      - run: npm run check-i18n
+      - run: npm run check-patterns
+      - run: npm run typecheck
+      - run: npm run build
+        env: { BACKEND_URL: "http://127.0.0.1:8000" }
+
+  e2e:
+    runs-on: ubuntu-24.04
+    needs: [backend, frontend]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: nap, POSTGRES_PASSWORD: nap, POSTGRES_DB: nap }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U nap" --health-interval 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    env:
+      NAP_STORAGE_ROOT: ${{ github.workspace }}/var/storage
+      NAP_JOB_WORKDIR: ${{ github.workspace }}/var/jobs
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - uses: astral-sh/setup-uv@v6
+        with: { version: "${{ env.UV_VERSION }}" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm, cache-dependency-path: frontend/package-lock.json }
+      - name: backend up (migrations, demo data, API, workers)
+        working-directory: backend
+        run: |
+          uv sync --frozen --no-dev
+          uv run alembic upgrade head
+          uv run python -m app.seed
+          nohup uv run uvicorn app.main:app --port 8000 > ../reports-api.log 2>&1 &
+          nohup uv run celery -A app.worker.celery worker -B -Q media,ops -c 2 > ../reports-worker.log 2>&1 &
+      - name: frontend up
+        working-directory: frontend
+        env: { BACKEND_URL: "http://127.0.0.1:8000" }
+        run: |
+          npm ci
+          npm run build
+          nohup npx next start -p 3000 > ../reports-web.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf localhost:3000/ru >/dev/null && curl -sf localhost:8000/api/v1/ready && break; sleep 2; done
+      - name: browser E2E (RU and EN)
+        working-directory: frontend
+        env: { SHOTS: "${{ github.workspace }}/e2e-shots" }
+        run: |
+          npm i --no-save playwright@${{ env.PLAYWRIGHT_VERSION }}
+          npx playwright install --with-deps chromium
+          node e2e/flows.cjs | tee ../e2e-run.txt
+          grep -q '"ru":"passed","en":"passed"' ../e2e-run.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-report
+          path: |
+            e2e-run.txt
+            e2e-shots/
+            reports-*.log
+
+  docker:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose build
+      - name: stack starts and is ready
+        run: |
+          docker compose up -d
+          for i in $(seq 1 60); do curl -sf localhost:8000/api/v1/ready && curl -sf localhost:3000/ru >/dev/null && exit 0; sleep 5; done
+          docker compose ps; docker compose logs --tail 200; exit 1
+      - if: always()
+        run: docker compose down -v
+
+  ci-ok:
+    runs-on: ubuntu-24.04
+    needs: [backend, frontend, e2e, docker]
+    if: always()
+    steps:
+      - run: test "${{ needs.backend.result }}${{ needs.frontend.result }}${{ needs.e2e.result }}${{ needs.docker.result }}" = "successsuccesssuccesssuccess"

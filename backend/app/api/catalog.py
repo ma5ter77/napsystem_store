@@ -6,9 +6,10 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from sqlalchemy import select
 
+from .. import ratelimit
 from ..errors import ApiError
 from ..models import App, AppVersion, Asset, Category, Price, User
-from ..services import billing
+from ..services import billing, reviews
 from ..services.assets import limits_public, receive_upload, signed_url
 from ..services.common import get_translations, localized
 from ..storage import get_storage, verify_signed
@@ -22,7 +23,7 @@ def price_view(p: Price) -> dict:
             "interval": p.interval}
 
 
-def app_card(db, app: App, locale: str, detail: bool = False, user_id=None) -> dict:
+def app_card(db, app: App, locale: str, detail: bool = False, user_id=None, rating: dict | None = None) -> dict:
     v = db.get(AppVersion, app.published_version_id) if app.published_version_id else None
     tr = get_translations(db, "app", [app.id]).get(app.id)
     loc = localized(tr, locale)
@@ -37,8 +38,10 @@ def app_card(db, app: App, locale: str, detail: bool = False, user_id=None) -> d
            "sessions_count": len(v.sessions) if v else 0,
            "total_duration_seconds": round(sum(s.duration_seconds for s in v.sessions), 1) if v else 0,
            "requirements": v.requirements if v else {}, "version": v.version_label if v else None,
-           "has_public_preview": app.public_preview_asset_id is not None}
+           "has_public_preview": app.public_preview_asset_id is not None,
+           "rating": rating if rating is not None else reviews.summaries(db, [app.id])[app.id]}
     if detail:
+        out["rating_summary"] = reviews.summary(db, app)
         out["description"] = loc.get("description")
         out["program"] = [{"key": s.key, "position": s.position,
                            "title": s.titles.get(locale) or next(iter(s.titles.values())),
@@ -65,11 +68,20 @@ def categories(request: Request, kind: str = "app", db=DB):
 
 @router.get("/catalog/apps")
 def catalog(request: Request, q: str | None = None, category: str | None = None, price: str | None = None,
-            content_language: str | None = None, limit: int = Query(20, le=100), offset: int = Query(0, ge=0), db=DB):
+            content_language: str | None = None, min_rating: float | None = Query(None, ge=1, le=5),
+            sort: str | None = None, limit: int = Query(20, le=100), offset: int = Query(0, ge=0), db=DB):
     loc = locale_of(request)
     apps = list(db.scalars(select(App).where(App.published_version_id.isnot(None), App.sales_status == "active")
                            .order_by(App.created_at)))
-    cards = [app_card(db, a, loc) for a in apps]
+    ratings = reviews.summaries(db, [a.id for a in apps])
+    cards = [app_card(db, a, loc, rating=ratings[a.id]) for a in apps]
+    if min_rating:  # only apps whose average is shown (enough ratings) and high enough
+        cards = [c for c in cards if c["rating"]["average"] is not None and c["rating"]["average"] >= min_rating]
+    if sort == "rating":
+        cards.sort(key=lambda c: (c["rating"]["average"] is not None, c["rating"]["average"] or 0,
+                                  c["rating"]["count"]), reverse=True)
+    elif sort == "new":
+        cards.reverse()
     if category:
         cards = [c for c in cards if c["category"] and c["category"]["slug"] == category]
     if price in ("free", "one_time", "subscription"):
@@ -111,6 +123,7 @@ def converter_limits():
 
 @router.put("/uploads/{token}")
 async def upload(token: str, request: Request, db=DB):
+    ratelimit.check(request, "upload_chunk")
     a = await receive_upload(db, token, request.stream(), request.headers.get("content-range"))
     if isinstance(a, dict):  # chunk accepted, more to come
         return a

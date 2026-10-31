@@ -55,6 +55,7 @@
     "quote_expired": "The quote has expired.",
     "rate_expired": "The rate has expired — recalculate shipping.",
     "rate_stale": "The address or order contents changed — recalculate shipping.",
+    "rate_limited": "Too many requests. Try again in {seconds} s.",
     "refund_exceeds_payment": "The refund exceeds the confirmed payment.",
     "refund_not_allowed": "This order cannot be refunded.",
     "return_exceeds_shipped": "The return quantity exceeds what was shipped.",
@@ -74,6 +75,12 @@
     "upload_checksum_mismatch": "Checksum mismatch — upload the file again.",
     "upload_link_invalid": "The upload link is invalid or already used.",
     "upload_size_mismatch": "The uploaded size does not match the declared size.",
+    "review_login_required": "Sign in to rate the app.",
+    "review_own_app": "You cannot rate your own app.",
+    "review_no_access": "You can rate apps in your library: install or buy it first.",
+    "review_no_completed_session": "Paid apps can be rated after at least one completed session.",
+    "review_rate_limited": "Too many reviews in 24 hours. Try again tomorrow.",
+    "review_own_vote": "You cannot mark your own review as helpful.",
     "upload_offset_mismatch": "A file chunk arrived out of order. The upload resumes from byte {offset}.",
     "validation_failed": "Please check the entered data.",
     "version_conflict": "The session state changed. Refresh and try again.",
@@ -92,6 +99,7 @@
     "render_non_finite": "Numerical error while rendering."
   },
   "notifications": {
+    "review_reply": {"subject": "The developer replied to your review: {app}", "body": "Open the app page to read the reply. You can update your review."},
     "purchase_paid": {"subject": "Purchase confirmed: {app}", "body": "Payment of {amount} is confirmed. {app} is now in your library."},
     "subscription_paid": {"subject": "Subscription paid", "body": "Paid through {until} ({amount})."},
     "subscription_payment_failed": {"subject": "Subscription renewal failed", "body": "The renewal did not go through. Your paid access remains until {until}."},

@@ -195,6 +195,32 @@ async function run(L) {
     await b.getByRole("link", { name: L.toUpperCase(), exact: true }).click();
     await b.waitForURL(`**/${L}/devices/nap-cable-35`);
   });
+  await step("rating, review, developer reply (NAP-065)", async () => {
+    // paid app without a completed session: the form is not offered, the reason is shown
+    await b.goto(`${BASE}/${L}/apps/${slug}`);
+    await b.getByText(t("rev.why.no_completed_session")).waitFor();
+    // free app: get it, rate it, write a review
+    await b.goto(`${BASE}/${L}/apps/night-stories`);
+    await b.getByRole("button", { name: t("app.get_free") }).click();
+    await b.waitForURL(`**/${L}/library**`);
+    await b.goto(`${BASE}/${L}/apps/night-stories`);
+    await b.getByText(t("rev.write_title")).waitFor();
+    await b.locator(".star-input label").nth(4).click();
+    const text = `E2E ${L} ${Date.now().toString(36)}`;
+    await b.getByLabel(t("rev.body")).fill(text);
+    await b.getByRole("button", { name: t("rev.publish") }).click();
+    await b.getByText(t("rev.your_review")).waitFor();
+    // the developer answers from the cabinet; the author sees the reply
+    const d2 = await login(browser, L, t, "dev2@nap.demo");
+    await d2.p.goto(`${BASE}/${L}/developer?tab=reviews`);
+    const item = d2.p.locator("article.review", { hasText: text });
+    await item.getByLabel(t("rev.reply_label")).fill("Thanks!");
+    await item.getByRole("button", { name: t("rev.send_reply") }).click();
+    await item.getByText(t("rev.your_reply")).waitFor();
+    await d2.ctx.close();
+    await b.reload();
+    await b.locator("article.review", { hasText: text }).getByText(t("rev.dev_reply")).waitFor();
+  });
   console.log(`[${L}] hardware scenario`);
   let orderNumber = "";
   await step("kit builder adds missing parts; checkout", async () => {

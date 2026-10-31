@@ -10,6 +10,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, select, text
 
+from . import ratelimit
 from .config import get_settings
 from .db import SessionLocal
 from .errors import ApiError, api_error_handler, validation_handler
@@ -65,7 +66,11 @@ def create_app() -> FastAPI:
         request.state.locale = loc if loc in ("ru", "en") else negotiate(request.headers.get("accept-language"))
         t0 = time.perf_counter()
         try:
+            if request.url.path.startswith("/api/v1/") and not request.url.path.startswith(ratelimit.EXEMPT_PATHS):
+                ratelimit.check(request, "global")  # NAP-052
             response = await call_next(request)
+        except ApiError as e:
+            response = await api_error_handler(request, e)
         except Exception:
             logging.getLogger("nap.http").exception("unhandled", extra={"path": request.url.path})
             from .i18n import t

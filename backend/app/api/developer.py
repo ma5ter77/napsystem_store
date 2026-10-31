@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
+from .. import ratelimit
 from ..config import get_settings
 from ..db import utcnow
 from ..errors import ApiError
@@ -241,8 +242,9 @@ class UploadIn(BaseModel):
 
 
 @router.post("/apps/{app_id}/uploads", status_code=201)
-def create_upload_ep(app_id: str, body: UploadIn, p=P, db=DB):
+def create_upload_ep(app_id: str, body: UploadIn, request: Request, p=P, db=DB):
     u = dev(p, "assets:write")
+    ratelimit.check(request, "upload_ticket", u.id)
     app = appsvc.own_app(db, as_uuid(app_id), u.id)
     res = create_upload(db, u.id, app, body.kind, body.filename, body.size_bytes, body.sha256)
     db.commit()
@@ -276,8 +278,9 @@ class ConversionIn(BaseModel):
 
 
 @router.post("/conversions", status_code=202)
-def create_conversion(body: ConversionIn, p=P, db=DB, key=Depends(idem)):
+def create_conversion(body: ConversionIn, request: Request, p=P, db=DB, key=Depends(idem)):
     u = dev(p, "conversions:write")
+    ratelimit.check(request, "conversion", u.id)
     job, created = conversion.create_job(db, u.id, as_uuid(body.app_id), as_uuid(body.source_asset_id),
                                          as_uuid(body.profile_id, "profile"), key)
     db.commit()

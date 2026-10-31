@@ -48,6 +48,15 @@ class Settings(BaseSettings):
     login_max_attempts: int = 8
     login_window_seconds: int = 900
 
+    # rate limits (NAP-052); per-bucket overrides: NAP_RATE_LIMITS="checkout=10/600,global=600/60"
+    rate_limits_enabled: bool = True
+    rate_limits: str = ""
+
+    # reviews (NAP-065)
+    reviews_min_for_average: int = 5  # the average is shown only from this many ratings
+    reviews_per_day: int = 10  # new or edited reviews per user per 24 h
+    reviews_allow_reset_on_version: bool = False  # App Store-like reset; off by decision of 31.10.2026
+
     # billing
     payment_provider: Literal["mock", "stripe"] = "mock"
     stripe_secret_key: str | None = None

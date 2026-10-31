@@ -249,3 +249,20 @@ def test_chunked_upload_resume_and_program_autofill():
     v = ok(dev.get(f"/developer/apps/{a['id']}"))
     sessions = v["versions"][0]["sessions"] if "versions" in v else v["latest_version"]["sessions"]
     assert len(sessions) == 1 and sessions[0]["conversion_job_id"] == job["id"]
+
+
+def test_gamma_profile_available_and_qa_measures_40hz():
+    """NAP-080: the author picks "Gamma (40 Hz)" in the editor; the QA report proves 200/240 Hz and 40 Hz."""
+    from .helpers import convert, upload
+    dev = Client().register(developer=True)
+    profiles = ok(dev.get("/developer/profiles"))["items"]
+    assert any(p["slug"] == "gamma-40-v1" for p in profiles)
+    a = ok(dev.post("/developer/apps", {"slug": "gamma-" + dev.user_id[:8], "author_name": "A",
+                                        "metadata": {"ru": {"title": "Гамма"}}}), 201)
+    up = upload(dev, a["id"], wav_bytes(12.0))
+    job = convert(dev, a["id"], up["ticket"]["asset_id"], profile="gamma-40-v1")
+    assert job["state"] == "completed", job
+    layer = job["report"]["layer"]
+    assert abs(layer["left_hz"] - 200) <= 0.1 and abs(layer["right_hz"] - 240) <= 0.1
+    assert abs(layer["beat_hz"] - 40) <= 0.1
+    assert job["report"]["levels"]["true_peak_master_dbtp"] <= -1.0

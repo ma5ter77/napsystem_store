@@ -253,6 +253,16 @@ def run_job(job_id: uuid.UUID | str) -> str:
         shutil.rmtree(os.path.join(s.job_workdir, str(job_id)), ignore_errors=True)
 
 
+def stale_queued_jobs(older_than_seconds: int = 120) -> list[str]:
+    """Jobs still queued after a while (e.g. the broker was down when they were created): dispatch them again.
+    Claiming is atomic in PostgreSQL, so a duplicate dispatch cannot run a job twice."""
+    with session_scope() as db:
+        rows = db.scalars(select(ConversionJob.id).where(
+            ConversionJob.state == "queued", ConversionJob.lease_owner.is_(None),
+            ConversionJob.created_at < utcnow() - timedelta(seconds=older_than_seconds))).all()
+    return [str(x) for x in rows]
+
+
 def recover_expired_leases() -> list[str]:
     """Worker crash recovery: re-queue (or fail) jobs whose lease expired."""
     out = []

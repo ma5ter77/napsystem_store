@@ -19,6 +19,10 @@ export default function CartPage() {
     const r = await act.run(() => api(`/hardware/cart/items/${sku}`, { method: "PUT", body: { sku_id: sku, quantity: q } }));
     if (r) { setData(r); refreshCart(); }
   }
+  // a line that cannot be fulfilled blocks checkout with a clear reason instead of a server error after the click
+  const short = (it: any) => it.availability?.type === "out_of_stock" ||
+    (it.availability?.type !== "made_to_order" && typeof it.availability?.available === "number" && it.availability.available < it.quantity);
+  const blocked = cart.groups.flatMap((g: any) => g.items.filter(short));
   return (
     <div className="section stack">
       <h1>{t("cart.title")}</h1>
@@ -35,23 +39,26 @@ export default function CartPage() {
               </div>
               {g.needs_custom_quote && <div className="notice">{t("cart.custom_quote")}</div>}
               <div className="scroll-x"><table>
-                <thead><tr><th>{t("cart.item")}</th><th>{t("cart.price")}</th><th>{t("cart.qty")}</th><th>{t("cart.availability")}</th></tr></thead>
+                <thead><tr><th>{t("cart.item")}</th><th>{t("cart.price")}</th><th>{t("cart.qty")}</th><th>{t("cart.availability")}</th><th><span className="sr-only">{t("cart.remove")}</span></th></tr></thead>
                 <tbody>{g.items.map((it: any) => (
-                  <tr key={it.sku_id}>
+                  <tr key={it.sku_id} className={short(it) ? "row-bad" : undefined}>
                     <td><Link href={`/${locale}/devices/${it.product_slug}`}>{it.title}</Link><div className="hint">{it.code}</div></td>
                     <td><Price minor={it.unit_price_minor} currency={g.currency} /></td>
                     <td><input type="number" min={0} max={99} defaultValue={it.quantity} style={{ width: 80 }} aria-label={t("cart.qty")}
-                               onBlur={(e) => Number(e.target.value) !== it.quantity && setQty(it.sku_id, Number(e.target.value))} /></td>
-                    <td>{availabilityText(it.availability, t)}</td>
+                               onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                               onBlur={(e) => Number(e.target.value) !== it.quantity && setQty(it.sku_id, Math.max(0, Math.min(99, Number(e.target.value) || 0)))} /></td>
+                    <td>{availabilityText(it.availability, t)}{short(it) && <div className="err-text">{it.availability?.type === "out_of_stock" ? t("cart.unavailable") : t("cart.only_n", { count: it.availability.available })}</div>}</td>
+                    <td><button className="btn ghost small" disabled={act.pending} onClick={() => setQty(it.sku_id, 0)}>{t("cart.remove")}</button></td>
                   </tr>))}
                 </tbody>
               </table></div>
             </section>
           ))}
           <p className="hint">{t("cart.shipping_later")}</p>
+          {blocked.length > 0 && <div className="notice bad" role="alert">{t("cart.blocked", { items: blocked.map((x: any) => x.title).join(", ") })}</div>}
           <ErrorBox error={act.error} />
           {me ? (
-            <button className="btn" disabled={act.pending} onClick={async () => {
+            <button className="btn" disabled={act.pending || blocked.length > 0} onClick={async () => {
               const r = await act.run(() => api("/hardware/checkout", { method: "POST" }));
               if (r) { refreshCart(); router.push(`/${locale}/orders?group=${r.orders[0].group_ref}`); }
             }}>{cart.separate_orders ? t("cart.checkout_many", { count: cart.groups.length }) : t("cart.checkout")}</button>

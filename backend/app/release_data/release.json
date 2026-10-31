@@ -1,6 +1,6 @@
 {
   "product": "NAP Store",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "stage": "MVP для тестирования",
   "released": "2026-10-31",
   "spec": {
@@ -235,7 +235,7 @@
       },
       "status": "partial",
       "note": {
-        "ru": "35 passed, 0 failed, 3 not run",
+        "ru": "35 пройдено, 0 не пройдено, 3 не запускались",
         "en": "35 passed, 0 failed, 3 not run"
       }
     },
@@ -253,6 +253,15 @@
     }
   ],
   "releases": [
+    {
+      "version": "0.3.0",
+      "date": "2026-10-31",
+      "spec": "1.0",
+      "summary": {
+        "ru": "Оценки и отзывы приложений, меню на телефоне, лимиты запросов, CI, исправления по проверке веб-версии",
+        "en": "App ratings and reviews, phone menu, rate limits, CI, fixes from the web QA sweep"
+      }
+    },
     {
       "version": "0.2.3",
       "date": "2026-10-31",

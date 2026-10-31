@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useEffect, useRef, useState } from "react";
 import { useApp } from "@/components/Providers";
 import { ErrorBox, errorFields, Loading, Price, RequireAuth, StatusBadge, useAction, useLoad } from "@/components/ui";
-import { api, uid, uploadWithProgress } from "@/lib/api";
+import { api, sha256File, uid, uploadWithProgress } from "@/lib/api";
 import { date, duration } from "@/lib/i18n";
 
 const TABS = ["details", "audio", "program", "price", "versions"] as const;
@@ -109,7 +109,7 @@ function JobCard({ job, onChange }: { job: any; onChange: () => void }) {
             </dl>
             <div className="row"><a href={detail.urls.master}>{t("dev.dl_master")}</a><a href={detail.urls.qa_report}>{t("dev.dl_report")}</a><a href={detail.urls.params}>{t("dev.dl_params")}</a></div>
           </details>
-          <p className="hint">{qa.disclaimer}</p>
+          <p className="hint">{t("qa.disclaimer")}</p>
         </div>
       )}
       <ErrorBox error={act.error} />
@@ -151,7 +151,7 @@ function Audio({ app, onTrackReady }: { app: any; onTrackReady?: () => void }) {
     await Promise.all(Array.from(files).map(async (file) => {
       setUploads((u) => ({ ...u, [file.name]: { p: 0 } }));
       try {
-        const sha = await import("@/lib/api").then((m) => file.arrayBuffer().then(m.sha256Hex));
+        const sha = await sha256File(file);
         const tk = await api(`/developer/apps/${app.id}/uploads`, { body: { filename: file.name, size_bytes: file.size, sha256: sha } });
         const res = await uploadWithProgress(tk.upload_url, file, (p) => setUploads((u) => ({ ...u, [file.name]: { p } })));
         setUploads((u) => ({ ...u, [file.name]: { p: 1, done: true } }));

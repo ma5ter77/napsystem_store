@@ -43,6 +43,15 @@ PROFILES = [
      {"ru": "197/203 Гц, разница 6 Гц.", "en": "197/203 Hz, 6 Hz difference."},
      {"carrier_center_hz": 200.0, "beat_hz": 6.0, "source_gain_db": -6.0, "tone_gain_dbfs": -32.0,
       "fade_in_seconds": 2.0, "fade_out_seconds": 2.0}),
+    # NAP-080, parameters set by the customer on 31.10.2026: pure sines 200 Hz (L) / 240 Hz (R), 40 Hz difference,
+    # strict stereo (no channel mixing). Pending methodologist sign-off (NAP-061).
+    ("gamma-40-v1", {"ru": "Гамма (40 Гц)", "en": "Gamma (40 Hz)"},
+     {"ru": "Чистые синусоиды: левый канал 200 Гц, правый 240 Гц, разница 40 Гц. Каналы не смешиваются — нужны "
+            "наушники. Технические параметры сигнала, а не обещание состояния.",
+      "en": "Pure sine waves: left 200 Hz, right 240 Hz, 40 Hz difference. Channels are never mixed — headphones "
+            "required. Technical signal parameters, not a promise of any state."},
+     {"carrier_center_hz": 220.0, "beat_hz": 40.0, "source_gain_db": -6.0, "tone_gain_dbfs": -32.0,
+      "fade_in_seconds": 3.0, "fade_out_seconds": 3.0}),
     ("beta-demo-v1", {"ru": "Бета (демо, 14 Гц)", "en": "Beta (demo, 14 Hz)"},
      {"ru": "293/307 Гц, разница 14 Гц.", "en": "293/307 Hz, 14 Hz difference."},
      {"carrier_center_hz": 300.0, "beat_hz": 14.0, "source_gain_db": -6.0, "tone_gain_dbfs": -30.0,
@@ -204,6 +213,12 @@ def run() -> None:
     s = get_settings()
     with session_scope() as db:
         if db.scalar(select(User).where(User.email == "admin@nap.demo")):
+            seed_reviews(db)  # added in 0.3.0: existing demo databases get the demo ratings too
+            admin = db.scalar(select(User).where(User.email == "admin@nap.demo"))
+            for slug, names, desc, params in PROFILES:  # profiles added in later releases (gamma-40-v1)
+                if not db.scalar(select(DspProfile).where(DspProfile.slug == slug)):
+                    db.add(DspProfile(slug=slug, version=1, names=names, descriptions=desc, params=params,
+                                      created_by=admin.id))
             print("demo data already present")
             return
         admin = user(db, "admin@nap.demo", "Admin (demo)", ["user", "admin", "moderator"])
@@ -381,8 +396,42 @@ def run() -> None:
         chair = SIM_PROFILES["sim-chair-v1"]
         db.add(Device(owner_id=buyer.id, adapter="simulated", name="Simulated NAP chair", model_code="sim-chair-v1",
                       capabilities=chair.to_dict() | {"provides": sorted(chair.provides())}))
+        seed_reviews(db)
     seed_multi_parcel_order()
     print("demo data created")
+
+
+def seed_reviews(db) -> None:
+    """Demo ratings so the catalog and app pages show the rating block (NAP-065)."""
+    from .models import AppVersion, Review, ReviewReply
+    data = {
+        "quiet-harbor": [(5, "ru", "Спокойно и аккуратно", "Хорошо подходит для короткой паузы днём. Слой почти не слышен."),
+                         (4, "ru", None, "Хотелось бы третий сеанс подлиннее."),
+                         (5, "en", "Calm", "Nice two-part program, good with headphones."),
+                         (4, "ru", None, None),
+                         (5, "en", None, "Clean sound, no clipping.")],
+        "night-stories": [(4, "en", "Nice soundscape", "Good for falling asleep, a bit short."),
+                          (3, "ru", "Коротко", "Звук приятный, но 30 секунд слишком мало."),
+                          (5, "en", None, None), (4, "ru", None, "Хорошая бесплатная сцена."),
+                          (4, "en", None, None), (5, "ru", None, None)],
+    }
+    n = 0
+    for slug, rows in data.items():
+        app = db.scalar(select(App).where(App.slug == slug))
+        if not app or db.scalar(select(Review).where(Review.app_id == app.id)):
+            continue
+        v = db.get(AppVersion, app.published_version_id)
+        for rating, lang, title, body in rows:
+            n += 1
+            u = user(db, f"reviewer{n}@nap.demo", f"{'Слушатель' if lang == 'ru' else 'Listener'} {n}", ["user"],
+                     locale=lang)
+            db.add(Review(app_id=app.id, user_id=u.id, version_id=v.id, version_label=v.version_label,
+                          rating=rating, title=title, body=body, lang=lang, status="published"))
+        db.flush()
+        if slug == "quiet-harbor":
+            r = db.scalar(select(Review).where(Review.app_id == app.id, Review.rating == 4, Review.body.isnot(None)))
+            db.add(ReviewReply(review_id=r.id, developer_id=app.developer_id,
+                               body="Спасибо! Более длинный третий сеанс — в планах следующей версии."))
 
 
 def seed_multi_parcel_order() -> None:

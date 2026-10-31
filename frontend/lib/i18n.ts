@@ -50,6 +50,11 @@ export function translator(locale: Locale) {
 export type T = ReturnType<typeof translator>;
 
 /** Locale changes number formatting only — never the currency or amount. */
+/** One decimal in the locale format: 4,2 (ru) / 4.2 (en). */
+export function num1(x: number, locale: Locale): string {
+  return new Intl.NumberFormat(locale === "ru" ? "ru-RU" : "en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(x);
+}
+
 export function money(minor: number | null | undefined, currency: string, locale: Locale): string {
   if (minor === null || minor === undefined) return "—";
   return new Intl.NumberFormat(locale === "ru" ? "ru-RU" : "en-GB", { style: "currency", currency }).format(minor / 100);

@@ -216,3 +216,19 @@ def test_silence_reports_not_measurable(tmp_path):
     src = write_wav(tmp_path / "z.wav", np.zeros((FS // 4, 2)), FS)  # 0.25 s silence
     out = convert(str(src), str(tmp_path / "w"), ALPHA, LIM)
     assert out.report["levels"]["source_integrated_lufs"] == "not_measurable"
+
+
+def test_gamma_40_profile_left_200_right_240():
+    """NAP-080: pure sines 200 Hz left / 240 Hz right, 40 Hz difference within 0.1 Hz, channels not mixed."""
+    from app.seed import PROFILES
+    params = next(p for s, _, _, p in PROFILES if s == "gamma-40-v1")
+    p = Profile.from_dict({"slug": "gamma-40-v1", "version": 1, **params})
+    assert (p.f_left, p.f_right) == (200.0, 240.0)
+    n = FS * 16
+    lay = BinauralRenderer(p, n).layer(n)
+    a = analyze_layer(lay[FS * 4:FS * 14], p)  # steady part after the 3 s fade-in
+    assert abs(a["left_hz"] - 200.0) <= 0.1 and abs(a["right_hz"] - 240.0) <= 0.1
+    assert abs(a["beat_hz"] - 40.0) <= 0.1
+    for side in ("left", "right"):  # the other ear's carrier is absent (strict stereo)
+        s = a["opposite_suppression_db"][side]
+        assert s == ">200" or s >= 60.0

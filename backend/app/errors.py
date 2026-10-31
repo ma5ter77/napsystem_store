@@ -12,11 +12,13 @@ from .i18n import t
 class ApiError(Exception):
     """Stable machine code + localized text + request_id."""
 
-    def __init__(self, code: str, status: int = 400, details: dict[str, Any] | None = None, **params: Any):
+    def __init__(self, code: str, status: int = 400, details: dict[str, Any] | None = None,
+                 headers: dict[str, str] | None = None, **params: Any):
         super().__init__(code)
         self.code = code
         self.status = status
         self.details = details or {}
+        self.headers = headers or {}
         self.params = params
 
 
@@ -43,7 +45,9 @@ def error_body(request: Request, code: str, status: int, details: dict | None = 
 
 
 async def api_error_handler(request: Request, exc: ApiError) -> JSONResponse:
-    return error_body(request, exc.code, exc.status, exc.details, **exc.params)
+    resp = error_body(request, exc.code, exc.status, exc.details, **exc.params)
+    resp.headers.update(exc.headers)
+    return resp
 
 
 async def validation_handler(request: Request, exc: RequestValidationError) -> JSONResponse:

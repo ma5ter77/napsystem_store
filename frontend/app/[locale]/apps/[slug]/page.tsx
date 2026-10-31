@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { BeatCover } from "@/components/Art";
 import { priceLabel } from "@/components/cards";
 import { AppActions } from "@/components/AppActions";
-import { duration, isLocale, langName, Locale, translator } from "@/lib/i18n";
+import { ReviewsSection, Stars } from "@/components/Reviews";
+import { duration, isLocale, langName, Locale, num1, translator } from "@/lib/i18n";
 import { alternates, serverApi } from "@/lib/server";
 
 type P = Promise<{ locale: string; slug: string }>;
@@ -47,6 +48,7 @@ export default async function AppPage({ params }: { params: P }) {
           <h1 lang={a.lang ?? undefined}>{a.title}</h1>
           {a.fallback && a.lang && <span className="badge gray">{t("common.original_lang", { lang: langName(a.lang, locale) })}</span>}
           <p className="muted" lang={a.lang ?? undefined}>{a.subtitle}</p>
+          {a.rating?.average != null && <a href="#reviews-h" className="row hint"><Stars value={a.rating.average} label={t("rev.card", { avg: num1(a.rating.average, locale), count: a.rating.count })} /> {num1(a.rating.average, locale)} · {t("rev.ratings_n", { count: a.rating.count })}</a>}
         </div>
         <dl className="kv">
           <dt>{t("app.author")}</dt><dd>{a.author}</dd>
@@ -67,6 +69,7 @@ export default async function AppPage({ params }: { params: P }) {
         <div lang={a.lang ?? undefined}>{(a.description ?? "").split("\n").map((p: string, i: number) => <p key={i}>{p}</p>)}</div>
         <p className="hint">{t("app.no_promise")}</p>
       </div>
+      <div style={{ gridColumn: "1 / -1" }}><ReviewsSection slug={a.slug} /></div>
     </div>
   );
 }

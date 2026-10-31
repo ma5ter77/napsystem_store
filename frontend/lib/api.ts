@@ -82,6 +82,9 @@ export async function uploadWithProgress(url: string, file: Blob, onProgress: (p
       if (e instanceof ApiError && e.status === 409 && typeof e.details?.offset === "number" && ++resyncs <= 5) {
         offset = e.details.offset; continue;
       }
+      if (e instanceof ApiError && e.status === 429 && ++retries <= 4) { // NAP-052: wait as the server asks
+        await new Promise((r) => setTimeout(r, 1000 * Math.min(60, Number(e.details?.retry_after) || 5))); continue;
+      }
       if (e instanceof ApiError && (e.status === 0 || e.status === 502 || e.status === 503 || e.status === 504) && ++retries <= 4) {
         await new Promise((r) => setTimeout(r, 1000 * retries)); continue;
       }
@@ -90,6 +93,18 @@ export async function uploadWithProgress(url: string, file: Blob, onProgress: (p
   }
   onProgress(1);
   return last;
+}
+
+/** SHA-256 of a file read in 8 MB slices, so a 1 GB upload never sits in memory at once (NAP-069). */
+export async function sha256File(file: Blob, onProgress?: (p: number) => void): Promise<string> {
+  const { createSHA256 } = await import("hash-wasm");
+  const h = await createSHA256();
+  h.init();
+  for (let off = 0; off < file.size; off += UPLOAD_CHUNK) {
+    h.update(new Uint8Array(await file.slice(off, Math.min(off + UPLOAD_CHUNK, file.size)).arrayBuffer()));
+    onProgress?.(Math.min(1, (off + UPLOAD_CHUNK) / file.size));
+  }
+  return h.digest("hex");
 }
 
 export async function sha256Hex(buf: ArrayBuffer): Promise<string> {

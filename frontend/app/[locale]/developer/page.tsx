@@ -5,12 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { BeatCover } from "@/components/Art";
 import { useApp } from "@/components/Providers";
+import { DeveloperReviews } from "@/components/Reviews";
 import { Empty, ErrorBox, errorFields, Loading, Price, RequireAuth, StatusBadge, useAction, useDraft, useLoad } from "@/components/ui";
 import { api } from "@/lib/api";
 import { date } from "@/lib/i18n";
 import { normalizeSlug, SLUG_PATTERN } from "@/lib/slug";
 
-const TABS = ["apps", "finance", "analytics", "keys"] as const;
+const TABS = ["apps", "reviews", "finance", "analytics", "keys"] as const;
 
 function NewApp({ onCreated }: { onCreated: (id: string) => void }) {
   const { t } = useApp();
@@ -164,6 +165,7 @@ function Developer() {
         <h1>{t("dev.title")}</h1>
         <div className="tabs" role="tablist">{TABS.map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => router.replace(`/${locale}/developer?tab=${x}`)}>{t(`dev.tab_${x}`)}</button>)}</div>
         {tab === "apps" && <Apps />}
+        {tab === "reviews" && <DeveloperReviews />}
         {tab === "finance" && <Finance />}
         {tab === "analytics" && <Analytics />}
         {tab === "keys" && <Keys />}

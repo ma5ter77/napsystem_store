@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useApp } from "@/components/Providers";
+import { ModerationReviews } from "@/components/Reviews";
 import { Empty, ErrorBox, Loading, RequireAuth, useLoad } from "@/components/ui";
 import { date } from "@/lib/i18n";
 
@@ -24,5 +25,5 @@ function Queue() {
 }
 
 export default function ModerationPage() {
-  return <div className="section"><RequireAuth role={["moderator", "admin"]}><Queue /></RequireAuth></div>;
+  return <div className="section"><RequireAuth role={["moderator", "admin"]}><div className="stack"><Queue /><ModerationReviews /></div></RequireAuth></div>;
 }

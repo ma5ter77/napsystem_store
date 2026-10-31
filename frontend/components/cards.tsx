@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { duration, langName, Locale, money, T } from "@/lib/i18n";
+import { duration, langName, Locale, money, num1, T } from "@/lib/i18n";
 import { BeatCover, ProductArt } from "./Art";
 
 export function priceLabel(prices: any[], t: T, locale: Locale): string {
@@ -17,6 +17,7 @@ export function AppCard({ a, locale, t }: { a: any; locale: Locale; t: T }) {
       <h3 lang={a.lang ?? undefined}>{a.title ?? a.slug}</h3>
       {a.fallback && a.lang && <span className="badge gray">{t("common.original_lang", { lang: langName(a.lang, locale) })}</span>}
       <div className="meta">{a.author} · {t("app.sessions", { count: a.sessions_count })} · {duration(a.total_duration_seconds, locale)}</div>
+      {a.rating?.average != null && <div className="meta" aria-label={t("rev.card", { avg: num1(a.rating.average, locale), count: a.rating.count })}><span className="stars-inline" aria-hidden="true">★</span> {num1(a.rating.average, locale)} <span aria-hidden="true">({a.rating.count})</span></div>}
       <div className="meta"><span className="price">{priceLabel(a.prices, t, locale)}</span>{a.content_language && a.content_language !== "none" ? ` · ${t("app.audio_lang")}: ${langName(a.content_language, locale)}` : ""}</div>
     </Link>
   );

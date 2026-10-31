@@ -18,7 +18,7 @@ export default async function Catalog({ params, searchParams }: { params: Promis
   const t = translator(locale);
   const sp = await searchParams;
   const qs = new URLSearchParams();
-  for (const k of ["q", "category", "price", "content_language"]) if (sp[k]) qs.set(k, sp[k]!);
+  for (const k of ["q", "category", "price", "content_language", "min_rating", "sort"]) if (sp[k]) qs.set(k, sp[k]!);
   const [res, cats] = await Promise.all([serverApi<any>(`/catalog/apps?limit=60&${qs}`, locale),
                                          serverApi<any>("/categories?kind=app", locale)]);
   const link = (k: string, v?: string) => {
@@ -43,6 +43,17 @@ export default async function Catalog({ params, searchParams }: { params: Promis
           <select name="content_language" defaultValue={sp.content_language ?? ""}>
             <option value="">{t("catalog.any")}</option>
             {["none", "ru", "en"].map((c) => <option key={c} value={c}>{langName(c, locale)}</option>)}
+          </select></label>
+        <label className="field">{t("catalog.rating")}
+          <select name="min_rating" defaultValue={sp.min_rating ?? ""}>
+            <option value="">{t("catalog.any")}</option>
+            <option value="4">{t("catalog.rating_4")}</option>
+          </select></label>
+        <label className="field">{t("catalog.sort")}
+          <select name="sort" defaultValue={sp.sort ?? ""}>
+            <option value="">{t("catalog.sort_default")}</option>
+            <option value="rating">{t("catalog.sort_rating")}</option>
+            <option value="new">{t("catalog.sort_new")}</option>
           </select></label>
         {sp.category && <input type="hidden" name="category" value={sp.category} />}
         <div><button className="btn" type="submit">{t("catalog.apply")}</button></div>

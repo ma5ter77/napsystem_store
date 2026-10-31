@@ -9,6 +9,7 @@ os.environ["NAP_RUN_JOBS_INLINE"] = "true"
 os.environ["NAP_STORAGE_ROOT"] = os.path.join(_tmp, "storage")
 os.environ["NAP_JOB_WORKDIR"] = os.path.join(_tmp, "jobs")
 os.environ["NAP_SECRET_KEY"] = "test-secret-key"
+os.environ["NAP_RATE_LIMITS_ENABLED"] = "false"  # enabled explicitly in test_rate_limits
 
 import pytest  # noqa: E402
 from sqlalchemy import create_engine, text  # noqa: E402

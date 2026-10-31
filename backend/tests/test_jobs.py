@@ -133,3 +133,33 @@ def test_corrupt_file_is_not_retried_automatically():
     wait_inline_jobs()
     res = ok(dev.get(f"/developer/conversions/{j['id']}"))
     assert res["state"] == "failed" and res["attempt"] == 1 and res["error_code"] in ("truncated_audio", "decode_failed")
+
+
+def test_broker_down_job_stays_queued_and_is_redispatched(monkeypatch):
+    """A conversion request must not fail with 500 when the queue broker is down: the job stays queued in
+    PostgreSQL and the periodic recovery dispatches it again."""
+    from datetime import timedelta
+    import uuid as _uuid
+    from app import worker
+    from app.config import get_settings
+    from app.db import session_scope, utcnow
+    from app.models import ConversionJob
+    from app.services.conversion import stale_queued_jobs
+    from .conftest import Client, ok
+    from .helpers import profile_id, upload, wav_bytes
+
+    dev = Client().register(developer=True)
+    a = ok(dev.post("/developer/apps", {"slug": "bk-" + dev.user_id[:8], "author_name": "A",
+                                        "metadata": {"ru": {"title": "Брокер"}}}), 201)
+    up = upload(dev, a["id"], wav_bytes(0.5))
+    monkeypatch.setattr(get_settings(), "run_jobs_inline", False)
+
+    def down(*a, **k):
+        raise ConnectionError("redis down")
+    monkeypatch.setattr(worker.run_conversion, "delay", down)
+    j = ok(dev.post("/developer/conversions", {"app_id": a["id"], "source_asset_id": up["ticket"]["asset_id"],
+                                               "profile_id": profile_id(dev)}), 202)
+    assert j["state"] == "queued"
+    with session_scope() as db:
+        db.get(ConversionJob, _uuid.UUID(j["id"])).created_at = utcnow() - timedelta(minutes=5)
+    assert j["id"] in stale_queued_jobs()
