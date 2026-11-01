@@ -11,7 +11,7 @@ KEY="$HOME/.ssh/nap_store_ed25519"
 HOST="napstore@217.114.3.160"
 FP_EXPECTED="SHA256:kXp2pB86W3gjWj4+Nv0GSJD9Bh8+t0E5jDk8du4tuKw"
 REPO="$HOME/Projects/nap-store-publish"          # исходный Git магазина (не nap-trainer)
-TESTED_COMMIT="def54f3aeb51c79ff78f118fd7e0b0f712249f05"   # codex/release-0.8.0 — прошёл CI (PR #16) и проверки
+TESTED_COMMIT="12ead32b4816ff989bd1ae08157df09ca779a8e0"   # 0.8.0 + безопасный выпуск (PR #20): CI зелёный, приёмка на Docker-стенде 12/12
 SSH_OPTS=(-i "$KEY" -o IdentitiesOnly=yes -o HostKeyAlgorithms=ssh-ed25519 -o ForwardAgent=no -o ForwardX11=no
           -o ClearAllForwardings=yes -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no)
 
