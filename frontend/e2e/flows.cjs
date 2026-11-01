@@ -257,7 +257,7 @@ async function run(L) {
     const t2 = dict(other);
     await b.getByRole("link", { name: other.toUpperCase(), exact: true }).click();
     await b.waitForURL(`**/${other}/devices/nap-cable-35`);
-    await b.getByRole("link", { name: t2("nav.cart", { count: "1" }) }).waitFor();
+    await b.getByRole("link", { name: t2("nav.cart_label", { count: "1" }) }).waitFor();
     const lang = await b.getAttribute("html", "lang");
     if (lang !== other) throw new Error("html lang " + lang);
     await b.getByRole("link", { name: L.toUpperCase(), exact: true }).click();
@@ -328,7 +328,7 @@ async function run(L) {
     await b.goto(`${BASE}/${L}/cart`);
     await b.getByRole("button", { name: t("cart.checkout") }).click();
     await b.waitForURL("**/orders?group=**");
-    await b.locator("a.card").first().click();
+    await b.locator("a.order-row").first().click();
     await b.waitForURL(/\/orders\/[0-9a-f-]{36}$/);
     orderNumber = (await b.locator("h1").innerText()).split(" ").pop();
   });
@@ -376,7 +376,7 @@ async function run(L) {
     await b.goto(`${BASE}/${L}/cart`);
     await b.getByRole("button", { name: t("cart.checkout") }).click();
     await b.waitForURL("**/orders?group=**");
-    await b.locator("a.card").first().click();
+    await b.locator("a.order-row").first().click();
     await b.waitForURL(/\/orders\/[0-9a-f-]{36}$/);
     const row = b.getByTestId("saved-addresses").locator("li", { hasText: "Abovyan st. 10" }).first();
     await row.getByRole("button", { name: t("address.use") }).click();

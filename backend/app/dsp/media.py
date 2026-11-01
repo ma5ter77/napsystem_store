@@ -14,6 +14,7 @@ ALLOWED = {
     "flac": {"flac"},
     "mp3": {"mp3"},
     "mov,mp4,m4a,3gp,3g2,mj2": {"aac", "alac"},
+    "aiff": {"pcm_s16be", "pcm_s24be", "pcm_s32be", "pcm_f32be"},  # spec v2.1 §2.1 (studio sources)
 }
 
 
