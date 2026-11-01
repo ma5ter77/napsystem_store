@@ -101,7 +101,7 @@ function RefundRequest({ r, onDone }: { r: any; onDone: () => void }) {  // NAP-
     <div className="row"><strong>{r.order.app_slug}</strong><StatusBadge ns="refund_status" value={r.status} /></div>
     <div className="hint">{t("admin.refund_buyer")}: {r.buyer.email} · {t("admin.refund_paid")}: <Price minor={r.order.amount_minor} currency={r.currency} />
       {r.order.refunded_minor > 0 && <> · {t("account.refunded")}: <Price minor={r.order.refunded_minor} currency={r.currency} /></>} · {date(r.created_at, locale, true)}</div>
-    <div><span className="hint">{t("admin.refund_reason")}:</span> {r.reason}</div>
+    <div><span className="hint">{t("admin.refund_reason")}:</span> {r.withdrawal ? <strong>{t("refund.withdrawal")}</strong> : null} {r.reason === "withdrawal" ? "" : r.reason}</div>
     {r.note && <div><span className="hint">{t("refund.answer")}:</span> {r.note}</div>}
     {r.status === "requested" && <div className="stack">
       <div className="form wide">

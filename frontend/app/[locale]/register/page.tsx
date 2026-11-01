@@ -5,12 +5,14 @@ import { Suspense, useState } from "react";
 import { useApp } from "@/components/Providers";
 import { ErrorBox, useAction } from "@/components/ui";
 import { api } from "@/lib/api";
+import { LegalText } from "@/components/LegalText";
 
 function Register() {
   const { t, locale, refreshMe, refreshCart } = useApp();
   const router = useRouter();
   const next = useSearchParams()?.get("next") || `/${locale}`;
-  const [f, setF] = useState({ email: "", password: "", display_name: "", as_developer: false });
+  const [f, setF] = useState({ email: "", password: "", display_name: "", as_developer: false, accept_terms: false, consent_personal_data: false });
+  const labels = { terms: t("legal.terms"), privacy: t("legal.privacy_with"), consent: t("legal.consent") };
   const act = useAction();
   return (
     <div className="section" style={{ maxWidth: 520 }}>
@@ -25,6 +27,13 @@ function Register() {
         <label className="field">{t("auth.password")}<input type="password" required minLength={10} autoComplete="new-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} />
           <span className="hint">{t("auth.password_hint")}</span></label>
         <label className="check"><input type="checkbox" checked={f.as_developer} onChange={(e) => setF({ ...f, as_developer: e.target.checked })} /> {t("auth.as_developer")}</label>
+        <fieldset className="stack legal-checks">
+          <label className="check"><input type="checkbox" required checked={f.accept_terms} onChange={(e) => setF({ ...f, accept_terms: e.target.checked })} />{" "}
+            <span><LegalText text={t("legal.reg_terms")} locale={locale} labels={labels} /></span></label>
+          <label className="check"><input type="checkbox" required checked={f.consent_personal_data} onChange={(e) => setF({ ...f, consent_personal_data: e.target.checked })} />{" "}
+            <span><LegalText text={t("legal.reg_consent")} locale={locale} labels={labels} /></span></label>
+          <span className="hint">{t("legal.reg_hint")}</span>
+        </fieldset>
         <ErrorBox error={act.error} />
         <button className="btn" disabled={act.pending}>{t("auth.register")}</button>
       </form>

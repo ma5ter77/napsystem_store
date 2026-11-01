@@ -111,15 +111,17 @@ def purchases(p=P, db=DB):
 
 
 class RefundRequestIn(BaseModel):
-    reason: str = Field(min_length=1, max_length=1000)
+    reason: str = Field("", max_length=1000)
     amount_minor: int | None = None
+    withdrawal: bool = False  # NAP-062: "withdrawal from the contract" — no reason required
 
 
 @router.post("/purchases/{order_id}/refund-request", status_code=201)
 def request_refund(order_id: str, body: RefundRequestIn, p=P, db=DB):
     """NAP-024: the buyer asks for a refund; an administrator decides, the money goes back through the provider."""
     u = p.require_user()
-    r = billing.buyer_request_refund(db, u.id, as_uuid(order_id, "order"), body.reason, body.amount_minor)
+    r = billing.buyer_request_refund(db, u.id, as_uuid(order_id, "order"), body.reason, body.amount_minor,
+                                     body.withdrawal)
     db.commit()
     return billing.refund_request_view(r)
 

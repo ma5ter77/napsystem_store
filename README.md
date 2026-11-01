@@ -70,6 +70,10 @@ ops/backup.sh … && ops/restore_verify.sh …       # резервная коп
 cd backend && uv run python scripts/benchmark.py 10 60
 ```
 
+## Выгрузка на сервер store.napsystem.com
+
+Параметры (SSH `napstore@217.114.3.160`, каталог `/srv/nap-store/incoming`, отпечаток сервера), порядок и журнал загрузок — `docs/deploy-upload.md`; скрипт — `ops/upload-to-store.sh` (только загрузка проверенного архива, без установки).
+
 ## Документация
 
 - [Архитектура и решения](docs/architecture.md) · [Конвертер (DSP)](docs/dsp.md) · [Биллинг](docs/billing.md) · [Оборудование, склад, доставка](docs/hardware-commerce.md) · [DeviceAdapter и сеансы](docs/device-adapter.md) · [RU/EN](docs/i18n.md) · [Эксплуатация, бэкап, benchmark](docs/operations.md)

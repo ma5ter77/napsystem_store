@@ -7,7 +7,7 @@ const path = require("path");
 const BASE = process.env.BASE || "http://localhost:3000";
 const AXE = fs.readFileSync(require.resolve("axe-core/axe.min.js", { paths: [process.cwd()] }), "utf8");
 const PUBLIC = ["", "/apps", "/apps/quiet-harbor", "/devices", "/devices/nap-studio-headphones", "/kits",
-  "/kits/nap-starter-kit?app=quiet-harbor", "/cart", "/about", "/login", "/register"];
+  "/kits/nap-starter-kit?app=quiet-harbor", "/cart", "/about", "/login", "/register", "/legal", "/legal/terms", "/legal/privacy", "/legal/consent-personal-data", "/legal/consent-measurements"];
 const ROLES = {
   "user@nap.demo": ["/library", "/orders", "/play/quiet-harbor", "/account?tab=purchases", "/account?tab=notifications", "/account?tab=privacy", "/account?tab=addresses"],
   "dev1@nap.demo": ["/developer?tab=apps", "/developer?tab=reviews", "/developer?tab=finance", "/developer?tab=analytics"],

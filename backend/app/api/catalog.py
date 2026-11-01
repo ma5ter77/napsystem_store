@@ -160,18 +160,22 @@ def app_detail(slug: str, request: Request, p=P, db=DB):
 
 
 class ViewIn(BaseModel):
-    visitor: str = Field(min_length=8, max_length=64)
+    visitor: str | None = Field(None, max_length=64)  # ignored: nothing is stored on the device (NAP-062)
 
 
 @router.post("/catalog/apps/{slug}/view", status_code=204)
-def app_view(slug: str, body: ViewIn, request: Request, p=P, db=DB):
+def app_view(slug: str, request: Request, body: ViewIn | None = None, p=P, db=DB):
     """NAP-027: the app page reports one view (browser only, so bots without JS are not counted)."""
     ratelimit.check(request, "app_view", user_id=p.id)
     app = db.scalar(select(App).where(App.slug == slug))
     if not app or not app.published_version_id or app.deleted_at:
         raise ApiError("not_found", 404, entity="app")
     from ..services.analytics import record_view
-    record_view(app.id, f"u:{p.id}" if p.id else f"a:{body.visitor}")
+    # cookieless: a signed-in user counts once; a guest is a hash of address + browser + day (never stored as such,
+    # only folded into the HyperLogLog sketch), so no identifier lives on the device and none on the server
+    from datetime import date as _date
+    ip = ratelimit.who(request)
+    record_view(app.id, f"u:{p.id}" if p.id else f"a:{ip}|{request.headers.get('user-agent', '')[:200]}|{_date.today()}")
     return Response(status_code=204)
 
 

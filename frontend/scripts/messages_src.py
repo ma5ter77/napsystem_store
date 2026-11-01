@@ -670,6 +670,27 @@ M.update({  # NAP-027: developer analytics
 "an.choose_app": ("Приложение", "App"),
 })
 
+M.update({  # NAP-062: legal documents
+"refund.withdrawal": ("Отказ от договора (без объяснения причин)", "Withdrawal from the contract (no reason needed)"),
+"refund.reason_optional": ("Комментарий (необязательно)", "Comment (optional)"),
+"refund.withdrawal_hint": ("Покупатели из ЕС и Сербии могут отказаться от договора в течение 14 дней без объяснения причин, если доступ ещё не начался или право отказа сохранилось по закону. Решение и возврат — в течение 10 дней.", "Buyers in the EU and Serbia can withdraw within 14 days without giving a reason if access has not started or the law keeps the right. Decision and refund within 10 days."),
+"legal.title": ("Правовые документы", "Legal documents"), "legal.back": ("← Все документы", "← All documents"),
+"legal.version": ("Редакция {version} от {date}", "Version {version} of {date}"),
+"legal.review_note": ("Документы действуют в этой редакции и проходят проверку юриста; об изменениях мы сообщим заранее.", "These documents apply in this version and are being reviewed by a lawyer; we will announce changes in advance."),
+"legal.terms": ("Пользовательское соглашение", "Terms of Service"), "legal.privacy": ("Политика обработки персональных данных", "Privacy Policy"),
+"legal.privacy_with": ("Политикой обработки персональных данных", "Privacy Policy"),
+"legal.consent": ("согласие на обработку персональных данных", "consent to the processing of personal data"),
+"legal.measurements": ("Согласие на обработку данных о самочувствии", "Consent to the processing of wellbeing data"),
+"legal.reg_terms": ("Я принимаю {terms} и ознакомлен(а) с {privacy}", "I accept the {terms} and have read the {privacy}"),
+"legal.reg_consent": ("Даю {consent}", "I give {consent}"),
+"legal.reg_hint": ("Оба согласия обязательны для регистрации. Согласие на данные о самочувствии запрашивается отдельно и только если вы решите его дать.", "Both are required to sign up. Consent to wellbeing data is asked separately and only if you choose to give it."),
+"legal.buy_note": ("Нажимая кнопку покупки, вы принимаете {terms}, просите предоставить доступ сразу и подтверждаете, что после начала доступа право на отказ от покупки цифрового контента прекращается (кроме случаев, предусмотренных законом).", "By pressing the purchase button you accept the {terms}, ask for immediate access and acknowledge that once access starts you lose the right to withdraw from the purchase of digital content (except where the law provides otherwise)."),
+"legal.order_note": ("Оплачивая заказ, вы принимаете {terms}. Продавец товара указан в заказе.", "By paying for the order you accept the {terms}. The seller of the goods is named in the order."),
+"legal.measurements_note": ("Подробно — в документе «{measurements}». Без согласия сервис работает полностью; при отзыве все измерения удаляются сразу.", "Details: “{measurements}”. The service works fully without this consent; withdrawing it deletes all measurements at once."),
+"vat.note": ("Цены указаны без НДС; НДС начисляется сверху там, где это предусмотрено законом страны покупателя.", "Prices exclude VAT; VAT is added where required by the law of the buyer's country."),
+"footer.legal": ("Правовые документы", "Legal documents"),
+})
+
 def nest(lang):
     out = {}
     for key, pair in M.items():

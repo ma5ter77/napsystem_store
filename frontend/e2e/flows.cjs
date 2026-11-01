@@ -62,6 +62,10 @@ async function register(browser, L, t, dev) {
   await p.getByLabel(t("auth.email")).fill(email);
   await p.getByLabel(t("auth.password")).fill("long-password-123");
   if (dev) await p.getByLabel(t("auth.as_developer")).check();
+  // NAP-062: the form refuses to submit without both legal checkboxes (browser validation), then they are ticked
+  await p.getByRole("button", { name: t("auth.register") }).click();
+  if (!(await p.url()).includes("/register")) throw new Error("registered without accepting the terms");
+  for (const box of await p.locator(".legal-checks input[type=checkbox]").all()) await box.check();
   await p.getByRole("button", { name: t("auth.register") }).click();
   await p.waitForURL(dev ? `**/${L}/developer` : `**/${L}`);
   return { ctx, p, email };
@@ -86,6 +90,15 @@ async function run(L) {
   const dev = await register(browser, L, t, true);
   const d = dev.p;
   CUR = d;
+  await step("legal documents: list, terms with version, links in the footer (NAP-062)", async () => {
+    await d.goto(`${BASE}/${L}/legal`);
+    await d.getByRole("heading", { name: t("legal.title") }).waitFor();
+    await d.getByRole("link", { name: t("legal.terms") }).first().click();
+    await d.waitForURL(`**/${L}/legal/terms`);
+    await d.locator(".legal-doc h1").waitFor();
+    await d.getByText(t("legal.version", { version: "1.0", date: "" }).split(" ").slice(0, 2).join(" ")).first().waitFor();
+    await d.goto(`${BASE}/${L}/developer`);  // the next step starts in the developer dashboard
+  });
   await step("create app", async () => {
     await d.getByRole("button", { name: t("dev.new_app") }).first().click();
     const slugInput = d.getByLabel(t("dev.slug"));

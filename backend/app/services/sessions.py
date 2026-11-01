@@ -328,7 +328,10 @@ def set_consent(db: Session, user: User, granted: bool, retention_days: int | No
                        retention_days=retention_days or get_settings().measurement_retention_days))
     elif not granted and cur:
         cur.revoked_at = utcnow()
-    audit(db, user.id, "consent.changed", "user", user.id, {"granted": granted})
+        delete_measurements(db, user)  # NAP-062: withdrawing the consent deletes the stored measurements at once
+    from ..api.about import legal_version
+    audit(db, user.id, "consent.changed", "user", user.id,
+          {"granted": granted, "document": "consent-measurements", "version": legal_version("consent-measurements")})
 
 
 def delete_measurements(db: Session, user: User) -> int:

@@ -7,6 +7,7 @@ import { Empty, ErrorBox, Loading, Price, RequireAuth, StatusBadge, useAction, u
 import { api } from "@/lib/api";
 import { deleteSavedAddress, SavedAddressList, useSavedAddresses } from "@/components/SavedAddresses";
 import { date } from "@/lib/i18n";
+import { LegalText } from "@/components/LegalText";
 
 const TABS = ["purchases", "subscriptions", "devices", "history", "privacy", "notifications", "addresses"] as const;
 
@@ -14,6 +15,7 @@ function RefundCell({ o, onDone }: { o: any; onDone: () => void }) {  // NAP-024
   const { t } = useApp();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
+  const [withdrawal, setWithdrawal] = useState(false);
   const [sent, setSent] = useState(false);
   const act = useAction();
   const rq = o.refund_request;
@@ -23,13 +25,14 @@ function RefundCell({ o, onDone }: { o: any; onDone: () => void }) {  // NAP-024
     {o.can_request_refund && !open && <div><button type="button" className="btn ghost small" onClick={() => { setOpen(true); setSent(false); }}>{t("refund.request")}</button></div>}
     {open && <form className="stack" onSubmit={async (e) => {
       e.preventDefault();
-      if (await act.run(() => api(`/purchases/${o.id}/refund-request`, { body: { reason } }))) { setOpen(false); setReason(""); setSent(true); onDone(); }
+      if (await act.run(() => api(`/purchases/${o.id}/refund-request`, { body: { reason, withdrawal } }))) { setOpen(false); setReason(""); setWithdrawal(false); setSent(true); onDone(); }
     }}>
-      <label className="field">{t("refund.reason")}
-        <textarea value={reason} onChange={(e) => setReason(e.target.value)} minLength={10} maxLength={1000} required rows={3} /></label>
-      <p className="hint">{t("refund.reason_hint")}</p>
+      <label className="check"><input type="checkbox" checked={withdrawal} onChange={(e) => setWithdrawal(e.target.checked)} /> {t("refund.withdrawal")}</label>
+      <label className="field">{withdrawal ? t("refund.reason_optional") : t("refund.reason")}
+        <textarea value={reason} onChange={(e) => setReason(e.target.value)} minLength={withdrawal ? 0 : 10} maxLength={1000} required={!withdrawal} rows={3} /></label>
+      <p className="hint">{withdrawal ? t("refund.withdrawal_hint") : t("refund.reason_hint")}</p>
       <ErrorBox error={act.error} />
-      <div className="row"><button className="btn small" disabled={act.pending || reason.trim().length < 10}>{t("refund.send")}</button>
+      <div className="row"><button className="btn small" disabled={act.pending || (!withdrawal && reason.trim().length < 10)}>{t("refund.send")}</button>
         <button type="button" className="btn ghost small" onClick={() => setOpen(false)}>{t("refund.cancel")}</button></div>
     </form>}
   </div>;
@@ -101,13 +104,14 @@ function History() {
 }
 
 function Privacy() {
-  const { t } = useApp();
+  const { t, locale } = useApp();
   const { data, reload } = useLoad<any>("/me/consent");
   const act = useAction();
   return (
     <div className="panel stack">
       <h2>{t("account.consent_title")}</h2>
       <p>{t("account.consent_text")}</p>
+      <p className="hint"><LegalText text={t("legal.measurements_note")} locale={locale} labels={{ measurements: t("legal.measurements") }} /></p>
       <label className="check"><input type="checkbox" checked={!!data?.store_measurements} onChange={async (e) => {
         if (await act.run(() => api("/me/consent", { method: "PUT", body: { granted: e.target.checked } }))) reload();
       }} /> {t("account.consent_box")}</label>

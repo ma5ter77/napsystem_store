@@ -261,3 +261,13 @@ ul.plain { list-style: none; padding: 0; margin: 0; }
 .chart-readout { min-height: 1.5em; }
 table.retention td.ret-cell { text-align: center; font-variant-numeric: tabular-nums; }
 @media (max-width: 560px) { .funnel li { grid-template-columns: 1fr auto; } .funnel-track { grid-column: 1 / -1; grid-row: 2; } }
+/* NAP-062: legal documents */
+.legal-doc { max-width: 82ch; line-height: 1.65; }
+.legal-doc h1 { font-size: 1.7rem; margin-top: 0; }
+.legal-doc h2 { font-size: 1.25rem; margin-top: 1.6em; }
+.legal-doc h3 { font-size: 1.08rem; margin-top: 1.2em; }
+.legal-doc blockquote { margin: 1em 0; }
+.legal-doc table { font-size: .92rem; }
+.legal-checks { border: 0; padding: 0; margin: 0; }
+.legal-checks .check { align-items: flex-start; }
+.foot-legal { gap: 16px; }

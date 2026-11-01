@@ -3,6 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { AddressForm } from "@/components/AddressForm";
+import { LegalText } from "@/components/LegalText";
 import { useApp } from "@/components/Providers";
 import { ErrorBox, Loading, Price, RequireAuth, StatusBadge, TestModeBanner, useAction, useLoad } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -116,6 +117,7 @@ function Order() {
           {o.status === "awaiting_payment" && o.shipping_rate && (
             <div className="stack">
               <p className="hint">{t("orders.eta_note")}</p>
+              <p className="hint"><LegalText text={t("legal.order_note")} locale={locale} labels={{ terms: t("legal.terms") }} /> {t("vat.note")}</p>
               <button className="btn" disabled={act.pending} onClick={async () => {
                 const r = await act.run(() => api(`/hardware/orders/${o.id}/pay`, { method: "POST" }));
                 if (r?.checkout_url) router.push(`/${locale}${r.checkout_url}`);

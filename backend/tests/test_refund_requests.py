@@ -82,3 +82,15 @@ def test_full_refund_request_revokes_one_time_access():
     p = _purchase(buyer, co["order_id"])
     assert p["status"] == "refunded" and not p["can_request_refund"]
     assert not ok(buyer.get(f"/catalog/apps/{pub['slug']}"))["access"]["has_access"]
+
+
+def test_withdrawal_needs_no_reason():
+    """NAP-062: EU/Serbian consumers withdraw from the contract without explaining why."""
+    dev, buyer, pub, co = _paid_order(2000)
+    mock_pay(buyer, co["checkout_url"])
+    assert buyer.post(f"/purchases/{co['order_id']}/refund-request", {"reason": ""}).status_code == 422
+    r = ok(buyer.post(f"/purchases/{co['order_id']}/refund-request", {"withdrawal": True}), 201)
+    assert r["withdrawal"] and r["status"] == "requested"
+    admin = Client().login("admin@nap.demo")
+    item = next(x for x in ok(admin.get("/admin/refund-requests"))["items"] if x["id"] == r["id"])
+    assert item["withdrawal"]
