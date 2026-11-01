@@ -691,6 +691,36 @@ M.update({  # NAP-062: legal documents
 "footer.legal": ("Правовые документы", "Legal documents"),
 })
 
+M.update({  # NAP-090/091/092: design v2 — wayfinding, statuses
+"nav.cart_label": ("Корзина, товаров: {count}", "Cart, items: {count}"),
+"nav.account_menu": ("Аккаунт", "Account"),
+"nav.signed_in_as": ("Вы вошли как", "Signed in as"),
+"crumbs.label": ("Вы здесь", "You are here"), "crumbs.home": ("Магазин", "Store"),
+"footer.col_shop": ("Магазин", "Shop"), "footer.col_authors": ("Авторам и продавцам", "Authors and sellers"),
+"footer.col_account": ("Аккаунт", "Account"), "footer.col_about": ("О сервисе", "About"),
+"footer.publish": ("Опубликовать приложение", "Publish an app"), "footer.sell": ("Кабинет поставщика", "Supplier dashboard"),
+"footer.about": ("О продукте и версии", "Product and versions"), "footer.methods_more": ("Методика и ограничения", "Method and limits"),
+"footer.copyright": ("© {year} NAP Store", "© {year} NAP Store"),
+"home.lead_short": ("Медитации, аудиокниги и курсы с бинауральным слоем — и кресла с наушниками для них. Каждый трек проходит измерение частот, уровней и пиков.", "Meditations, audiobooks and courses with a binaural layer — and the chairs and headphones to hear them. Every track is measured for frequencies, levels and peaks."),
+"home.cta_apps_short": ("Выбрать приложение", "Browse apps"), "home.cta_devices": ("Подобрать оборудование", "Find equipment"),
+"steps.order_progress": ("Ход заказа", "Order progress"), "steps.next": ("Что дальше:", "What's next:"),
+"steps.state.done": ("выполнено", "done"), "steps.state.current": ("сейчас", "now"), "steps.state.upcoming": ("впереди", "upcoming"), "steps.state.problem": ("требует внимания", "needs attention"),
+"steps.order.placed": ("Оформлен", "Placed"), "steps.order.paid": ("Оплачен", "Paid"), "steps.order.packing": ("Собирается", "Packing"),
+"steps.order.shipped": ("Отправлен", "Shipped"), "steps.order.delivered": ("Доставлен", "Delivered"),
+"steps.order_next.quote": ("поставщик рассчитает доставку крупного товара. Пришлём письмо, когда цена будет готова.", "the supplier will quote delivery for the bulky item. We'll email you when the price is ready."),
+"steps.order_next.paying": ("выберите доставку и оплатите заказ. Товар зарезервирован за вами.", "choose delivery and pay. The items are reserved for you."),
+"steps.order_next.payment_failed": ("оплата не прошла. Попробуйте ещё раз или другую карту — заказ сохранён.", "the payment didn't go through. Try again or use another card — the order is kept."),
+"steps.order_next.packing": ("поставщик собирает заказ. Номер для отслеживания появится здесь после отправки.", "the supplier is packing your order. The tracking number will appear here once it ships."),
+"steps.order_next.partially_shipped": ("часть товаров уже в пути, остальные придут отдельной посылкой.", "part of the order is on its way; the rest will come in a separate parcel."),
+"steps.order_next.shipped": ("заказ в пути. Отслеживайте посылку в разделе «Доставка».", "your order is on its way. Track the parcel under Delivery."),
+"steps.order_next.delivered": ("заказ доставлен. Если что-то не так, оформите возврат на странице заказа.", "delivered. If something is wrong, request a return on the order page."),
+"steps.order_next.exception": ("с доставкой возникла проблема. Поставщик свяжется с вами; подробности на странице заказа.", "there's a delivery problem. The supplier will contact you; details are on the order page."),
+"steps.order_next.cancelled": ("заказ отменён. Если деньги были списаны, они вернутся тем же способом.", "the order was cancelled. Any payment will be returned to the same method."),
+"steps.order_next.closed": ("заказ закрыт. Его история остаётся здесь.", "the order is closed. Its history stays here."),
+"orders.lead": ("Статус, доставка и возвраты по каждому заказу.", "Status, delivery and returns for every order."),
+"orders.open": ("Открыть заказ", "Open order"),
+})
+
 def nest(lang):
     out = {}
     for key, pair in M.items():

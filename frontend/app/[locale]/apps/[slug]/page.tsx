@@ -9,6 +9,7 @@ import { ReviewsSection, Stars } from "@/components/Reviews";
 import { duration, isLocale, langName, Locale, num1, translator } from "@/lib/i18n";
 import { alternates, serverApi, serverTranslator } from "@/lib/server";
 import { ServerError } from "@/components/State";
+import { Breadcrumbs } from "@/components/nav";
 
 type P = Promise<{ locale: string; slug: string }>;
 
@@ -32,6 +33,9 @@ export default async function AppPage({ params }: { params: P }) {
   const price = a.prices?.[0];
   const caps: string[] = a.requirements?.required_capabilities ?? [];
   return (
+    <>
+    <Breadcrumbs label={t("crumbs.label")} items={[{ href: `/${locale}`, label: t("crumbs.home") },
+      { href: `/${locale}/apps`, label: t("nav.apps") }, { label: a.title }]} />
     <div className="section two">
       <ViewBeacon slug={a.slug} />
       <div className="stack">
@@ -74,5 +78,6 @@ export default async function AppPage({ params }: { params: P }) {
       </div>
       <div style={{ gridColumn: "1 / -1" }}><ReviewsSection slug={a.slug} /></div>
     </div>
+    </>
   );
 }

@@ -101,3 +101,24 @@ export function AppCover({ a, title, eager, tone }: { a: { cover_url?: string | 
   }
   return <BeatCover hue={a.cover_hue} tone={tone} seed={a.slug} title={title ?? a.title ?? undefined} />;
 }
+
+// NAP-095: wide hero motif — the left and right carriers drifting apart; where they line up the beat swells.
+export function HeroWaves() {
+  const W = 1200, H = 420, N = 600;
+  const fL = 9, fR = 10;  // cycles across the width: one beat in the middle of the picture
+  const line = (f: number, phase: number) => Array.from({ length: N + 1 }, (_, i) => {
+    const x = (i / N) * W;
+    const env = 0.35 + 0.65 * Math.abs(Math.cos(Math.PI * (fR - fL) * (i / N) - Math.PI / 2));
+    const y = H / 2 + 120 * env * Math.sin((i / N) * f * Math.PI * 2 + phase);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" role="presentation">
+      <rect width={W} height={H} fill="var(--fog)" />
+      <polyline points={line(fL, 0)} fill="none" stroke="var(--left)" strokeWidth="3" strokeLinecap="round" />
+      <polyline points={line(fR, 0)} fill="none" stroke="var(--right)" strokeWidth="3" strokeLinecap="round" opacity=".9" />
+      <text x="40" y={H - 36} fill="var(--left)" fontSize="22" fontWeight="600" fontFamily="var(--text)">L</text>
+      <text x={W - 56} y={H - 36} fill="var(--right)" fontSize="22" fontWeight="600" fontFamily="var(--text)">R</text>
+    </svg>
+  );
+}

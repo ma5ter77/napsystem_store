@@ -257,7 +257,7 @@ async function run(L) {
     const t2 = dict(other);
     await b.getByRole("link", { name: other.toUpperCase(), exact: true }).click();
     await b.waitForURL(`**/${other}/devices/nap-cable-35`);
-    await b.getByRole("link", { name: t2("nav.cart", { count: "1" }) }).waitFor();
+    await b.getByRole("link", { name: t2("nav.cart_label", { count: "1" }) }).waitFor();
     const lang = await b.getAttribute("html", "lang");
     if (lang !== other) throw new Error("html lang " + lang);
     await b.getByRole("link", { name: L.toUpperCase(), exact: true }).click();

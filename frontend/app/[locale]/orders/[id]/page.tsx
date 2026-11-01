@@ -6,6 +6,8 @@ import { AddressForm } from "@/components/AddressForm";
 import { LegalText } from "@/components/LegalText";
 import { useApp } from "@/components/Providers";
 import { ErrorBox, Loading, Price, RequireAuth, StatusBadge, TestModeBanner, useAction, useLoad } from "@/components/ui";
+import { OrderTimeline } from "@/components/OrderTimeline";
+import { Breadcrumbs } from "@/components/nav";
 import { api } from "@/lib/api";
 import { date, money } from "@/lib/i18n";
 
@@ -28,6 +30,8 @@ function Order() {
 
   return (
     <div className="stack">
+      <Breadcrumbs label={t("crumbs.label")} items={[{ href: `/${locale}`, label: t("crumbs.home") },
+        { href: `/${locale}/orders`, label: t("nav.orders") }, { label: o.number }]} />
       <div className="spread">
         <h1>{t("orders.order", { number: o.number })}</h1>
         <div className="status-line">
@@ -36,6 +40,7 @@ function Order() {
           <StatusBadge ns="fulfillment_status" value={o.fulfillment_status} />
         </div>
       </div>
+      <section className="panel"><OrderTimeline order={o} /></section>
       {o.is_demo && <TestModeBanner />}
       {o.exception_reason && <div className="notice bad">{t(`exceptions.${o.exception_reason}`)}</div>}
       <p className="muted">{t("orders.seller_from", { seller: o.seller.name, country: o.ship_from })}</p>

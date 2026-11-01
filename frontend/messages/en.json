@@ -18,7 +18,10 @@
   "login": "Sign in",
   "language": "Interface language",
   "content": "Site content",
-  "skip": "Skip to content"
+  "skip": "Skip to content",
+  "cart_label": "Cart, items: {count}",
+  "account_menu": "Account",
+  "signed_in_as": "Signed in as"
  },
  "about": {
   "spec_draft": "draft, awaiting approval",
@@ -321,7 +324,16 @@
   "disclaimer": "NAP Store verifies technical signal parameters. It is not a medical service: neither the frequencies in a file nor a session guarantee any brain state or therapeutic result.",
   "methods": "The converter is our own two-carrier generator. Published approaches of The Monroe Institute and the Center for Neuroacoustic Research served as methodological references; there is no licence, partnership or access to proprietary algorithms.",
   "version": "NAP Store {version} · spec v{spec}",
-  "legal": "Legal documents"
+  "legal": "Legal documents",
+  "col_shop": "Shop",
+  "col_authors": "Authors and sellers",
+  "col_account": "Account",
+  "col_about": "About",
+  "publish": "Publish an app",
+  "sell": "Supplier dashboard",
+  "about": "Product and versions",
+  "methods_more": "Method and limits",
+  "copyright": "© {year} NAP Store"
  },
  "coverage": {
   "done": "implemented",
@@ -338,7 +350,10 @@
   "art_note": "Covers show the two carriers, left and right. Their difference produces the beat.",
   "apps": "Apps",
   "kits": "Kits",
-  "devices": "Devices"
+  "devices": "Devices",
+  "lead_short": "Meditations, audiobooks and courses with a binaural layer — and the chairs and headphones to hear them. Every track is measured for frequencies, levels and peaks.",
+  "cta_apps_short": "Browse apps",
+  "cta_devices": "Find equipment"
  },
  "common": {
   "all": "All",
@@ -521,7 +536,9 @@
   "parcel": "Parcel {n}",
   "source": "source",
   "label_not_shipped": "Label created — the parcel has not shipped yet.",
-  "packing_list": "Packing list (PDF)"
+  "packing_list": "Packing list (PDF)",
+  "lead": "Status, delivery and returns for every order.",
+  "open": "Open order"
  },
  "address": {
   "invalid_field": "Check this field",
@@ -1448,5 +1465,38 @@
  },
  "vat": {
   "note": "Prices exclude VAT; VAT is added where required by the law of the buyer's country."
+ },
+ "crumbs": {
+  "label": "You are here",
+  "home": "Store"
+ },
+ "steps": {
+  "order_progress": "Order progress",
+  "next": "What's next:",
+  "state": {
+   "done": "done",
+   "current": "now",
+   "upcoming": "upcoming",
+   "problem": "needs attention"
+  },
+  "order": {
+   "placed": "Placed",
+   "paid": "Paid",
+   "packing": "Packing",
+   "shipped": "Shipped",
+   "delivered": "Delivered"
+  },
+  "order_next": {
+   "quote": "the supplier will quote delivery for the bulky item. We'll email you when the price is ready.",
+   "paying": "choose delivery and pay. The items are reserved for you.",
+   "payment_failed": "the payment didn't go through. Try again or use another card — the order is kept.",
+   "packing": "the supplier is packing your order. The tracking number will appear here once it ships.",
+   "partially_shipped": "part of the order is on its way; the rest will come in a separate parcel.",
+   "shipped": "your order is on its way. Track the parcel under Delivery.",
+   "delivered": "delivered. If something is wrong, request a return on the order page.",
+   "exception": "there's a delivery problem. The supplier will contact you; details are on the order page.",
+   "cancelled": "the order was cancelled. Any payment will be returned to the same method.",
+   "closed": "the order is closed. Its history stays here."
+  }
  }
 }

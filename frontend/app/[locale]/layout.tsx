@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import "@fontsource-variable/inter/index.css";
 import "../globals.css";
 import { Header } from "@/components/Header";
 import { Providers } from "@/components/Providers";
@@ -32,13 +33,31 @@ export default async function LocaleLayout({ children, params }: { children: Rea
           <Suspense><Header /></Suspense>
           <main className="wrap" id="main" tabIndex={-1}>{children}</main>
           <footer className="foot">
-            <div className="wrap stack">
+            <div className="wrap">
               <p>{t("footer.disclaimer")}</p>
-              <p>{t("footer.methods")}</p>
-              <p className="row foot-legal"><Link href={`/${locale}/legal`}>{t("footer.legal")}</Link>
-                <Link href={`/${locale}/legal/terms`}>{t("legal.terms")}</Link>
-                <Link href={`/${locale}/legal/privacy`}>{t("legal.privacy")}</Link></p>
-              {rel.ok && <p><Link href={`/${locale}/about`}>{t("footer.version", { version: rel.data.version, spec: rel.data.spec.version })}</Link></p>}
+              <details><summary>{t("footer.methods_more")}</summary><p>{t("footer.methods")}</p></details>
+              <nav className="foot-cols" aria-label={t("footer.col_about")}>
+                <div><h2>{t("footer.col_shop")}</h2><ul>
+                  <li><Link href={`/${locale}/apps`}>{t("nav.apps")}</Link></li>
+                  <li><Link href={`/${locale}/devices`}>{t("nav.devices")}</Link></li>
+                  <li><Link href={`/${locale}/kits`}>{t("nav.kits")}</Link></li></ul></div>
+                <div><h2>{t("footer.col_account")}</h2><ul>
+                  <li><Link href={`/${locale}/library`}>{t("nav.library")}</Link></li>
+                  <li><Link href={`/${locale}/orders`}>{t("nav.orders")}</Link></li>
+                  <li><Link href={`/${locale}/account`}>{t("nav.account")}</Link></li></ul></div>
+                <div><h2>{t("footer.col_authors")}</h2><ul>
+                  <li><Link href={`/${locale}/developer`}>{t("footer.publish")}</Link></li>
+                  <li><Link href={`/${locale}/seller`}>{t("footer.sell")}</Link></li></ul></div>
+                <div><h2>{t("footer.col_about")}</h2><ul>
+                  <li><Link href={`/${locale}/legal`}>{t("footer.legal")}</Link></li>
+                  <li><Link href={`/${locale}/legal/terms`}>{t("legal.terms")}</Link></li>
+                  <li><Link href={`/${locale}/legal/privacy`}>{t("legal.privacy")}</Link></li>
+                  <li><Link href={`/${locale}/about`}>{t("footer.about")}</Link></li></ul></div>
+              </nav>
+              <div className="foot-base">
+                <span>{t("footer.copyright", { year: new Date().getFullYear() })}</span>
+                {rel.ok && <Link href={`/${locale}/about`}>{t("footer.version", { version: rel.data.version, spec: rel.data.spec.version })}</Link>}
+              </div>
             </div>
           </footer>
         </Providers>

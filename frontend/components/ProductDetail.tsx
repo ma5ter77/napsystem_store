@@ -9,6 +9,7 @@ import { langName, Locale, money, num1, translator } from "@/lib/i18n";
 import { ReviewsSection, Stars } from "@/components/Reviews";
 import { serverApi, serverTranslator } from "@/lib/server";
 import { ServerError } from "@/components/State";
+import { Breadcrumbs } from "@/components/nav";
 
 export async function ProductDetail({ locale, slug, app }: { locale: Locale; slug: string; app?: string }) {
   const t = (await serverTranslator(locale));
@@ -18,7 +19,11 @@ export async function ProductDetail({ locale, slug, app }: { locale: Locale; slu
     return <ServerError t={t} locale={locale} status={r.status} />;
   }
   const p = r.data;
+  const base = p.kind === "simple" ? "devices" : "kits";
   return (
+    <>
+    <Breadcrumbs label={t("crumbs.label")} items={[{ href: `/${locale}`, label: t("crumbs.home") },
+      { href: `/${locale}/${base}`, label: t(`nav.${base}`) }, { label: p.title }]} />
     <div className="section two">
       <div className="stack">
         {p.photos?.length ? <ProductGallery photos={p.photos} title={p.title} />
@@ -63,6 +68,6 @@ export async function ProductDetail({ locale, slug, app }: { locale: Locale; slu
       {p.bom && p.kind === "kit_component" && <div style={{ gridColumn: "1 / -1" }}><BomBuilder slug={p.slug} app={app} /></div>}
       <div style={{ gridColumn: "1 / -1" }}><ReviewsSection slug={p.slug} kind="product" path={`${p.kind === "simple" ? "devices" : "kits"}/${p.slug}`} /></div>
     </div>
+    </>
   );
 }
-
