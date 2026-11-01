@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useState } from "react";
 import { useApp } from "@/components/Providers";
-import { ErrorBox, Loading, Price, RequireAuth, StatusBadge, useAction, useLoad } from "@/components/ui";
+import { Empty, ErrorBox, Loading, Price, RequireAuth, StatusBadge, useAction, useLoad } from "@/components/ui";
 import { api, uid } from "@/lib/api";
 import { date } from "@/lib/i18n";
 
-const TABS = ["users", "profiles", "finance", "orders", "audit", "ops"] as const;
+const TABS = ["users", "profiles", "finance", "refunds", "orders", "audit", "ops"] as const;
 
 function Users() {
   const { t } = useApp();
@@ -26,7 +26,7 @@ function Users() {
         <tbody>{data?.items.map((u: any) => (
           <tr key={u.id}><td>{u.email ?? <span className="muted">{t("admin.anonymized")}</span>}<div className="hint">{u.display_name}</div></td>
             <td>{u.roles.map((r: string) => <span key={r} className="badge gray" style={{ marginRight: 4 }}>{r} <button className="btn ghost small" style={{ minHeight: 18, padding: "0 4px" }} aria-label={t("admin.revoke")} onClick={async () => { if (await act.run(() => api(`/admin/users/${u.id}/roles/${r}`, { method: "DELETE" }))) reload(); }}>×</button></span>)}</td>
-            <td><div className="row"><select value={role[u.id] ?? "developer"} onChange={(e) => setRole({ ...role, [u.id]: e.target.value })} style={{ width: 150 }}>
+            <td><div className="row"><select value={role[u.id] ?? "developer"} aria-label={t("admin.role_for", { email: u.email })} onChange={(e) => setRole({ ...role, [u.id]: e.target.value })} style={{ width: 150 }}>
               {["user", "developer", "seller", "fulfillment", "moderator", "content_editor", "admin"].map((r) => <option key={r} value={r}>{t(`roles.${r}`)}</option>)}</select>
               <button className="btn small" onClick={async () => { if (await act.run(() => api(`/admin/users/${u.id}/roles`, { body: { role: role[u.id] ?? "developer", seller_id: seller || null } }))) reload(); }}>{t("admin.grant")}</button></div></td></tr>))}</tbody></table></div>
       <ErrorBox error={act.error} />
@@ -38,22 +38,25 @@ function Profiles() {
   const { t } = useApp();
   const { data, reload } = useLoad<any>("/admin/profiles");
   const [f, setF] = useState({ slug: "alpha-demo-v1", name_ru: "", name_en: "", carrier_center_hz: 255, beat_hz: 10, source_gain_db: -6, tone_gain_dbfs: -30, fade_in_seconds: 0.5, fade_out_seconds: 0.5 });
+  const [curve, setCurve] = useState("");  // NAP-021: "t_seconds = beat_hz" per line
   const act = useAction();
   return (
     <div className="stack">
       <p className="hint">{t("admin.profiles_hint")}</p>
       <table><thead><tr><th>slug</th><th>v</th><th>{t("account.status")}</th><th>params</th><th></th></tr></thead>
         <tbody>{data?.items.map((p: any) => <tr key={p.id}><td>{p.slug}</td><td>{p.version}</td><td><StatusBadge ns="profile_status" value={p.status} /></td>
-          <td className="hint">{Object.entries(p.params).map(([k, v]) => `${k}=${v}`).join(", ")}</td>
+          <td className="hint">{Object.entries(p.params).map(([k, v]) => k === "beat_curve" ? `${t("admin.curve_short")}: ${(v as number[][]).map(([ts, b]) => `${ts} s → ${b} Hz`).join(", ")}` : `${k}=${v}`).join(", ")}</td>
           <td>{p.status === "active" && <button className="btn ghost small" onClick={async () => { if (await act.run(() => api(`/admin/profiles/${p.id}/retire`, { method: "POST" }))) reload(); }}>{t("admin.retire")}</button>}</td></tr>)}</tbody></table>
       <form className="panel stack" onSubmit={async (e) => {
         e.preventDefault();
         const { slug, name_ru, name_en, ...params } = f;
-        if (await act.run(() => api("/admin/profiles", { body: { slug, names: { ru: name_ru || slug, en: name_en || slug }, params } }))) reload();
+        const beat_curve = curve.split("\n").map((l) => l.split("=").map((x) => Number(x.trim().replace(",", ".")))).filter((p) => p.length === 2 && p.every((x) => Number.isFinite(x)));
+        if (await act.run(() => api("/admin/profiles", { body: { slug, names: { ru: name_ru || slug, en: name_en || slug }, params: beat_curve.length ? { ...params, beat_curve } : params } }))) reload();
       }}>
         <h3>{t("admin.new_profile_version")}</h3>
         <div className="form wide">{Object.entries(f).map(([k, v]) => (
           <label key={k} className="field">{k}<input value={v} type={typeof v === "number" ? "number" : "text"} step="any" onChange={(e) => setF({ ...f, [k]: typeof v === "number" ? Number(e.target.value) : e.target.value })} /></label>))}</div>
+        <label className="field">{t("admin.curve")}<textarea rows={4} value={curve} onChange={(e) => setCurve(e.target.value)} placeholder={"0 = 10\n900 = 4"} /><span className="hint">{t("admin.curve_hint")}</span></label>
         <div><button className="btn">{t("admin.create_version")}</button></div>
       </form>
       <ErrorBox error={act.error} />
@@ -85,6 +88,49 @@ function Finance() {
       <ErrorBox error={act.error} />
     </div>
   );
+}
+
+function RefundRequest({ r, onDone }: { r: any; onDone: () => void }) {  // NAP-024
+  const { t, locale } = useApp();
+  const [amount, setAmount] = useState((r.amount_minor / 100).toFixed(2));
+  const [note, setNote] = useState("");
+  const act = useAction();
+  const decide = (approve: boolean) => act.run(() => api(`/admin/refund-requests/${r.id}/decision`, {
+    body: { approve, note, amount_minor: approve ? Math.round(Number(amount) * 100) : undefined } })).then((x) => { if (x) onDone(); });
+  return <article className="panel flat stack" data-testid="refund-request">
+    <div className="row"><strong>{r.order.app_slug}</strong><StatusBadge ns="refund_status" value={r.status} /></div>
+    <div className="hint">{t("admin.refund_buyer")}: {r.buyer.email} · {t("admin.refund_paid")}: <Price minor={r.order.amount_minor} currency={r.currency} />
+      {r.order.refunded_minor > 0 && <> · {t("account.refunded")}: <Price minor={r.order.refunded_minor} currency={r.currency} /></>} · {date(r.created_at, locale, true)}</div>
+    <div><span className="hint">{t("admin.refund_reason")}:</span> {r.reason}</div>
+    {r.note && <div><span className="hint">{t("refund.answer")}:</span> {r.note}</div>}
+    {r.status === "requested" && <div className="stack">
+      <div className="form wide">
+        <label className="field">{t("admin.refund_amount")} ({r.currency})
+          <input type="number" step="0.01" min="0.01" max={(r.amount_minor / 100).toFixed(2)} value={amount} onChange={(e) => setAmount(e.target.value)} /></label>
+        <label className="field">{t("admin.refund_note")}
+          <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} /></label>
+      </div>
+      <p className="hint">{t("admin.refund_note_hint")}</p>
+      <ErrorBox error={act.error} />
+      <div className="row"><button type="button" className="btn small" disabled={act.pending} onClick={() => decide(true)}>{t("admin.refund_approve")}</button>
+        <button type="button" className="btn ghost small" disabled={act.pending || note.trim().length < 3} onClick={() => decide(false)}>{t("admin.refund_reject")}</button></div>
+    </div>}
+  </article>;
+}
+
+function Refunds() {
+  const { t } = useApp();
+  const [status, setStatus] = useState("requested");
+  const { data, reload } = useLoad<any>(`/admin/refund-requests?status=${status}`);
+  return <div className="stack">
+    <label className="field">{t("admin.refund_filter")}
+      <select value={status} onChange={(e) => setStatus(e.target.value)}>
+        {["requested", "pending", "succeeded", "failed", "rejected"].map((s) => <option key={s} value={s}>{t(`refund_status.${s}`)}</option>)}
+        <option value="all">{t("admin.refund_all")}</option>
+      </select></label>
+    {!data ? <Loading /> : !data.items.length ? <Empty>{t("admin.refunds_empty")}</Empty>
+      : data.items.map((r: any) => <RefundRequest key={r.id} r={r} onDone={reload} />)}
+  </div>;
 }
 
 function Orders() {
@@ -133,7 +179,7 @@ function Admin() {
     <div className="stack">
       <h1>{t("admin.title")}</h1>
       <div className="tabs" role="tablist">{TABS.map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => router.replace(`/${locale}/admin?tab=${x}`)}>{t(`admin.tab_${x}`)}</button>)}</div>
-      {tab === "users" && <Users />}{tab === "profiles" && <Profiles />}{tab === "finance" && <Finance />}
+      {tab === "users" && <Users />}{tab === "profiles" && <Profiles />}{tab === "finance" && <Finance />}{tab === "refunds" && <Refunds />}
       {tab === "orders" && <Orders />}{tab === "audit" && <Audit />}{tab === "ops" && <Ops />}
     </div>
   );

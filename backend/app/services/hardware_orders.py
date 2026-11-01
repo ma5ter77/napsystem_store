@@ -147,6 +147,8 @@ def set_address(db: Session, o: HardwareOrder, country: str, fields: dict) -> Ha
     if products_dest:
         raise ApiError("destination_not_served", 422, details={"skus": sorted(products_dest)})
     new = {"country": country.upper(), "fields": clean}
+    from .addresses import save_to_book  # NAP-023: the address book remembers what was used
+    save_to_book(db, o.buyer_id, country, clean)
     if new != o.address:
         o.address = new
         _invalidate_shipping(db, o)

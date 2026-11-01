@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ProductCard } from "@/components/cards";
 import { isLocale, Locale, translator } from "@/lib/i18n";
 import { alternates, serverApi, serverTranslator } from "@/lib/server";
+import { ServerError } from "@/components/State";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
@@ -22,7 +23,7 @@ export default async function Kits({ params, searchParams }: { params: Promise<{
         <h1>{t("kits.for_app", { app: a.ok ? a.data.title : app })}</h1>
         {a.ok && <p className="muted">{t("kits.requires")}: {(a.data.requirements.required_capabilities ?? []).map((c: string) => t(`caps.${c}`)).join(", ")}</p>}
         <div className="notice">{t("kits.license_note")}</div>
-        {!r.ok ? <div className="notice bad">{t("common.error")}</div> : (
+        {!r.ok ? <ServerError t={t} locale={locale} status={r.status} /> : (
           <div className="grid" style={{ marginTop: 20 }}>
             {r.data.items.map((p: any) => (
               <div key={p.id}>
@@ -44,7 +45,7 @@ export default async function Kits({ params, searchParams }: { params: Promise<{
     <div className="section">
       <h1>{t("kits.title")}</h1>
       <p className="muted">{t("kits.lead")}</p>
-      {!r.ok ? <div className="notice bad">{t("common.error")}</div> :
+      {!r.ok ? <ServerError t={t} locale={locale} status={r.status} /> :
         <div className="grid">{r.data.items.map((p: any) => <ProductCard key={p.id} p={p} locale={locale} t={t} />)}</div>}
     </div>
   );

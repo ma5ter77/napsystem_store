@@ -82,6 +82,7 @@ class Product(Base):
     destinations: Mapped[list[str]] = mapped_column(ARRAY(String(2)), default=list)
     specs: Mapped[dict] = mapped_column(JSONB, default=dict)  # language-neutral specs
     hue: Mapped[int] = mapped_column(Integer, default=30)
+    photos: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")  # NAP-047: asset ids, in order
     is_demo: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = created_at()
     # NAP-084: soft delete by a moderator (status "deleted"); restorable for 30 days to the previous status

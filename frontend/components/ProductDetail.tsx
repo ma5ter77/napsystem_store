@@ -1,25 +1,28 @@
 import { Fragment } from "react";
 import { notFound } from "next/navigation";
 import { ProductArt } from "@/components/Art";
+import { ProductGallery } from "@/components/ProductGallery";
 import { availabilityText, CompatBadge } from "@/components/cards";
 import { AddToCart } from "@/components/AddToCart";
 import { BomBuilder } from "@/components/BomBuilder";
 import { langName, Locale, money, num1, translator } from "@/lib/i18n";
 import { ReviewsSection, Stars } from "@/components/Reviews";
 import { serverApi, serverTranslator } from "@/lib/server";
+import { ServerError } from "@/components/State";
 
 export async function ProductDetail({ locale, slug, app }: { locale: Locale; slug: string; app?: string }) {
   const t = (await serverTranslator(locale));
   const r = await serverApi<any>(`/hardware/products/${slug}`, locale);
   if (!r.ok) {
     if (r.status === 404) notFound();
-    return <div className="section notice bad">{t("common.error")}</div>;
+    return <ServerError t={t} locale={locale} status={r.status} />;
   }
   const p = r.data;
   return (
     <div className="section two">
       <div className="stack">
-        <div className="hero-art" style={{ aspectRatio: "4/3" }}><ProductArt category={p.category.slug} hue={p.hue} title={p.title} /></div>
+        {p.photos?.length ? <ProductGallery photos={p.photos} title={p.title} />
+          : <div className="hero-art" style={{ aspectRatio: "4/3" }}><ProductArt category={p.category.slug} hue={p.hue} title={p.title} /></div>}
         {p.is_demo && <div className="notice test">{t("hw.demo_data")}</div>}
       </div>
       <div className="stack">

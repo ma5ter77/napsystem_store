@@ -124,3 +124,34 @@ def test_version_endpoint_matches_repository_release():
     assert f"## [{repo['version']}]" in (root / "CHANGELOG.md").read_text()
     assert c.get("/about/documents/nope").status_code == 404
     assert ok(c.get("/openapi.json"))["info"]["version"] == repo["version"]
+
+
+def test_catalog_lists_use_a_bounded_number_of_queries():
+    """NAP-050: catalog and product lists load card data in batches — the query count does not grow per item."""
+    from sqlalchemy import event
+    from app.db import get_engine
+    from .conftest import Client
+    engine = get_engine()
+    c = Client()
+    counts = {}
+    for path in ("/catalog/apps?limit=100", "/hardware/products?limit=100"):
+        n = [0]
+        def count(*_a, **_k):
+            n[0] += 1
+        event.listen(engine, "before_cursor_execute", count)
+        try:
+            r = c.get(path)
+        finally:
+            event.remove(engine, "before_cursor_execute", count)
+        assert r.status_code == 200
+        counts[path] = (n[0], r.json()["total"])
+    for path, (queries, items) in counts.items():
+        assert items >= 3 and queries <= 15, (path, queries, items)
+
+
+def test_plural_exact_number_wins_over_category():
+    """NAP-045: ICU "=1 {...}" — 1 gets its own wording, 21 (also category "one") gets the plural form."""
+    from app.i18n import format_message
+    tpl = "{count, plural, =1 {один продавец} one {# заказ} few {# заказа} many {# заказов} other {# заказа}}"
+    assert [format_message(tpl, "ru", {"count": n}) for n in (1, 2, 5, 21)] == \
+        ["один продавец", "2 заказа", "5 заказов", "21 заказ"]

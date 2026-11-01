@@ -1,8 +1,10 @@
+import { spreadTones } from "@/components/Art";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AppCard } from "@/components/cards";
 import { isLocale, langName, Locale, translator } from "@/lib/i18n";
 import { alternates, serverApi, serverTranslator } from "@/lib/server";
+import { ServerError } from "@/components/State";
 
 type SP = Promise<Record<string, string | undefined>>;
 
@@ -64,11 +66,11 @@ export default async function Catalog({ params, searchParams }: { params: Promis
           <Link key={c.slug} className="chip" href={link("category", c.slug)} aria-current={sp.category === c.slug}>{c.name}</Link>
         ))}
       </div>
-      {!res.ok ? <div className="notice bad">{t("common.error")}</div> :
+      {!res.ok ? <ServerError t={t} locale={locale} status={res.status} /> :
         res.data.items.length === 0 ? <div className="panel"><p>{t("catalog.empty")}</p><Link href={`/${locale}/apps`}>{t("catalog.reset")}</Link></div> :
           <>
             <p className="muted">{t("catalog.found", { count: res.data.total })}</p>
-            <div className="grid">{res.data.items.map((a: any) => <AppCard key={a.id} a={a} locale={locale} t={t} />)}</div>
+            <div className="grid">{((tones) => res.data.items.map((a: any, i: number) => <AppCard key={a.id} a={a} locale={locale} t={t} tone={tones[i]} />))(spreadTones(res.data.items.map((a: any) => a.cover_hue)))}</div>
           </>}
     </div>
   );

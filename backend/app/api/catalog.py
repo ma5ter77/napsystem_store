@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import os
+import uuid
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from .. import ratelimit
@@ -23,12 +25,34 @@ def price_view(p: Price) -> dict:
             "interval": p.interval}
 
 
-def app_card(db, app: App, locale: str, detail: bool = False, user_id=None, rating: dict | None = None) -> dict:
-    v = db.get(AppVersion, app.published_version_id) if app.published_version_id else None
-    tr = get_translations(db, "app", [app.id]).get(app.id)
+def preload_cards(db, apps: list[App]) -> dict:
+    """NAP-050: everything the catalog cards need in a handful of queries instead of ~6 per app."""
+    from sqlalchemy.orm import selectinload
+    ids = [a.id for a in apps]
+    vids = [a.published_version_id for a in apps if a.published_version_id]
+    versions = {v.id: v for v in db.scalars(select(AppVersion).where(AppVersion.id.in_(vids))
+                                            .options(selectinload(AppVersion.sessions)))} if vids else {}
+    prices: dict = {}
+    for pr in db.scalars(select(Price).where(Price.app_id.in_(ids), Price.active.is_(True))) if ids else []:
+        prices.setdefault(pr.app_id, []).append(pr)
+    return {"versions": versions, "translations": get_translations(db, "app", ids),
+            "categories": {c.id: c for c in db.scalars(select(Category).where(Category.kind == "app"))},
+            "prices": prices}
+
+
+def app_card(db, app: App, locale: str, detail: bool = False, user_id=None, rating: dict | None = None,
+             pre: dict | None = None) -> dict:
+    if pre is not None:
+        v = pre["versions"].get(app.published_version_id) if app.published_version_id else None
+        tr = pre["translations"].get(app.id)
+        cat = pre["categories"].get(app.category_id) if app.category_id else None
+        prices = [price_view(p) for p in pre["prices"].get(app.id, [])]
+    else:
+        v = db.get(AppVersion, app.published_version_id) if app.published_version_id else None
+        tr = get_translations(db, "app", [app.id]).get(app.id)
+        cat = db.get(Category, app.category_id) if app.category_id else None
+        prices = [price_view(p) for p in db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True)))]
     loc = localized(tr, locale)
-    cat = db.get(Category, app.category_id) if app.category_id else None
-    prices = [price_view(p) for p in db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True)))]
     out = {"id": str(app.id), "slug": app.slug, "author": app.author_name, "cover_hue": app.cover_hue,
            "title": loc.get("title"), "subtitle": loc.get("subtitle"), "lang": loc["lang"],
            "translation_status": loc["translation_status"], "fallback": loc["fallback"],
@@ -39,6 +63,7 @@ def app_card(db, app: App, locale: str, detail: bool = False, user_id=None, rati
            "total_duration_seconds": round(sum(s.duration_seconds for s in v.sessions), 1) if v else 0,
            "requirements": v.requirements if v else {}, "version": v.version_label if v else None,
            "has_public_preview": app.public_preview_asset_id is not None,
+           "cover_url": cover_url(db, app),
            "rating": rating if rating is not None else reviews.summaries(db, [app.id])[app.id]}
     if detail:
         out["rating_summary"] = reviews.summary(db, app)
@@ -74,7 +99,8 @@ def catalog(request: Request, q: str | None = None, category: str | None = None,
     apps = list(db.scalars(select(App).where(App.published_version_id.isnot(None), App.sales_status == "active")
                            .order_by(App.created_at)))
     ratings = reviews.summaries(db, [a.id for a in apps])
-    cards = [app_card(db, a, loc, rating=ratings[a.id]) for a in apps]
+    pre = preload_cards(db, apps)
+    cards = [app_card(db, a, loc, rating=ratings[a.id], pre=pre) for a in apps]
     if min_rating:  # only apps whose average is shown (enough ratings) and high enough
         cards = [c for c in cards if c["rating"]["average"] is not None and c["rating"]["average"] >= min_rating]
     if sort == "rating":
@@ -88,14 +114,41 @@ def catalog(request: Request, q: str | None = None, category: str | None = None,
         cards = [c for c in cards if any(p["kind"] == price for p in c["prices"])]
     if content_language:
         cards = [c for c in cards if c["content_language"] == content_language]
-    if q:
-        ql = q.lower().strip()
-        trs = get_translations(db, "app", [a.id for a in apps])
-        hay = {str(a.id): " ".join([a.slug, a.author_name] + [" ".join(str(x) for x in t.data.values())
-                                                             for t in trs.get(a.id, {}).values()
-                                                             if t.status == "published"]).lower() for a in apps}
-        cards = [c for c in cards if ql in hay[c["id"]]]
+    if q:  # NAP-028: full-text search with RU/EN morphology; without an explicit sort the best matches go first
+        from ..services.search import rank_apps
+        ranks = rank_apps(db, [a.id for a in apps], q)
+        if ranks is not None:
+            cards = [c for c in cards if uuid.UUID(c["id"]) in ranks]
+            if not sort:
+                cards.sort(key=lambda c: -ranks[uuid.UUID(c["id"])])
     return page(cards[offset:offset + limit], len(cards), limit, offset)
+
+
+def cover_url(db, app: App) -> str | None:
+    """NAP-025: public URL of the moderated cover; the sha in the query makes it cacheable for good."""
+    if not app.cover_asset_id:
+        return None
+    a = db.get(Asset, app.cover_asset_id)
+    return f"/api/v1/catalog/apps/{app.slug}/cover?v={a.sha256[:12]}" if a and a.sha256 else None
+
+
+@router.get("/catalog/apps/{slug}/cover")
+def app_cover(slug: str, db=DB):
+    """Cover of a published app — public like the store card itself; drafts and other files are never exposed."""
+    app = db.scalar(select(App).where(App.slug == slug))
+    if not app or not app.published_version_id or app.deleted_at or not app.cover_asset_id:
+        raise ApiError("not_found", 404, entity="cover")
+    a = db.get(Asset, app.cover_asset_id)
+    st = get_storage()
+    headers = {"Cache-Control": "public, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff"}
+    path = st.local_path(a.storage_key)
+    if path:
+        if not os.path.exists(path):
+            raise ApiError("not_found", 404, entity="cover")
+        return FileResponse(path, media_type="image/webp", headers=headers)
+    body, _, length = st.open_range(a.storage_key, None)
+    return StreamingResponse(body.iter_chunks(1 << 16), media_type="image/webp",
+                             headers=headers | {"Content-Length": str(length)})
 
 
 @router.get("/catalog/apps/{slug}")
@@ -104,6 +157,22 @@ def app_detail(slug: str, request: Request, p=P, db=DB):
     if not app or not app.published_version_id or app.deleted_at:  # deleted by a moderator: gone from the store
         raise ApiError("not_found", 404, entity="app")
     return app_card(db, app, locale_of(request), detail=True, user_id=p.id)
+
+
+class ViewIn(BaseModel):
+    visitor: str = Field(min_length=8, max_length=64)
+
+
+@router.post("/catalog/apps/{slug}/view", status_code=204)
+def app_view(slug: str, body: ViewIn, request: Request, p=P, db=DB):
+    """NAP-027: the app page reports one view (browser only, so bots without JS are not counted)."""
+    ratelimit.check(request, "app_view", user_id=p.id)
+    app = db.scalar(select(App).where(App.slug == slug))
+    if not app or not app.published_version_id or app.deleted_at:
+        raise ApiError("not_found", 404, entity="app")
+    from ..services.analytics import record_view
+    record_view(app.id, f"u:{p.id}" if p.id else f"a:{body.visitor}")
+    return Response(status_code=204)
 
 
 @router.get("/catalog/apps/{slug}/preview")

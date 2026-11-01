@@ -35,6 +35,7 @@ x-backend-env: &backend-env
   NAP_SMTP_PASSWORD: ${NAP_SMTP_PASSWORD:-}
   NAP_SMTP_SECURITY: ${NAP_SMTP_SECURITY:-starttls}
   NAP_BUILD: ${NAP_BUILD:-docker}
+  NAP_API_WORKERS: ${NAP_API_WORKERS:-2}
 
 services:
   postgres:

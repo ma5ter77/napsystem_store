@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { duration, langName, Locale, money, num1, T } from "@/lib/i18n";
-import { BeatCover, ProductArt } from "./Art";
+import { AppCover, ProductArt } from "./Art";
 
 export function priceLabel(prices: any[], t: T, locale: Locale): string {
   if (!prices?.length) return t("app.not_for_sale");
@@ -10,10 +10,10 @@ export function priceLabel(prices: any[], t: T, locale: Locale): string {
   return money(p.amount_minor, p.currency, locale);
 }
 
-export function AppCard({ a, locale, t }: { a: any; locale: Locale; t: T }) {
+export function AppCard({ a, locale, t, tone }: { a: any; locale: Locale; t: T; tone?: number }) {
   return (
     <Link className="card" href={`/${locale}/apps/${a.slug}`}>
-      <div className="art"><BeatCover hue={a.cover_hue} seed={a.slug} title={a.title} /></div>
+      <div className="art"><AppCover a={a} tone={tone} /></div>
       <h3 lang={a.lang ?? undefined}>{a.title ?? a.slug}</h3>
       {a.fallback && a.lang && <span className="badge gray">{t("common.original_lang", { lang: langName(a.lang, locale) })}</span>}
       <div className="meta">{a.author} · {t("app.sessions", { count: a.sessions_count })} · {duration(a.total_duration_seconds, locale)}</div>
@@ -29,7 +29,10 @@ export function ProductCard({ p, locale, t }: { p: any; locale: Locale; t: T }) 
   const href = p.kind === "simple" ? `/${locale}/devices/${p.slug}` : `/${locale}/kits/${p.slug}`;
   return (
     <Link className="card" href={href}>
-      <div className="art"><ProductArt category={p.category.slug} hue={p.hue} title={p.title} /></div>
+      <div className="art">{p.photos?.length
+        // eslint-disable-next-line @next/next/no-img-element
+        ? <img src={p.photos[0].url} alt={p.title} loading="lazy" decoding="async" className="photo-img" />
+        : <ProductArt category={p.category.slug} hue={p.hue} title={p.title} />}</div>
       <h3 lang={p.lang ?? undefined}>{p.title}</h3>
       <div className="meta">{p.seller.name}</div>
       {p.rating?.average != null && <div className="meta" aria-label={t("rev.card", { avg: num1(p.rating.average, locale), count: p.rating.count })}><span className="stars-inline" aria-hidden="true">★</span> {num1(p.rating.average, locale)} <span aria-hidden="true">({p.rating.count})</span></div>}

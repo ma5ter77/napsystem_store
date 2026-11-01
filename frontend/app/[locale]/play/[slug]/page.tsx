@@ -58,6 +58,7 @@ function Questionnaire({ q, onDone, phase }: { q: any; phase: "pre" | "post"; on
       {q.items.map((it: any) => (
         <label key={it.id} className="field">{it.label}: <strong>{answers[it.id] ?? "—"}</strong>
           <input type="range" min={it.min} max={it.max} step={1} value={answers[it.id] ?? Math.round((it.min + it.max) / 2)}
+                 aria-valuetext={`${answers[it.id] ?? Math.round((it.min + it.max) / 2)} (${it.low} — ${it.high})`}
                  onChange={(e) => setAnswers({ ...answers, [it.id]: Number(e.target.value) })} />
           <span className="spread hint"><span>{it.low}</span><span>{it.high}</span></span>
         </label>
@@ -194,13 +195,27 @@ function Player() {
       const a = audio.current;
       if (!a) return;
       const p = a.src ? a.offset + (a.ctx.currentTime - a.startedAt) : a.offset;
-      setPos(Math.min(p, a.buf.duration));
+      if (a.src && !dragRef.current) listenedRef.current += 0.25;  // NAP-042: time actually listened, not skipped
+      if (!dragRef.current) setPos(Math.min(p, a.buf.duration));
     }, 250);
     const ping = setInterval(() => { if (audio.current?.src) q.push("progress", { position_seconds: Math.round(posRef.current) }); }, 15000);
     return () => { clearInterval(iv); clearInterval(ping); };
   }, [phase, q]);
   const posRef = useRef(0);
   posRef.current = pos;
+  const listenedRef = useRef(0);
+  const dragRef = useRef(false);
+
+  // NAP-042: seek — the new position is queued as an event (works offline, synced later)
+  function seek(to: number) {
+    const a = audio.current;
+    if (!a) return;
+    const t2 = Math.max(0, Math.min(to, a.buf.duration - 0.5));
+    const from = a.src ? a.offset + (a.ctx.currentTime - a.startedAt) : a.offset;
+    if (a.src) { const s = a.src; a.src = undefined; s.stop(); playFrom(t2); } else { a.offset = t2; }
+    setPos(t2);
+    q.push("progress", { position_seconds: Math.round(t2), seek_from: Math.round(from) });
+  }
 
   function playFrom(offset: number) {
     const a = audio.current!;
@@ -211,7 +226,8 @@ function Player() {
     src.onended = () => {
       if (audio.current?.src !== src) return;
       audio.current.src = undefined;
-      if (audio.current.offset + (audio.current.ctx.currentTime - audio.current.startedAt) >= audio.current.buf.duration - 0.25) finish(true);
+      if (audio.current.offset + (audio.current.ctx.currentTime - audio.current.startedAt) >= audio.current.buf.duration - 0.25)
+        finish(listenedRef.current >= audio.current.buf.duration * 0.8);  // skipping to the end is not a completed session
     };
     a.src = src; a.startedAt = a.ctx.currentTime; a.offset = offset;
     a.ctx.resume();
@@ -230,8 +246,8 @@ function Player() {
     const a = audio.current;
     if (a?.src) { const s = a.src; a.src = undefined; s.stop(); } // local stop always works, also offline
     const final = completed ? "completed" : "cancelled";
-    q.push("state", { state: final, position_seconds: Math.round(posRef.current) });
-    try { await command(completed ? "complete" : "stop", { position_seconds: posRef.current }); } catch { /* reported by event */ }
+    q.push("state", { state: final, position_seconds: Math.round(posRef.current), listened_seconds: Math.round(listenedRef.current) });
+    try { await command(completed ? "complete" : "stop", { position_seconds: posRef.current, listened_seconds: Math.round(listenedRef.current) }); } catch { /* reported by event */ }
     setState(final);
     a?.ctx.close();
     setPhase(session.post_status === "pending" ? "post" : "done");
@@ -291,12 +307,21 @@ function Player() {
       {phase === "player" && audio.current && (
         <div className="panel stack">
           <div className="player-time">{duration(pos, locale)} <span className="muted" style={{ fontSize: "1rem" }}>/ {duration(audio.current.buf.duration, locale)}</span></div>
-          <div className="progress"><i style={{ width: `${(pos / audio.current.buf.duration) * 100}%` }} /></div>
-          <div className="row">
+          <div className="hint" aria-live="off">{t("player.remaining", { time: duration(Math.max(0, audio.current.buf.duration - pos), locale) })}</div>
+          <input type="range" className="seek" min={0} max={Math.floor(audio.current.buf.duration)} step={1} value={Math.floor(pos)}
+            aria-label={t("player.seek")} aria-valuetext={`${duration(pos, locale)} / ${duration(audio.current.buf.duration, locale)}`}
+            style={{ ["--p" as string]: `${(pos / audio.current.buf.duration) * 100}%` }}
+            onPointerDown={() => { dragRef.current = true; }}
+            onChange={(e) => { setPos(Number(e.target.value)); if (!dragRef.current) seek(Number(e.target.value)); }}
+            onPointerUp={(e) => { dragRef.current = false; seek(Number((e.target as HTMLInputElement).value)); }} />
+          <div className="row player-controls">
+            <button className="btn ghost" onClick={() => seek(pos - 30)} aria-label={t("player.back30")}>−30 {t("player.sec")}</button>
             {state === "running" ? <button className="btn" onClick={onPause}>{t("player.pause")}</button>
               : <button className="btn" onClick={onPlay}>{state === "paused" ? t("player.resume") : t("player.play")}</button>}
+            <button className="btn ghost" onClick={() => seek(pos + 30)} aria-label={t("player.fwd30")}>+30 {t("player.sec")}</button>
             <button className="btn danger" onClick={() => finish(false)}>{t("player.stop")}</button>
           </div>
+          <p className="hint">{t("player.seek_hint")}</p>
           <p className="hint">{t("player.stereo_note")}</p>
           <p className="hint">{t("player.tab_note")}</p>
         </div>

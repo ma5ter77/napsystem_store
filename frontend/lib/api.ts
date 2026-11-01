@@ -45,6 +45,25 @@ export async function api<T = any>(path: string, init: { method?: string; body?:
   return json as T;
 }
 
+/** NAP-047: send one small file (≤ 10 MB) as the raw request body, e.g. a product photo. */
+export async function postFile<T = any>(path: string, file: Blob): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`/api/v1${path}`, { method: "POST", credentials: "same-origin", body: file,
+      headers: { "x-locale": locale(), "content-type": "application/octet-stream", "x-csrf-token": csrf() } });
+  } catch {
+    throw new ApiError(0, "network_error", locale() === "ru" ? "Нет соединения с сервером." : "No connection to the server.");
+  }
+  const text = await res.text();
+  let json: any = {};
+  try { json = text ? JSON.parse(text) : {}; } catch { /* non-json */ }
+  if (!res.ok) {
+    const e = json.error ?? {};
+    throw new ApiError(res.status, e.code ?? "http_error", e.message ?? res.statusText, e.request_id, e.details);
+  }
+  return json as T;
+}
+
 /** Upload chunk size: below the 10 MB request-body limit of the Next.js proxy and typical CDN limits (NAP-069). */
 export const UPLOAD_CHUNK = 8 * 1024 * 1024;
 

@@ -39,6 +39,9 @@ class Profile:
     tone_gain_dbfs: float | None  # None => layer disabled
     fade_in_seconds: float
     fade_out_seconds: float
+    # NAP-021: optional transition of the frequency difference over time — ((t_seconds, beat_hz), ...),
+    # linear between points, held before the first and after the last point. Empty = constant beat_hz.
+    beat_curve: tuple[tuple[float, float], ...] = ()
 
     @property
     def f_left(self) -> float:
@@ -63,18 +66,42 @@ class Profile:
             raise ValueError("tone_gain_dbfs must be within [-60, -12]")
         if not (0.0 <= self.fade_in_seconds <= 30 and 0.0 <= self.fade_out_seconds <= 30):
             raise ValueError("fades must be within [0, 30] s")
+        if self.beat_curve:
+            if len(self.beat_curve) < 2 or len(self.beat_curve) > 32:
+                raise ValueError("beat_curve needs 2..32 points")
+            ts = [t for t, _ in self.beat_curve]
+            if ts[0] < 0 or any(b <= a for a, b in zip(ts, ts[1:])) or ts[-1] > 6 * 3600:
+                raise ValueError("beat_curve times must start at >= 0 s and strictly increase")
+            for _, b in self.beat_curve:
+                if not (0.0 < b <= 40.0):
+                    raise ValueError("beat_curve values must be within (0, 40] Hz")
+                if not (20.0 <= self.carrier_center_hz - b / 2 and self.carrier_center_hz + b / 2 <= 1500.0):
+                    raise ValueError("carriers must stay within 20..1500 Hz along the curve")
+
+    def beat_at(self, t: np.ndarray) -> np.ndarray:
+        """Frequency difference (Hz) at times t (seconds)."""
+        if not self.beat_curve:
+            return np.full(np.shape(t), self.beat_hz, dtype=np.float64)
+        ts = np.array([p[0] for p in self.beat_curve], dtype=np.float64)
+        bs = np.array([p[1] for p in self.beat_curve], dtype=np.float64)
+        return np.interp(t, ts, bs)
 
     @classmethod
     def from_dict(cls, d: dict) -> "Profile":
         p = cls(slug=d["slug"], version=int(d["version"]), carrier_center_hz=float(d["carrier_center_hz"]),
                 beat_hz=float(d["beat_hz"]), source_gain_db=float(d["source_gain_db"]),
                 tone_gain_dbfs=None if d.get("tone_gain_dbfs") is None else float(d["tone_gain_dbfs"]),
-                fade_in_seconds=float(d["fade_in_seconds"]), fade_out_seconds=float(d["fade_out_seconds"]))
+                fade_in_seconds=float(d["fade_in_seconds"]), fade_out_seconds=float(d["fade_out_seconds"]),
+                beat_curve=tuple((float(t), float(b)) for t, b in (d.get("beat_curve") or ())))
         p.validate()
         return p
 
     def to_dict(self) -> dict:
         d = asdict(self)
+        if not self.beat_curve:
+            d.pop("beat_curve")  # constant profiles keep their original snapshot (and manifest hash)
+        else:
+            d["beat_curve"] = [list(p) for p in self.beat_curve]
         d["f_left_hz"] = self.f_left
         d["f_right_hz"] = self.f_right
         return d
@@ -125,8 +152,43 @@ class BinauralRenderer:
             env[idx >= self.total] = 0.0
         return env
 
+    def _curve_phases(self, n: int) -> tuple[np.ndarray, np.ndarray]:
+        """NAP-021: instantaneous frequency integrated into phase — continuous across blocks, no resets."""
+        t = (self.pos + np.arange(n, dtype=np.float64)) / self.fs
+        half = self.p.beat_at(t) / 2.0
+        inc_l = TWO_PI * (self.p.carrier_center_hz - half) / self.fs
+        inc_r = TWO_PI * (self.p.carrier_center_hz + half) / self.fs
+        cl, cr = np.cumsum(inc_l), np.cumsum(inc_r)
+        ph_l = self.phase_l + np.concatenate(([0.0], cl[:-1]))
+        ph_r = self.phase_r + np.concatenate(([0.0], cr[:-1]))
+        self._next_l = math.fmod(self.phase_l + cl[-1], TWO_PI) if n else self.phase_l
+        self._next_r = math.fmod(self.phase_r + cr[-1], TWO_PI) if n else self.phase_r
+        return np.mod(ph_l, TWO_PI), np.mod(ph_r, TWO_PI)
+
+    def advance(self, n: int, chunk: int = 1 << 20) -> None:
+        """Move the phase state forward by n frames without producing samples (QA checkpoints)."""
+        while n > 0:
+            k = min(n, chunk)
+            if self.p.beat_curve:
+                self._curve_phases(k)
+                self.phase_l, self.phase_r = self._next_l, self._next_r
+            else:
+                self.phase_l = math.fmod(self.phase_l + self.inc_l * k, TWO_PI)
+                self.phase_r = math.fmod(self.phase_r + self.inc_r * k, TWO_PI)
+            self.pos += k
+            n -= k
+
     def layer(self, n: int) -> np.ndarray:
         """Return the isolated layer (n, 2) for the next n frames and advance the phase state."""
+        if self.p.beat_curve:
+            ph_l, ph_r = self._curve_phases(n)
+            env = self.envelope(self.pos, n) * self.tone_amp
+            out = np.empty((n, 2), dtype=np.float64)
+            out[:, 0] = env * np.sin(ph_l)
+            out[:, 1] = env * np.sin(ph_r)
+            self.phase_l, self.phase_r = self._next_l, self._next_r
+            self.pos += n
+            return out
         k = np.arange(n, dtype=np.float64)
         ph_l = np.mod(self.phase_l + self.inc_l * k, TWO_PI)
         ph_r = np.mod(self.phase_r + self.inc_r * k, TWO_PI)
@@ -149,6 +211,42 @@ class BinauralRenderer:
 
 
 # ---------------------------------------------------------------- measurement --
+
+def curve_checkpoints(profile: Profile, total_frames: int, fs: int = FS, window_s: float = 4.0) -> list[dict]:
+    """NAP-021: measure left/right/beat at the curve points (and segment middles) on freshly rendered windows.
+
+    The expected value is the mean instantaneous frequency over the window (exact for linear segments)."""
+    if not profile.beat_curve or not profile.layer_enabled:
+        return []
+    w = int(window_s * fs)
+    pts = [t for t, _ in profile.beat_curve]
+    # windows lie entirely inside one linear segment (a window across a kink has no single spectral peak):
+    # the middle of every segment long enough, and the held part after the last point
+    starts = [((a + b) / 2) * fs - w / 2 for a, b in zip(pts, pts[1:]) if (b - a) >= window_s]
+    starts.append(pts[-1] * fs + 0.25 * fs)
+    out = []
+    for st in starts:
+        start = int(st)
+        if start < 0 or start + w > total_frames or w <= fs:
+            continue
+        r = BinauralRenderer(profile, total_frames, fs)
+        r.advance(start)
+        seg = r.layer(w)
+        env = r.envelope(start, w)
+        if env.min() < 0.999:  # skip windows inside fades
+            continue
+        tt = (start + np.arange(w)) / fs
+        exp_b = float(np.mean(profile.beat_at(tt)))
+        exp_l, exp_r = profile.carrier_center_hz - exp_b / 2, profile.carrier_center_hz + exp_b / 2
+        ml, _ = measure_tone(seg[:, 0], fs, exp_l)
+        mr, _ = measure_tone(seg[:, 1], fs, exp_r)
+        out.append({"t": round(start / fs + window_s / 2, 2), "expected_beat_hz": round(exp_b, 4),
+                    "beat_hz": round(mr - ml, 4), "left_hz": round(ml, 4), "right_hz": round(mr, 4),
+                    "error_hz": round(abs((mr - ml) - exp_b), 4)})
+        if len(out) >= 24:
+            break
+    return out
+
 
 class TruePeakMeter:
     """4x oversampled true-peak (polyphase FIR, state kept across blocks)."""
@@ -272,9 +370,13 @@ def _bh4(n: int) -> np.ndarray:
     return a0 - a1 * np.cos(2 * math.pi * k) + a2 * np.cos(4 * math.pi * k) - a3 * np.cos(6 * math.pi * k)
 
 
-def analyze_layer(layer: np.ndarray, profile: Profile, fs: int = FS) -> dict:
+def analyze_layer(layer: np.ndarray, profile: Profile, fs: int = FS, start_frame: int = 0) -> dict:
     """Technical verification of the isolated layer (steady part after the fade-in)."""
     fl, fr = profile.f_left, profile.f_right
+    exp_beat = profile.beat_hz
+    if profile.beat_curve:  # NAP-021: expected = mean instantaneous frequency over the analysed window
+        exp_beat = float(np.mean(profile.beat_at((start_frame + np.arange(len(layer))) / fs)))
+        fl, fr = profile.carrier_center_hz - exp_beat / 2, profile.carrier_center_hz + exp_beat / 2
     left, right = layer[:, 0], layer[:, 1]
     fl_m, ml = measure_tone(left, fs, fl)
     fr_m, mr = measure_tone(right, fs, fr)
@@ -287,7 +389,7 @@ def analyze_layer(layer: np.ndarray, profile: Profile, fs: int = FS) -> dict:
                   "opposite carrier: windowed DTFT at the other carrier frequency",
         "segment_seconds": round(len(left) / fs, 3),
         "left_hz": round(fl_m, 5), "right_hz": round(fr_m, 5), "beat_hz": round(fr_m - fl_m, 5),
-        "expected": {"left_hz": fl, "right_hz": fr, "beat_hz": profile.beat_hz},
+        "expected": {"left_hz": round(fl, 6), "right_hz": round(fr, 6), "beat_hz": round(exp_beat, 6)},
         "left_error_hz": round(abs(fl_m - fl), 6), "right_error_hz": round(abs(fr_m - fr), 6),
         "opposite_suppression_db": {"left": _finite(sup_l), "right": _finite(sup_r)},
         "tone_peak_dbfs": {"left": round(lin_to_db(ml), 3), "right": round(lin_to_db(mr), 3)},

@@ -16,7 +16,7 @@ from ..adapters.payments import (MockPaymentProvider, NormalizedEvent, ProviderU
 from ..config import get_settings
 from ..db import session_scope, utcnow
 from ..errors import ApiError
-from ..models import (App, DigitalOrder, Entitlement, Outbox, PaymentAttempt, Payout, Price, Refund, RevenueShare,
+from ..models import (App, AppVersion, DigitalOrder, Entitlement, Outbox, PaymentAttempt, Payout, Price, Refund, RevenueShare,
                       Subscription, SubscriptionPeriod, User, WebhookInbox)
 from . import money
 from .common import audit, enqueue, notify
@@ -351,6 +351,101 @@ def request_refund(db: Session, actor_id: uuid.UUID, order_id: uuid.UUID, amount
     enqueue(db, "payment.refund", {"refund_id": str(r.id)}, f"refund:{r.id}")
     audit(db, actor_id, "refund.requested", "digital_order", order.id, {"amount_minor": amount_minor})
     return r
+
+
+# ------------------------------------------------------------------ buyer refund requests (NAP-024)
+# A request is a Refund row with status "requested" (created_by = buyer). The admin approves it — it becomes an
+# ordinary "pending" refund sent to the payment provider — or rejects it ("rejected") with a reason the buyer sees.
+
+def _refundable_left(db: Session, order: DigitalOrder) -> int:
+    pending = db.scalar(select(func.coalesce(func.sum(Refund.amount_minor), 0)).where(
+        Refund.context == "digital", Refund.order_id == order.id, Refund.status == "pending")) or 0
+    return order.amount_minor - order.refunded_minor - pending
+
+
+def open_refund_request(db: Session, order_id: uuid.UUID) -> Refund | None:
+    return db.scalar(select(Refund).where(Refund.context == "digital", Refund.order_id == order_id,
+                                          Refund.status == "requested"))
+
+
+def latest_refund_request(db: Session, order_id: uuid.UUID) -> Refund | None:
+    return db.scalar(select(Refund).where(Refund.context == "digital", Refund.order_id == order_id,
+                                          Refund.lines["source"].astext == "buyer_request")
+                     .order_by(Refund.created_at.desc()).limit(1))
+
+
+def buyer_request_refund(db: Session, buyer_id: uuid.UUID, order_id: uuid.UUID, reason: str,
+                         amount_minor: int | None = None) -> Refund:
+    order = db.get(DigitalOrder, order_id, with_for_update=True)
+    if not order or order.buyer_id != buyer_id:
+        raise ApiError("not_found", 404, entity="order")
+    if order.status not in ("paid", "partially_refunded"):
+        raise ApiError("refund_not_allowed", 409)
+    if open_refund_request(db, order.id):
+        raise ApiError("refund_request_exists", 409)
+    reason = (reason or "").strip()
+    if len(reason) < 10:
+        raise ApiError("validation_failed", 422, details={"fields": ["reason"]})
+    left = _refundable_left(db, order)
+    amount = left if amount_minor is None else amount_minor
+    if amount <= 0 or amount > left:
+        raise ApiError("refund_exceeds_payment", 422)
+    r = Refund(context="digital", order_id=order.id, amount_minor=amount, currency=order.currency,
+               reason=reason[:1000], status="requested", created_by=buyer_id,
+               lines={"source": "buyer_request", "requested_minor": amount})
+    db.add(r)
+    db.flush()
+    audit(db, buyer_id, "refund.request_created", "digital_order", order.id, {"refund_id": str(r.id), "amount_minor": amount})
+    return r
+
+
+def decide_refund_request(db: Session, admin_id: uuid.UUID, refund_id: uuid.UUID, approve: bool, note: str = "",
+                          amount_minor: int | None = None) -> Refund:
+    r = db.get(Refund, refund_id, with_for_update=True)
+    if not r or r.context != "digital" or (r.lines or {}).get("source") != "buyer_request":
+        raise ApiError("not_found", 404, entity="refund_request")
+    if r.status != "requested":
+        raise ApiError("refund_request_decided", 409)
+    order = db.get(DigitalOrder, r.order_id, with_for_update=True)
+    note = (note or "").strip()[:1000]
+    lines = dict(r.lines or {}) | {"decided_by": str(admin_id), "decided_at": utcnow().isoformat(), "note": note}
+    a = db.get(App, order.app_id)
+    title = a.slug
+    if a.published_version_id:
+        from .apps import app_title
+        title = app_title(a, db.get(AppVersion, a.published_version_id), order.locale)
+    if not approve:
+        if len(note) < 3:
+            raise ApiError("validation_failed", 422, details={"fields": ["note"]})
+        r.status, r.lines = "rejected", lines
+        audit(db, admin_id, "refund.request_rejected", "digital_order", order.id, {"refund_id": str(r.id), "note": note})
+        notify(db, order.buyer_id, order.locale, "refund_request_rejected", f"refund-rejected:{r.id}",
+               app=title, note=note)
+        return r
+    if order.status not in ("paid", "partially_refunded"):
+        raise ApiError("refund_not_allowed", 409)
+    amount = r.amount_minor if amount_minor is None else amount_minor
+    if amount <= 0 or amount > min(r.amount_minor, _refundable_left(db, order)):
+        raise ApiError("refund_exceeds_payment", 422)
+    r.amount_minor, r.status, r.lines = amount, "pending", lines
+    r.idempotency_key = f"request:{r.id}"
+    db.flush()
+    enqueue(db, "payment.refund", {"refund_id": str(r.id)}, f"refund:{r.id}")
+    audit(db, admin_id, "refund.request_approved", "digital_order", order.id,
+          {"refund_id": str(r.id), "amount_minor": amount})
+    notify(db, order.buyer_id, order.locale, "refund_request_approved", f"refund-approved:{r.id}",
+           app=title, amount=_fmt(amount, r.currency))
+    return r
+
+
+def refund_request_view(r: Refund | None) -> dict | None:
+    if r is None:
+        return None
+    lines = r.lines or {}
+    return {"id": str(r.id), "status": r.status, "amount_minor": r.amount_minor, "currency": r.currency,
+            "requested_minor": lines.get("requested_minor", r.amount_minor), "reason": r.reason,
+            "note": lines.get("note") or None, "created_at": r.created_at.isoformat(),
+            "decided_at": lines.get("decided_at")}
 
 
 def _payment_ref_for(db: Session, r: Refund) -> tuple[str, str]:

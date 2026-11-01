@@ -47,7 +47,7 @@ def test_supplier_product_lifecycle_to_catalog():
         "title": "Aurora HX headphones", "description": "Soft ear pads, 1.5 m cable.",
         "in_box": ["Headphones", "3.5 mm cable", "Pouch"]}))
     assert p["ready"] and p["texts"]["ru"]["status"] == "draft"
-    assert all(c["ok"] for c in p["checks"])
+    assert all(c["ok"] for c in p["checks"] if c["key"] != "photos")  # photos are recommended (NAP-047)
 
     p = ok(seller.post(f"/seller/products/{pid}/submit"))
     assert p["status"] == "submitted" and not p["editable"]
