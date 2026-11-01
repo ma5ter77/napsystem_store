@@ -1310,5 +1310,22 @@
   "missing": "missing translation: {langs}",
   "new_category": "New category",
   "add": "Add"
+ },
+ "state": {
+  "home": "Home",
+  "reload": "Reload the page",
+  "not_found_title": "Page not found",
+  "not_found_text": "The address may be mistyped, or the app or product is no longer on sale. Try the catalog.",
+  "unavailable_title": "The service is temporarily unavailable",
+  "unavailable_text": "Could not load the data. This usually passes within a minute — reload the page.",
+  "error_title": "Could not open the page",
+  "error_text": "The server returned an error.",
+  "crash_title": "Something went wrong",
+  "crash_text": "The page could not be displayed. Try again; if it keeps happening, contact us with the code.",
+  "login_title": "Sign-in required",
+  "device_title": "Device unavailable",
+  "provider_title": "An external service did not respond",
+  "my_devices": "My devices",
+  "no_role_title": "No access"
  }
 }

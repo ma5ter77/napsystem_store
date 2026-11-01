@@ -14,7 +14,7 @@ function Purchases() {
   const { data, error, loading, reload } = useLoad<any>("/purchases");
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} onRetry={reload} />;
-  if (!data.items.length) return <Empty>{t("account.no_purchases")}</Empty>;
+  if (!data.items.length) return <Empty action={<a className="btn" href={`/${locale}/apps`}>{t("home.cta_apps")}</a>}>{t("account.no_purchases")}</Empty>;
   return <div className="scroll-x"><table><thead><tr><th>{t("account.app")}</th><th>{t("account.kind")}</th><th>{t("account.amount")}</th><th>{t("account.status")}</th><th>{t("account.date")}</th></tr></thead>
     <tbody>{data.items.map((o: any) => <tr key={o.id}><td>{o.app_slug}</td><td>{t(`kinds.${o.kind}`)}</td><td><Price minor={o.amount_minor} currency={o.currency} />{o.refunded_minor > 0 && <div className="hint">{t("account.refunded")}: <Price minor={o.refunded_minor} currency={o.currency} /></div>}</td><td><StatusBadge ns="digital_status" value={o.status} /></td><td>{date(o.created_at, locale)}</td></tr>)}</tbody></table></div>;
 }
@@ -25,7 +25,7 @@ function Subs() {
   const act = useAction();
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} onRetry={reload} />;
-  if (!data.items.length) return <Empty>{t("account.no_subs")}</Empty>;
+  if (!data.items.length) return <Empty action={<a className="btn ghost" href={`/${locale}/apps?price=subscription`}>{t("home.cta_apps")}</a>}>{t("account.no_subs")}</Empty>;
   return (
     <div className="stack">
       {data.items.map((s: any) => (

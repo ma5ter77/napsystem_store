@@ -565,6 +565,20 @@ M.update({
 "player.seek": ("Позиция в программе", "Position in the program"), "player.remaining": ("Осталось {time}", "{time} left"),
 "player.back30": ("Назад на 30 секунд", "Back 30 seconds"), "player.fwd30": ("Вперёд на 30 секунд", "Forward 30 seconds"), "player.sec": ("с", "s"),
 "player.seek_hint": ("Перематывать можно ползунком, кнопками или стрелками клавиатуры. Сеанс засчитывается завершённым, если прослушано не меньше 80 % программы.", "Seek with the slider, the buttons or the arrow keys. A session counts as completed when at least 80% of the program was listened to."),
+# NAP-044: shared states
+})
+
+M.update({
+"state.home": ("На главную", "Home"), "state.reload": ("Обновить страницу", "Reload the page"),
+"state.not_found_title": ("Такой страницы нет", "Page not found"),
+"state.not_found_text": ("Возможно, адрес набран с ошибкой, или приложение или товар сняты с продажи. Загляните в каталог.", "The address may be mistyped, or the app or product is no longer on sale. Try the catalog."),
+"state.unavailable_title": ("Сервис временно недоступен", "The service is temporarily unavailable"),
+"state.unavailable_text": ("Не удалось получить данные. Обычно это проходит за минуту — обновите страницу.", "Could not load the data. This usually passes within a minute — reload the page."),
+"state.error_title": ("Не удалось открыть страницу", "Could not open the page"),
+"state.error_text": ("Сервер ответил ошибкой.", "The server returned an error."),
+"state.crash_title": ("Что-то пошло не так", "Something went wrong"),
+"state.crash_text": ("Страница не смогла отобразиться. Попробуйте ещё раз; если повторяется — напишите нам и укажите код.", "The page could not be displayed. Try again; if it keeps happening, contact us with the code."),
+"state.login_title": ("Нужен вход", "Sign-in required"), "state.device_title": ("Устройство недоступно", "Device unavailable"), "state.provider_title": ("Внешний сервис не ответил", "An external service did not respond"), "state.my_devices": ("Мои устройства", "My devices"), "state.no_role_title": ("Нет доступа", "No access"),
 })
 
 

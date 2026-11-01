@@ -211,3 +211,13 @@ main:focus { outline: none; }
 /* NAP-042: seek bar and large player controls (touch target >= 48 px) */
 .seek { width: 100%; height: 28px; accent-color: var(--left); cursor: pointer; }
 .player-controls .btn { min-height: 52px; padding: 0 22px; font-size: 1.05rem; }
+/* NAP-044: shared state panels (empty, error, not found, unavailable, locked) */
+.state { display: flex; gap: 16px; align-items: flex-start; }
+.state-icon { flex: none; width: 40px; height: 40px; border-radius: 50%; display: inline-grid; place-items: center;
+  font-weight: 700; font-size: 1.1rem; background: var(--tint-left); color: var(--left); }
+.state-error .state-icon { background: #f8e7e7; color: var(--bad); }
+.state-unavailable .state-icon, .state-locked .state-icon { background: #f6efdf; color: var(--warn); }
+.state-not_found .state-icon { background: var(--tint-right); color: var(--right); }
+.state-title { font-size: 1.15rem; margin: 0; }
+.state-body { min-width: 0; flex: 1; }
+.state-body > .muted { margin: 0; }

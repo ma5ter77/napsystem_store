@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ProductCard } from "@/components/cards";
 import { isLocale, Locale, translator } from "@/lib/i18n";
 import { alternates, serverApi, serverTranslator } from "@/lib/server";
+import { ServerError } from "@/components/State";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
@@ -40,7 +41,7 @@ export default async function Devices({ params, searchParams }: { params: Promis
           <Link key={c.slug} className="chip" href={`/${locale}/devices?category=${c.slug}`} aria-current={sp.category === c.slug}>{c.name}</Link>
         ))}
       </div>
-      {!res.ok ? <div className="notice bad">{t("common.error")}</div> : res.data.items.length === 0 ?
+      {!res.ok ? <ServerError t={t} locale={locale} status={res.status} /> : res.data.items.length === 0 ?
         <div className="panel">{t("catalog.empty")}</div> :
         <div className="grid">{res.data.items.map((p: any) => <ProductCard key={p.id} p={p} locale={locale} t={t} />)}</div>}
     </div>

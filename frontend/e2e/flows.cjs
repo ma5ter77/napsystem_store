@@ -137,6 +137,13 @@ async function run(L) {
     await d.getByText(t("dev.done_submitted")).waitFor();
     await d.locator(".badge", { hasText: t("version_state.submitted") }).first().waitFor();
   });
+  await step("unknown address shows the localized not-found page (NAP-044)", async () => {
+    const r = await d.goto(`${BASE}/${L}/no-such-page-${Date.now()}`);
+    if (r.status() !== 404) throw new Error("expected 404, got " + r.status());
+    await d.getByRole("heading", { name: t("state.not_found_title") }).waitFor();
+    await d.getByRole("link", { name: t("home.cta_apps") }).first().waitFor();
+    await d.goBack();
+  });
   await step("moderator approves: the app goes live at once (NAP-083)", async () => {
     const m = await login(browser, L, t, "moderator@nap.demo");
     await m.p.goto(`${BASE}/${L}/moderation`);
