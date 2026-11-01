@@ -197,6 +197,15 @@ def _finalize(db: Session, ticket: UploadTicket, asset: Asset, tmp: str) -> Asse
             ticket.used_at = utcnow()
             db.commit()
             raise ApiError("too_long", 422)
+    if asset.kind == "studio_source":  # spec v2.1 §2.1: stored unchanged, metadata from an independent probe
+        from .audio_projects import finalize_studio_source
+        try:
+            finalize_studio_source(asset, tmp)
+        except ApiError:
+            asset.status = "rejected"
+            ticket.used_at = utcnow()
+            db.commit()
+            raise
     if asset.kind == "cover":  # NAP-025: decode, check, strip metadata, crop 4:3, re-encode — only that is stored
         from .covers import normalize
         try:

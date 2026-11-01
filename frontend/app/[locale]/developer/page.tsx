@@ -196,7 +196,8 @@ function Developer() {
   return (
     <RequireAuth role="developer">
       <div className="stack">
-        <h1>{t("dev.title")}</h1>
+        <div className="spread"><h1>{t("dev.title")}</h1>
+          <Link className="btn ghost" href={`/${locale}/developer/studio`}>{t("studio.open")}</Link></div>
         <div className="tabs" role="tablist">{TABS.map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => router.replace(`/${locale}/developer?tab=${x}`)}>{t(`dev.tab_${x}`)}</button>)}</div>
         {tab === "apps" && <Apps />}
         {tab === "reviews" && <DeveloperReviews />}

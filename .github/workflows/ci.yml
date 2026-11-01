@@ -75,6 +75,7 @@ jobs:
       - run: npm run check-i18n
       - run: npm run check-patterns
       - run: npm run typecheck
+      - run: npm run test-studio
       - run: npm run build
         env: { BACKEND_URL: "http://127.0.0.1:8000" }
 
@@ -124,6 +125,9 @@ jobs:
           npx playwright install --with-deps chromium
           node e2e/flows.cjs | tee ../e2e-run.txt
           grep -q '"ru":"passed","en":"passed"' ../e2e-run.txt
+          # NAP-100: Audio Studio — upload, edit, preview, verified 5.1 export, axe on the editor
+          node e2e/studio.cjs | tee -a ../e2e-run.txt
+          grep -q '"studio":"passed"' ../e2e-run.txt
           # NAP-043: WCAG 2.1 AA (axe-core) on every page/role + keyboard checks; fails on serious/critical issues
           node e2e/a11y.cjs --json ../a11y-report.json
       - uses: actions/upload-artifact@v4
