@@ -5,7 +5,7 @@
   --fog: #f5f5f7;          /* section and page surfaces */
   --paper: #ffffff;
   --slate: #1d1d1f;        /* ink */
-  --muted: #6e6e73;        /* secondary text, 4.9:1 on white */
+  --muted: #636366;        /* secondary text: 5.9:1 on white, >= 5:1 on every tint */
   --line: #d2d2d7;
   --hair: #e8e8ed;
   --action: #0066cc;       /* links and primary buttons, 5.6:1 on white */
@@ -364,3 +364,6 @@ table.retention td.ret-cell { text-align: center; font-variant-numeric: tabular-
 .crumbs + .section { padding-top: 14px; }
 .two .hero-art { margin-top: 0; }
 .section:has(> .stack > .crumbs:first-child), .section:has(> .crumbs:first-child) { padding-top: 4px; }
+/* links inside running text are underlined (WCAG 1.4.1: not by colour alone) */
+main p a:not(.btn), main li a:not(.btn):not(.card), main dd a, .hint a, .muted a, .notice a { text-decoration: underline; text-underline-offset: 3px; }
+.crumbs a, main .chips a { text-decoration: none; }
