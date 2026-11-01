@@ -73,9 +73,15 @@ class Settings(BaseSettings):
     reviews_allow_reset_on_version: bool = False  # App Store-like reset; off by decision of 31.10.2026
 
     # billing
+    # NAP-012: currencies authors may price in; buyers see their own when the author set it
+    currencies: list[str] = ["EUR", "USD"]
     payment_provider: Literal["mock", "stripe"] = "mock"
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
+    # NAP-020: Stripe Tax — US sales tax, EU/UK VAT, etc. computed at checkout (needs registrations in Stripe)
+    stripe_automatic_tax: bool = False
+    stripe_tax_id_collection: bool = False  # business buyers may enter a VAT/tax id
+    stripe_api_base: str | None = None      # tests: stripe-mock (http://localhost:12111); never in production
     platform_commission_bps: int = 3000  # 30 %
     payout_hold_days: int = 0
     subscription_grace_days: int = 0

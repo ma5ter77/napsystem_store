@@ -57,7 +57,8 @@ class PaymentProvider(Protocol):
 
     def create_checkout(self, *, context: str, order_id: str, amount_minor: int, currency: str, description: str,
                         mode: str, interval: str | None, subscription_id: str | None, success_url: str,
-                        cancel_url: str, idempotency_key: str, customer_email: str | None) -> CheckoutSession: ...
+                        cancel_url: str, idempotency_key: str, customer_email: str | None,
+                        lines: list[dict] | None = None, customer_ref: str | None = None) -> CheckoutSession: ...
 
     def retrieve(self, provider_ref: str) -> PaymentStatus: ...
 
@@ -68,6 +69,16 @@ class PaymentProvider(Protocol):
 
     def payout(self, *, payout_id: str, developer_account: str | None, amount_minor: int, currency: str,
                idempotency_key: str) -> str: ...
+
+    def ensure_customer(self, *, user_id: str, email: str, name: str | None, existing: str | None,
+                        shipping: dict | None = None) -> str | None: ...
+
+    def portal_url(self, customer_ref: str, return_url: str) -> str: ...
+
+    def connect_onboarding(self, *, user_id: str, email: str, country: str | None, existing: str | None,
+                           refresh_url: str, return_url: str) -> tuple[str, str]: ...
+
+    def connect_status(self, account_ref: str) -> dict: ...
 
     def verify_webhook(self, raw_body: bytes, headers: dict[str, str]) -> dict: ...
 
@@ -100,12 +111,26 @@ class MockPaymentProvider:
         self.emit = emit  # callable(event_dict) -> delivers a signed webhook
 
     def create_checkout(self, *, context, order_id, amount_minor, currency, description, mode, interval,
-                        subscription_id, success_url, cancel_url, idempotency_key, customer_email):
+                        subscription_id, success_url, cancel_url, idempotency_key, customer_email, lines=None,
+                        customer_ref=None):
         ref = "mock_cs_" + hashlib.sha256(idempotency_key.encode()).hexdigest()[:24]
         return CheckoutSession(ref, f"/mock-checkout/{ref}", True)
 
     def retrieve(self, provider_ref):
         return PaymentStatus("created")
+
+    def ensure_customer(self, *, user_id, email, name, existing, shipping=None):
+        return existing  # the mock keeps no customer records
+
+    def portal_url(self, customer_ref, return_url):
+        raise ProviderUnavailable("portal_not_available_in_mock")
+
+    def connect_onboarding(self, *, user_id, email, country, existing, refresh_url, return_url):
+        # test mode: the account is "connected" at once and the author comes straight back
+        return existing or ("mock_acct_" + hashlib.sha256(user_id.encode()).hexdigest()[:16]), return_url
+
+    def connect_status(self, account_ref):
+        return {"details_submitted": True, "payouts_enabled": True, "requirements_due": [], "test_mode": True}
 
     def cancel_subscription(self, provider_subscription_ref, subscription_id):
         return None  # auto-renew stops; access stays until paid_until
@@ -151,6 +176,17 @@ class MockPaymentProvider:
 
 # --------------------------------------------------------------------------- stripe
 
+# Stripe product tax codes: electronically supplied services, general tangible goods, shipping
+TAX_CODES = {"digital": "txcd_10000000", "goods": "txcd_99999999", "shipping": "txcd_92010001"}
+
+
+def _invoice_tax(o: dict) -> int:
+    """Tax on a paid invoice across API versions (legacy `tax`, newer `total_taxes[]`)."""
+    if o.get("tax") is not None:
+        return int(o["tax"])
+    return sum(int(t.get("amount") or 0) for t in (o.get("total_taxes") or []))
+
+
 def _ts(x: int | None) -> str | None:
     return datetime.fromtimestamp(x, tz=timezone.utc).isoformat() if x else None
 
@@ -166,27 +202,97 @@ class StripeProvider:
         self.key = s.stripe_secret_key
         self.webhook_secret = s.stripe_webhook_secret
         self.test_mode = bool(self.key and self.key.startswith("sk_test_")) or not self.key
+        self.automatic_tax = s.stripe_automatic_tax
+        self.tax_id_collection = s.stripe_tax_id_collection
+        self.api_base = s.stripe_api_base if s.env != "production" else None
 
     def _client(self):
         if not self.key:
             raise ProviderUnavailable("stripe_not_configured")
+        if self.api_base:  # stripe-mock in tests
+            return self.stripe.StripeClient(self.key, base_addresses={"api": self.api_base})
         return self.stripe.StripeClient(self.key)
 
+    def ensure_customer(self, *, user_id, email, name, existing, shipping=None):
+        """One Stripe customer per user: subscriptions, saved cards, the billing portal and tax addresses live there."""
+        params: dict[str, Any] = {"email": email, "metadata": {"nap_user_id": user_id}}
+        if name:
+            params["name"] = name[:250]
+        if shipping:  # hardware: Stripe Tax uses the delivery address
+            addr = {k: shipping.get(k) for k in ("line1", "line2", "city", "state", "postal_code", "country") if shipping.get(k)}
+            params["shipping"] = {"name": (shipping.get("name") or name or email)[:250], "address": addr}
+            params["address"] = addr
+        c = self._client()
+        if existing:
+            c.v1.customers.update(existing, params=params)
+            return existing
+        return c.v1.customers.create(params=params, options={"idempotency_key": f"customer:{user_id}"}).id
+
+    def portal_url(self, customer_ref, return_url):
+        ps = self._client().v1.billing_portal.sessions.create(params={"customer": customer_ref, "return_url": return_url})
+        return ps.url
+
+    def connect_onboarding(self, *, user_id, email, country, existing, refresh_url, return_url):
+        """NAP-011: Stripe Connect Express — Stripe collects identity, tax and bank details from the author."""
+        c = self._client()
+        acct = existing
+        if not acct:
+            params: dict[str, Any] = {"type": "express", "email": email, "metadata": {"nap_user_id": user_id},
+                                      "capabilities": {"transfers": {"requested": True}}}
+            if country:
+                params["country"] = country.upper()
+            acct = c.v1.accounts.create(params=params, options={"idempotency_key": f"connect:{user_id}"}).id
+        link = c.v1.account_links.create(params={"account": acct, "refresh_url": refresh_url, "return_url": return_url,
+                                                 "type": "account_onboarding"})
+        return acct, link.url
+
+    def connect_status(self, account_ref):
+        a = self._client().v1.accounts.retrieve(account_ref)
+        g = lambda o, k: (o.get(k) if isinstance(o, dict) else getattr(o, k, None))  # noqa: E731
+        req = g(a, "requirements") or {}
+        return {"details_submitted": bool(g(a, "details_submitted")), "payouts_enabled": bool(g(a, "payouts_enabled")),
+                "requirements_due": list(g(req, "currently_due") or []), "test_mode": self.test_mode}
+
     def create_checkout(self, *, context, order_id, amount_minor, currency, description, mode, interval,
-                        subscription_id, success_url, cancel_url, idempotency_key, customer_email):
-        price_data: dict[str, Any] = {"currency": currency.lower(), "unit_amount": amount_minor,
-                                      "product_data": {"name": description[:250]}}
+                        subscription_id, success_url, cancel_url, idempotency_key, customer_email, lines=None,
+                        customer_ref=None):
+        # lines: [{name, amount_minor, kind: digital|goods|shipping}] — summing to amount_minor; default one line
+        lines = lines or [{"name": description, "amount_minor": amount_minor,
+                           "kind": "goods" if context == "hardware" else "digital"}]
+        if sum(int(x["amount_minor"]) for x in lines) != amount_minor:
+            raise ValueError("checkout lines do not add up to the amount")
+        items = []
+        for ln in lines:
+            pd: dict[str, Any] = {"currency": currency.lower(), "unit_amount": int(ln["amount_minor"]),
+                                  "product_data": {"name": str(ln["name"])[:250]}}
+            if self.automatic_tax:
+                pd["tax_behavior"] = "exclusive"  # prices are shown without tax; tax is added at checkout
+                pd["product_data"]["tax_code"] = TAX_CODES[ln.get("kind", "digital")]
+            if mode == "subscription":
+                pd["recurring"] = {"interval": interval}
+            items.append({"quantity": 1, "price_data": pd})
         params: dict[str, Any] = {
             "mode": "subscription" if mode == "subscription" else "payment",
             "success_url": success_url, "cancel_url": cancel_url,
             "client_reference_id": order_id,
             "metadata": {"nap_context": context, "nap_order_id": order_id},
-            "line_items": [{"quantity": 1, "price_data": price_data}],
+            "line_items": items,
         }
-        if customer_email:
+        if customer_ref:
+            params["customer"] = customer_ref
+        elif customer_email:
             params["customer_email"] = customer_email
+        if self.automatic_tax:
+            params["automatic_tax"] = {"enabled": True}
+            if context != "hardware":  # digital tax follows the buyer's billing address
+                params["billing_address_collection"] = "required"
+            if customer_ref:
+                params["customer_update"] = {"address": "auto", "name": "auto"} if context != "hardware" else {"name": "auto"}
+        if self.tax_id_collection:
+            params["tax_id_collection"] = {"enabled": True}
+            if customer_ref and "customer_update" not in params:
+                params["customer_update"] = {"name": "auto"}
         if mode == "subscription":
-            price_data["recurring"] = {"interval": interval}
             params["subscription_data"] = {"metadata": {"nap_subscription_id": subscription_id or ""}}
         else:
             params["payment_intent_data"] = {"metadata": {"nap_order_id": order_id, "nap_context": context}}
@@ -237,11 +343,15 @@ class StripeProvider:
         o = event.get("data", {}).get("object", {})
         md = o.get("metadata") or {}
         if t in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
+            amounts = {"amount_subtotal": o.get("amount_subtotal"), "amount_total": o.get("amount_total"),
+                       "amount_tax": (o.get("total_details") or {}).get("amount_tax") or 0,
+                       "currency": (o.get("currency") or "").upper() or None, "customer_ref": o.get("customer")}
             if o.get("mode") == "subscription":
-                return [NormalizedEvent("checkout.succeeded", {"attempt_ref": o["id"], "payment_ref": o.get("invoice")})]
+                return [NormalizedEvent("checkout.succeeded", {"attempt_ref": o["id"], "payment_ref": o.get("invoice"),
+                                                               **amounts})]
             if o.get("payment_status") == "paid":
                 return [NormalizedEvent("checkout.succeeded", {"attempt_ref": o["id"],
-                                                               "payment_ref": o.get("payment_intent")})]
+                                                               "payment_ref": o.get("payment_intent"), **amounts})]
             return []
         if t in ("checkout.session.async_payment_failed", "checkout.session.expired"):
             return [NormalizedEvent("checkout.failed", {"attempt_ref": o["id"], "reason": t})]
@@ -256,7 +366,8 @@ class StripeProvider:
                     "subscription_id": nap_sub, "provider_subscription_ref": sub_ref, "invoice_ref": o["id"],
                     "payment_ref": o.get("payment_intent") or o.get("charge") or o["id"],
                     "period_start": _ts(period.get("start")), "period_end": _ts(period.get("end")),
-                    "amount_minor": o.get("amount_paid"), "currency": (o.get("currency") or "").upper()})]
+                    "amount_minor": o.get("amount_paid"), "tax_minor": _invoice_tax(o),
+                    "currency": (o.get("currency") or "").upper()})]
             return [NormalizedEvent("invoice.failed", {"subscription_id": nap_sub,
                                                        "provider_subscription_ref": sub_ref, "invoice_ref": o["id"]})]
         if t == "customer.subscription.deleted":

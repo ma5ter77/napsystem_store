@@ -1,0 +1,85 @@
+# NAP-010: live Stripe TEST-mode run — real Checkout pages paid with test cards, webhooks via `stripe listen`.
+# Needs the repository secret STRIPE_TEST_SECRET_KEY (sk_test_…). Without it the job reports "not run" and passes.
+# Optional repository variable STRIPE_TAX=true when Stripe Tax registrations exist in the test account.
+name: stripe-sandbox
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "backend/app/adapters/payments.py"
+      - "backend/app/services/billing.py"
+      - "backend/app/services/hardware_orders.py"
+      - "ops/stripe/**"
+      - ".github/workflows/stripe-sandbox.yml"
+concurrency:
+  group: stripe-sandbox-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  sandbox:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: nap, POSTGRES_PASSWORD: nap, POSTGRES_DB: nap }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U nap" --health-interval 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    steps:
+      - name: not run without a test key
+        if: env.STRIPE_SECRET_KEY == ''
+        run: echo "::notice::Stripe sandbox not run — add the repository secret STRIPE_TEST_SECRET_KEY (sk_test_…)"
+      - uses: actions/checkout@v4
+        if: env.STRIPE_SECRET_KEY != ''
+      - uses: astral-sh/setup-uv@v6
+        if: env.STRIPE_SECRET_KEY != ''
+      - name: refuse live keys
+        if: env.STRIPE_SECRET_KEY != ''
+        run: case "$STRIPE_SECRET_KEY" in sk_test_*) ;; *) echo "only sk_test_ keys are allowed here"; exit 1;; esac
+      - name: Stripe CLI and browser
+        if: env.STRIPE_SECRET_KEY != ''
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release download -R stripe/stripe-cli --pattern 'stripe_*_linux_x86_64.tar.gz' -O stripe.tgz
+          tar -xzf stripe.tgz stripe && sudo mv stripe /usr/local/bin/ && stripe version
+          uv tool run --from playwright playwright install --with-deps chromium
+      - name: API with Stripe test mode
+        if: env.STRIPE_SECRET_KEY != ''
+        working-directory: backend
+        env:
+          NAP_DATABASE_URL: postgresql+psycopg://nap:nap@localhost:5432/nap
+          NAP_REDIS_URL: redis://localhost:6379/0
+          NAP_SECRET_KEY: stripe-sandbox-${{ github.run_id }}-not-for-production
+          NAP_PUBLIC_BASE_URL: http://localhost:3000
+          NAP_PAYMENT_PROVIDER: stripe
+          NAP_STRIPE_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+          NAP_STRIPE_AUTOMATIC_TAX: ${{ vars.STRIPE_TAX == 'true' && 'true' || 'false' }}
+          NAP_STORAGE_ROOT: ${{ runner.temp }}/storage
+          NAP_JOB_WORKDIR: ${{ runner.temp }}/jobs
+        run: |
+          uv sync --frozen
+          uv run alembic upgrade head && uv run python -m app.seed
+          WHSEC=$(stripe listen --api-key "$STRIPE_SECRET_KEY" --print-secret)
+          echo "::add-mask::$WHSEC"
+          nohup stripe listen --api-key "$STRIPE_SECRET_KEY" --forward-to localhost:8000/api/v1/webhooks/payments/stripe \
+            --events checkout.session.completed,checkout.session.expired,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,invoice.paid,invoice.payment_failed,customer.subscription.deleted,refund.created,refund.updated,charge.refund.updated \
+            > "$RUNNER_TEMP/listen.log" 2>&1 &
+          NAP_STRIPE_WEBHOOK_SECRET="$WHSEC" nohup uv run uvicorn app.main:app --port 8000 > "$RUNNER_TEMP/api.log" 2>&1 &
+          for _ in $(seq 1 60); do curl -sf localhost:8000/api/v1/ready && break; sleep 2; done
+          curl -sf localhost:8000/api/v1/ready
+      - name: sandbox scenarios
+        if: env.STRIPE_SECRET_KEY != ''
+        env:
+          TAX: ${{ vars.STRIPE_TAX == 'true' && '1' || '0' }}
+        run: uv run --with httpx --with playwright python ops/stripe/sandbox_e2e.py
+      - name: diagnostics (no secrets)
+        if: failure() && env.STRIPE_SECRET_KEY != ''
+        run: |
+          tail -n 80 "$RUNNER_TEMP/api.log" | grep -viE 'secret|whsec|sk_test|authorization' || true
+          tail -n 40 "$RUNNER_TEMP/listen.log" | grep -viE 'secret|whsec|sk_test' || true

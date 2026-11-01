@@ -60,7 +60,10 @@ def start_checkout(db: Session, user: User, app_id: uuid.UUID, kind: str, locale
     app = db.get(App, app_id)
     if not app or not app.published_version_id or app.sales_status != "active":
         raise ApiError("not_for_sale", 409)
-    price = db.scalar(select(Price).where(Price.app_id == app.id, Price.active.is_(True), Price.kind == kind))
+    from . import currency as cur  # NAP-012: pay in the buyer's currency when the author set a price in it
+    chosen = cur.choose(list(db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True),
+                                                            Price.kind == kind))))
+    price = chosen[0] if chosen else None
     if not price:
         raise ApiError("not_for_sale", 409)
     if access_for(db, user.id, app.id)["has_access"]:
@@ -95,13 +98,14 @@ def start_checkout(db: Session, user: User, app_id: uuid.UUID, kind: str, locale
     provider = get_payment_provider()
     title = (db.get(App, app.id).slug)
     try:
+        customer_ref = ensure_customer(db, provider, user)
         cs = provider.create_checkout(
             context="digital", order_id=str(order.id), amount_minor=order.amount_minor, currency=order.currency,
             description=f"NAP Store: {title}", mode="subscription" if kind == "subscription" else "payment",
             interval=price.interval, subscription_id=str(sub.id) if sub else None,
             success_url=f"{s.public_base_url}/{locale}/library?order={order.id}",
             cancel_url=f"{s.public_base_url}/{locale}/apps/{app.slug}", idempotency_key=f"digital:{order.id}",
-            customer_email=user.email)
+            customer_email=user.email, customer_ref=customer_ref)
     except ProviderUnavailable as e:
         raise ApiError("payment_provider_unavailable", 503, reason=str(e))
     att = PaymentAttempt(context="digital", order_id=order.id, provider=provider.name, provider_ref=cs.provider_ref,
@@ -201,6 +205,37 @@ def apply_event(db: Session, provider: str, ev: NormalizedEvent) -> None:
         fn(db, provider, ev.data)
 
 
+def ensure_customer(db: Session, provider, user: User, shipping: dict | None = None) -> str | None:
+    """NAP-012: one provider customer per user (saved cards, subscriptions, portal, tax address)."""
+    ref = provider.ensure_customer(user_id=str(user.id), email=user.email, name=user.display_name,
+                                   existing=user.payment_customer_ref, shipping=shipping)
+    if ref and ref != user.payment_customer_ref:
+        u = db.get(User, user.id)
+        u.payment_customer_ref = ref
+        db.commit()
+    return ref
+
+
+def portal_url(db: Session, user: User, return_url: str) -> str:
+    provider = get_payment_provider()
+    if not user.payment_customer_ref:
+        raise ApiError("no_billing_account", 404)
+    try:
+        return provider.portal_url(user.payment_customer_ref, return_url)
+    except ProviderUnavailable as e:
+        raise ApiError("payment_provider_unavailable", 503, reason=str(e))
+
+
+def _apply_amounts(db: Session, att: PaymentAttempt, expected_minor: int, d: dict) -> int:
+    """NAP-020: provider-computed tax. Returns the tax; a subtotal different from ours is recorded, not hidden."""
+    tax = int(d.get("amount_tax") or 0)
+    sub = d.get("amount_subtotal")
+    if sub is not None and int(sub) != expected_minor:
+        audit(db, None, "payment.amount_mismatch", "payment_attempt", att.id,
+              {"expected": expected_minor, "subtotal": int(sub), "total": d.get("amount_total")})
+    return tax
+
+
 def _attempt(db: Session, ref: str) -> PaymentAttempt:
     att = db.scalar(select(PaymentAttempt).where(PaymentAttempt.provider_ref == ref).with_for_update())
     if att is None:
@@ -217,11 +252,12 @@ def _on_checkout_succeeded(db: Session, provider: str, d: dict) -> None:
     att.confirmed_at = utcnow()
     if att.context == "hardware":
         from .hardware_orders import confirm_payment
-        confirm_payment(db, att)
+        confirm_payment(db, att, tax_minor=_apply_amounts(db, att, att.amount_minor, d))
         return
     order = db.get(DigitalOrder, att.order_id, with_for_update=True)
     if order.kind == "subscription":
         return  # access is granted per paid period (invoice.paid), not by the checkout itself
+    order.tax_minor = _apply_amounts(db, att, order.amount_minor, d)
     _mark_paid(db, order, provider, att.payment_ref)
     db.execute(insert(Entitlement).values(id=uuid.uuid4(), user_id=order.buyer_id, app_id=order.app_id,
                                           source="one_time", order_id=order.id, status="active")
@@ -285,7 +321,8 @@ def _on_invoice_paid(db: Session, provider: str, d: dict) -> None:
     price = db.get(Price, sub.price_id)
     start = datetime.fromisoformat(d["period_start"])
     end = datetime.fromisoformat(d["period_end"])
-    amount = int(d.get("amount_minor") if d.get("amount_minor") is not None else price.amount_minor)
+    tax = int(d.get("tax_minor") or 0)  # NAP-020: amount_paid includes tax; the revenue base excludes it
+    amount = int(d.get("amount_minor") if d.get("amount_minor") is not None else price.amount_minor) - tax
     currency = (d.get("currency") or price.currency).upper()
     if currency != price.currency:
         raise ValueError("currency mismatch")
@@ -301,6 +338,7 @@ def _on_invoice_paid(db: Session, provider: str, d: dict) -> None:
         db.add(order)
         db.flush()
     order.amount_minor = amount
+    order.tax_minor = tax
     _mark_paid(db, order, provider, d.get("payment_ref"))
     db.add(SubscriptionPeriod(subscription_id=sub.id, order_id=order.id, invoice_ref=d["invoice_ref"],
                               payment_ref=d.get("payment_ref"), period_start=start, period_end=end))

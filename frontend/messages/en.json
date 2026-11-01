@@ -250,7 +250,8 @@
   "cover_rules": "PNG, JPEG or WebP up to 10 MB, at least 800×600 pixels. The image is centre-cropped to 4:3 and saved as 1200×900; camera data and location are removed. Avoid small text — it is unreadable on the card.",
   "cover_frozen": "The cover of a version in moderation or published cannot change — create a new version to replace it.",
   "cover_saved": "Cover saved.",
-  "cover_removed": "The generated cover will be used."
+  "cover_removed": "The generated cover will be used.",
+  "price_currencies": "You can price in euros and dollars: buyers see and pay in their currency, or in the one you set if theirs is missing."
  },
  "mod": {
   "done_approve": "Version approved.",
@@ -333,7 +334,8 @@
   "sell": "Supplier dashboard",
   "about": "Product and versions",
   "methods_more": "Method and limits",
-  "copyright": "© {year} NAP Store"
+  "copyright": "© {year} NAP Store",
+  "currency": "Price currency"
  },
  "coverage": {
   "done": "implemented",
@@ -542,7 +544,8 @@
   "label_not_shipped": "Label created — the parcel has not shipped yet.",
   "packing_list": "Packing list (PDF)",
   "lead": "Status, delivery and returns for every order.",
-  "open": "Open order"
+  "open": "Open order",
+  "tax": "Tax (calculated at checkout)"
  },
  "address": {
   "invalid_field": "Check this field",
@@ -1503,5 +1506,22 @@
    "cancelled": "the order was cancelled. Any payment will be returned to the same method.",
    "closed": "the order is closed. Its history stays here."
   }
+ },
+ "billing": {
+  "portal": "Cards and invoices",
+  "portal_hint": "Saved cards, invoices and renewals are managed in the payment provider's secure portal."
+ },
+ "errors": {
+  "no_billing_account": "No billing profile yet: it is created with your first payment."
+ },
+ "payouts": {
+  "title": "Payouts",
+  "ready": "connected",
+  "incomplete": "setup not finished",
+  "not_connected": "not connected",
+  "hint": "Sales revenue is transferred to your own Stripe account. You enter identity, tax and bank details on Stripe's secure page — the platform does not store them.",
+  "ready_hint": "Your available balance is transferred to your Stripe account after the hold period.",
+  "connect": "Set up payouts",
+  "continue": "Continue setup"
  }
 }

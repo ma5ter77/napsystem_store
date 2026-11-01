@@ -188,7 +188,7 @@ def order_view(db, o: HardwareOrder, locale: str, for_buyer: bool = True, prices
            "created_at": o.created_at.isoformat()}
     if prices:
         out |= {"goods_minor": o.goods_minor, "shipping_minor": o.shipping_minor, "fees_minor": o.fees_minor,
-                "total_minor": o.total_minor, "refunded_minor": o.refunded_minor, "shipping_rate": o.shipping_rate,
+                "tax_minor": o.tax_minor, "total_minor": o.total_minor, "refunded_minor": o.refunded_minor, "shipping_rate": o.shipping_rate,
                 "terms": o.terms}
     q = db.scalar(select(FreightQuote).where(FreightQuote.order_id == o.id).order_by(FreightQuote.created_at.desc()))
     out["freight_quote"] = {"id": str(q.id), "status": q.status, "amount_minor": q.amount_minor,

@@ -730,6 +730,26 @@ M.update({  # NAP-093/095: design v2 stage 2
 "kits.lead": ("Готовые наборы под приложения: покажем, чего не хватает, и докупим недостающее одной кнопкой.", "Ready kits for your apps: we show what's missing and add it in one click."),
 })
 
+M.update({  # NAP-012/020: Stripe for the US and world markets
+"billing.portal": ("Карты и счета", "Cards and invoices"),
+"billing.portal_hint": ("Сохранённые карты, счета и продление подписок — в защищённом кабинете платёжной системы.", "Saved cards, invoices and renewals are managed in the payment provider's secure portal."),
+"orders.tax": ("Налог (рассчитан при оплате)", "Tax (calculated at checkout)"),
+"errors.no_billing_account": ("Платёжный профиль ещё не создан: он появится после первой оплаты.", "No billing profile yet: it is created with your first payment."),
+})
+
+M.update({  # NAP-012: buyer currency
+"footer.currency": ("Валюта цен", "Price currency"),
+"dev.price_currencies": ("Можно задать цену в евро и в долларах: покупатель видит и платит в своей валюте. Если цены в его валюте нет — в той, что задана.", "You can price in euros and dollars: buyers see and pay in their currency, or in the one you set if theirs is missing."),
+})
+
+M.update({  # NAP-011: author payouts via Stripe Connect
+"payouts.title": ("Выплаты", "Payouts"), "payouts.ready": ("подключены", "connected"),
+"payouts.incomplete": ("нужно завершить настройку", "setup not finished"), "payouts.not_connected": ("не подключены", "not connected"),
+"payouts.hint": ("Деньги за продажи переводятся на ваш собственный счёт Stripe. Документы, налоговые данные и банковский счёт вы указываете на защищённой странице Stripe — платформа их не хранит.", "Sales revenue is transferred to your own Stripe account. You enter identity, tax and bank details on Stripe's secure page — the platform does not store them."),
+"payouts.ready_hint": ("Доступный остаток переводится на ваш счёт Stripe после периода удержания.", "Your available balance is transferred to your Stripe account after the hold period."),
+"payouts.connect": ("Подключить выплаты", "Set up payouts"), "payouts.continue": ("Продолжить настройку", "Continue setup"),
+})
+
 def nest(lang):
     out = {}
     for key, pair in M.items():

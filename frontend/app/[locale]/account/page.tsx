@@ -55,8 +55,18 @@ function Subs() {
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} onRetry={reload} />;
   if (!data.items.length) return <Empty action={<a className="btn ghost" href={`/${locale}/apps?price=subscription`}>{t("home.cta_apps")}</a>}>{t("account.no_subs")}</Empty>;
+  const real = data.items.some((s: any) => s.provider === "stripe");
   return (
     <div className="stack">
+      {real && (  // NAP-012: cards, invoices and renewals are managed in the provider's secure portal
+        <div className="panel flat spread">
+          <span>{t("billing.portal_hint")}</span>
+          <button className="btn ghost small" disabled={act.pending} onClick={async () => {
+            const r = await act.run(() => api("/billing/portal", { body: { return_path: "/account?tab=subscriptions" } }));
+            if (r?.url) window.location.assign(r.url);
+          }}>{t("billing.portal")}</button>
+        </div>
+      )}
       {data.items.map((s: any) => (
         <div key={s.id} className="panel flat stack">
           <div className="spread"><strong>{s.app_slug}</strong><StatusBadge ns="sub_status" value={s.status} /></div>
@@ -65,7 +75,7 @@ function Subs() {
           <div className="row">
             {s.cancel_at_period_end ? <span className="hint">{t("account.autorenew_off")}</span> :
               <button className="btn ghost small" disabled={act.pending} onClick={async () => { if (await act.run(() => api(`/subscriptions/${s.id}/cancel`, { method: "POST" }))) reload(); }}>{t("account.cancel_autorenew")}</button>}
-            {!s.cancel_at_period_end && <>
+            {!s.cancel_at_period_end && s.provider === "mock" && <>
               <button className="btn ghost small" onClick={async () => { if (await act.run(() => api(`/test/subscriptions/${s.id}/renew`, { body: { outcome: "success" } }))) reload(); }}>{t("account.sim_renew")}</button>
               <button className="btn ghost small" onClick={async () => { if (await act.run(() => api(`/test/subscriptions/${s.id}/renew`, { body: { outcome: "fail" } }))) reload(); }}>{t("account.sim_fail")}</button>
             </>}

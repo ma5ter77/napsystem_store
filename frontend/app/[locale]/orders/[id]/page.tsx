@@ -59,8 +59,9 @@ function Order() {
           <dt>{t("orders.shipping")}</dt><dd>{o.shipping_minor === null ? t("orders.not_calculated") : money(o.shipping_minor, cur, locale)}</dd>
           {o.shipping_rate?.insurance_minor !== undefined && o.shipping_rate?.insurance_minor !== null && <><dt>{t("orders.insurance")}</dt><dd>{money(o.shipping_rate.insurance_minor, cur, locale)}</dd></>}
           <dt>{t("orders.fees")}</dt><dd>{money(o.fees_minor, cur, locale)}</dd>
+          {o.tax_minor > 0 && <><dt>{t("orders.tax")}</dt><dd>{money(o.tax_minor, cur, locale)}</dd></>}
           <dt>{t("orders.duties")}</dt><dd>{t("orders.duties_unknown", { payer: t(`payer.${o.terms.duties_payer}`) })}</dd>
-          <dt><strong>{t("orders.total")}</strong></dt><dd><strong>{o.total_minor === null ? t("orders.not_calculated") : money(o.total_minor, cur, locale)}</strong></dd>
+          <dt><strong>{t("orders.total")}</strong></dt><dd><strong>{o.total_minor === null ? t("orders.not_calculated") : money(o.total_minor + (o.tax_minor || 0), cur, locale)}</strong></dd>
           {o.refunded_minor > 0 && <><dt>{t("orders.refunded")}</dt><dd>{money(o.refunded_minor, cur, locale)}</dd></>}
         </dl>
       </section>

@@ -390,7 +390,8 @@ def set_price(db: Session, app: App, kind: str, amount_minor: int, currency: str
               actor_id: uuid.UUID) -> Price:
     if kind not in ("one_time", "subscription", "free"):
         raise ApiError("validation_failed", 422, details={"field": "kind"})
-    if not re.match(r"^[A-Z]{3}$", currency):
+    from .currency import supported
+    if not re.match(r"^[A-Z]{3}$", currency) or (kind != "free" and currency not in supported()):
         raise ApiError("validation_failed", 422, details={"field": "currency"})
     if kind == "free":
         amount_minor, interval = 0, None
@@ -400,8 +401,14 @@ def set_price(db: Session, app: App, kind: str, amount_minor: int, currency: str
         raise ApiError("validation_failed", 422, details={"field": "interval"})
     if kind != "subscription":
         interval = None
-    for p in db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True), Price.kind == kind)):
+    # NAP-012: one active price per kind and currency — a USD price does not replace the EUR one
+    for p in db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True), Price.kind == kind,
+                                            Price.currency == currency)):
         p.active = False
+    if kind == "subscription":  # one billing interval per app: switching month/year replaces it in every currency
+        for p in db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True), Price.kind == kind,
+                                                Price.interval != interval)):
+            p.active = False
     if kind == "free":
         for p in db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True))):
             p.active = False
