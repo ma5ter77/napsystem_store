@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useApp } from "./Providers";
+import { SavedAddressList, useSavedAddresses } from "./SavedAddresses";
 import { ErrorBox, useAction, useDraft } from "./ui";
 
 const COUNTRIES = ["AM", "AE", "AT", "BE", "CA", "CH", "CN", "CZ", "DE", "DK", "EE", "ES", "FI", "FR", "GB", "GE", "GR",
@@ -14,6 +15,14 @@ export function AddressForm({ orderId, initial, onSaved }: { orderId: string; in
   const [fields, setFields, clearDraft] = useDraft<Record<string, string>>(`addr:${orderId}`, initial?.fields ?? {});
   const [rules, setRules] = useState<any>(null);
   const act = useAction();
+  const saved = useSavedAddresses();
+  const book = saved.data?.items ?? [];
+  const pick = async (id: string) => {  // NAP-023: one action; the server checks this order's rules again
+    const r = await act.run(() => api(`/hardware/orders/${orderId}/address`, { method: "PUT", body: { address_id: id } }));
+    if (r) { clearDraft(); onSaved(r); return; }
+    const a = book.find((x) => x.id === id);  // did not pass this order's rules: open it in the form, fields highlighted
+    if (a) { setCountry(a.country); setFields({ ...a.fields }); }
+  };
   useEffect(() => { api(`/hardware/address-rules/${country}`).then(setRules).catch(() => setRules(null)); }, [country]);
   const dn = new Intl.DisplayNames([locale], { type: "region" });
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setFields({ ...fields, [k]: e.target.value });
@@ -25,6 +34,14 @@ export function AddressForm({ orderId, initial, onSaved }: { orderId: string; in
     </label>
   );
   return (
+    <div className="stack">
+    {book.length > 0 && (
+      <section className="stack" aria-labelledby="saved-addr-h">
+        <h3 id="saved-addr-h">{t("address.saved_title")}</h3>
+        <SavedAddressList items={book} action={t("address.use")} onAction={pick} pending={act.pending} />
+        <p className="hint">{t("address.recheck_hint")} {t("address.or_new")}</p>
+      </section>
+    )}
     <form className="stack" onSubmit={async (e) => {
       e.preventDefault();
       const r = await act.run(() => api(`/hardware/orders/${orderId}/address`, { method: "PUT", body: { country, fields } }));
@@ -53,5 +70,6 @@ export function AddressForm({ orderId, initial, onSaved }: { orderId: string; in
       <ErrorBox error={act.error} />
       <div><button className="btn" disabled={act.pending}>{t("address.save")}</button></div>
     </form>
+    </div>
   );
 }

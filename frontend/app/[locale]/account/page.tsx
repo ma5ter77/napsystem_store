@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useApp } from "@/components/Providers";
 import { Empty, ErrorBox, Loading, Price, RequireAuth, StatusBadge, useAction, useLoad } from "@/components/ui";
 import { api } from "@/lib/api";
+import { deleteSavedAddress, SavedAddressList, useSavedAddresses } from "@/components/SavedAddresses";
 import { date } from "@/lib/i18n";
 
-const TABS = ["purchases", "subscriptions", "devices", "history", "privacy", "notifications"] as const;
+const TABS = ["purchases", "subscriptions", "devices", "history", "privacy", "notifications", "addresses"] as const;
 
 function Purchases() {
   const { t, locale } = useApp();
@@ -100,6 +101,23 @@ function Notifications() {
   return <div className="stack">{data.items.map((n: any) => <div key={n.id} className="panel flat" lang={n.locale}><strong>{n.subject}</strong><div>{n.body}</div><div className="hint">{date(n.created_at, locale, true)}</div></div>)}</div>;
 }
 
+function Addresses() {  // NAP-023
+  const { t } = useApp();
+  const { data, error, loading, reload } = useSavedAddresses();
+  const act = useAction();
+  const [done, setDone] = useState(false);
+  if (loading && !data) return <Loading />;
+  if (error) return <ErrorBox error={error} onRetry={reload} />;
+  if (!data?.items.length) return <Empty>{t("account.no_addresses")}</Empty>;
+  return <div className="stack">
+    <SavedAddressList items={data.items} action={t("address.delete")} pending={act.pending}
+      onAction={async (id) => { setDone(false); if (await act.run(() => deleteSavedAddress(id).then(() => true))) { setDone(true); reload(); } }} />
+    {done && <p className="hint" role="status">{t("address.deleted")}</p>}
+    <ErrorBox error={act.error} />
+    <p className="hint">{t("address.recheck_hint")}</p>
+  </div>;
+}
+
 function Account() {
   const { t, locale } = useApp();
   const router = useRouter();
@@ -116,6 +134,7 @@ function Account() {
       {tab === "history" && <History />}
       {tab === "privacy" && <Privacy />}
       {tab === "notifications" && <Notifications />}
+      {tab === "addresses" && <Addresses />}
     </div>
   );
 }

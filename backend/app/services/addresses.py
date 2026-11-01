@@ -65,3 +65,36 @@ def validate_address(country: str, fields: dict, requires_latin: bool) -> dict:
     if errors:
         raise ApiError("address_invalid", 422, details={"fields": sorted(set(errors))})
     return clean
+
+
+# ------------------------------------------------------------------ address book (NAP-023)
+
+MAX_SAVED = 20
+
+
+def _same(a: dict, b: dict) -> bool:
+    keys = ALLOWED_FIELDS
+    return all((a.get(k) or "") == (b.get(k) or "") for k in keys)
+
+
+def save_to_book(db, user_id, country: str, fields: dict):
+    """Remember an address the buyer used (duplicates are not stored twice; the latest used comes first)."""
+    from sqlalchemy import select
+
+    from ..db import utcnow
+    from ..models import Address
+    country = country.upper()
+    rows = list(db.scalars(select(Address).where(Address.user_id == user_id).order_by(Address.created_at.desc())))
+    for r in rows:
+        if r.country == country and _same(r.fields, fields):
+            r.created_at = utcnow()  # "last used" ordering
+            return r
+    a = Address(user_id=user_id, country=country, fields=dict(fields))
+    db.add(a)
+    for old in rows[MAX_SAVED - 1:]:
+        db.delete(old)
+    return a
+
+
+def book_view(a) -> dict:
+    return {"id": str(a.id), "country": a.country, "fields": a.fields, "last_used_at": a.created_at.isoformat()}
