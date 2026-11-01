@@ -10,7 +10,7 @@ const PUBLIC = ["", "/apps", "/apps/quiet-harbor", "/devices", "/devices/nap-stu
   "/kits/nap-starter-kit?app=quiet-harbor", "/cart", "/about", "/login", "/register", "/legal", "/legal/terms", "/legal/privacy", "/legal/consent-personal-data", "/legal/consent-measurements"];
 const ROLES = {
   "user@nap.demo": ["/library", "/orders", "/play/quiet-harbor", "/account?tab=purchases", "/account?tab=notifications", "/account?tab=privacy", "/account?tab=addresses"],
-  "dev1@nap.demo": ["/developer?tab=apps", "/developer?tab=reviews", "/developer?tab=finance", "/developer?tab=analytics"],
+  "dev1@nap.demo": ["/developer?tab=apps", "/developer/studio", "/developer?tab=reviews", "/developer?tab=finance", "/developer?tab=analytics"],
   "seller@nap.demo": ["/seller?tab=orders", "/seller?tab=products", "/seller?tab=inventory"],
   "moderator@nap.demo": ["/moderation", "/moderation?tab=apps", "/moderation?tab=products", "/moderation?tab=reviews"],
   "admin@nap.demo": ["/admin?tab=users", "/admin?tab=refunds", "/admin?tab=ops", "/content", "/content?tab=categories"],
