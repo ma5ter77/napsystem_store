@@ -1,14 +1,15 @@
 /** NAP-040: a curated set of well-separated cover tones (no muddy dark reds). Each tone keeps white and the
  * steel/rose carrier lines readable (contrast ≥ 3:1 for the lines on the darkest point of the background). */
 export const COVER_TONES: { bg: string; glow: string }[] = [
-  { bg: "hsl(205 48% 24%)", glow: "hsl(190 60% 31%)" },  // ocean
-  { bg: "hsl(168 42% 19%)", glow: "hsl(150 45% 34%)" },  // teal
-  { bg: "hsl(250 34% 27%)", glow: "hsl(275 40% 42%)" },  // indigo-violet
-  { bg: "hsl(38 46% 21%)", glow: "hsl(45 60% 30%)" },    // amber
-  { bg: "hsl(222 20% 22%)", glow: "hsl(205 25% 40%)" },  // slate
-  { bg: "hsl(318 30% 23%)", glow: "hsl(335 40% 38%)" },  // plum
-  { bg: "hsl(130 26% 19%)", glow: "hsl(95 32% 34%)" },   // forest
-  { bg: "hsl(16 36% 22%)", glow: "hsl(26 58% 40%)" },    // copper (orange-brown, not the old dark red)
+  // NAP-095: light, airy tints (design v2); the carriers stay the brand blue and rose (contrast ≥ 3:1 on every tint)
+  { bg: "hsl(205 60% 95%)", glow: "hsl(200 70% 86%)" },  // ocean
+  { bg: "hsl(165 40% 94%)", glow: "hsl(160 45% 84%)" },  // teal
+  { bg: "hsl(250 50% 96%)", glow: "hsl(265 55% 88%)" },  // indigo-violet
+  { bg: "hsl(40 70% 94%)", glow: "hsl(42 80% 84%)" },    // amber
+  { bg: "hsl(220 18% 95%)", glow: "hsl(212 28% 86%)" },  // slate
+  { bg: "hsl(320 45% 96%)", glow: "hsl(332 55% 88%)" },  // plum
+  { bg: "hsl(120 30% 94%)", glow: "hsl(100 35% 84%)" },  // forest
+  { bg: "hsl(20 60% 95%)", glow: "hsl(24 70% 86%)" },    // copper
 ];
 
 /** Stable tone for an app on its own (detail page, player): its hue bucket. */
@@ -56,9 +57,9 @@ export function BeatCover({ hue = 210, tone, seed = "x", beats = 3, title }: { h
         <stop offset="0" stopColor={c.glow} stopOpacity=".75" /><stop offset="1" stopColor={c.glow} stopOpacity="0" /></radialGradient></defs>
       <rect width={W} height={H} fill={c.bg} />
       <rect width={W} height={H} fill={`url(#${gid})`} />
-      <polyline points={env} fill="none" stroke="#fff" strokeOpacity=".22" strokeWidth="26" strokeLinecap="round" />
-      <polyline points={pts(f1, 70, 0)} fill="none" stroke="#8cc6e0" strokeWidth="2.5" />
-      <polyline points={pts(f2, 70, 0.6)} fill="none" stroke="#f0a5c4" strokeWidth="2.5" />
+      <polyline points={env} fill="none" stroke="#fff" strokeOpacity=".7" strokeWidth="26" strokeLinecap="round" />
+      <polyline points={pts(f1, 70, 0)} fill="none" stroke="#2f6fa3" strokeWidth="2.5" />
+      <polyline points={pts(f2, 70, 0.6)} fill="none" stroke="#b03f6f" strokeWidth="2.5" />
     </svg>
   );
 }
@@ -76,8 +77,8 @@ const SHAPES: Record<string, string> = {
 export function ProductArt({ category, hue = 30, title }: { category: string; hue?: number; title?: string }) {
   return (
     <svg viewBox="0 0 400 300" {...(title ? { role: "img", "aria-label": title } : { "aria-hidden": true })} preserveAspectRatio="xMidYMid slice">
-      <rect width="400" height="300" fill={`hsl(${hue} 22% 88%)`} />
-      <circle cx="320" cy="60" r="90" fill={`hsl(${hue} 35% 80%)`} />
+      <rect width="400" height="300" fill={`hsl(${hue} 30% 95%)`} />
+      <circle cx="320" cy="60" r="90" fill={`hsl(${hue} 40% 88%)`} />
       <path d={SHAPES[category] ?? SHAPES.controllers} fill="none" stroke={`hsl(${hue} 30% 24%)`} strokeWidth="7"
             strokeLinecap="round" strokeLinejoin="round" />
     </svg>

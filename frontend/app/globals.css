@@ -367,3 +367,25 @@ table.retention td.ret-cell { text-align: center; font-variant-numeric: tabular-
 /* links inside running text are underlined (WCAG 1.4.1: not by colour alone) */
 main p a:not(.btn), main li a:not(.btn):not(.card), main dd a, .hint a, .muted a, .notice a { text-decoration: underline; text-underline-offset: 3px; }
 .crumbs a, main .chips a { text-decoration: none; }
+
+/* NAP-095 stage 2: compact catalog filters (pill search, small labels), buy panel, grouped product details */
+.filters { gap: 10px 12px; align-items: end; margin: 6px 0 18px; }
+.filters label.field { font-size: .8125rem; color: var(--muted); font-weight: 500; gap: 4px; }
+.filters > * { flex: 1 1 130px; }
+.filters > label.field:first-child { flex: 2 1 240px; }
+.filters input, .filters select { padding: 9px 14px; border-radius: 999px; background-color: var(--fog); border-color: transparent; }
+.filters input[name="q"] { padding-left: 38px; background: var(--fog) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23636366' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='m16 16 4 4'/%3E%3C/svg%3E") no-repeat 13px center / 18px; }
+.filters .btn { min-height: 40px; flex: 0 0 auto; }
+.page-head + .filters { margin-top: -8px; }
+.panel.buy-panel { background: var(--fog); border: 0; border-radius: var(--r-lg); padding: 20px; }
+@media (min-width: 861px) { .two > .stack:last-child .buy-panel { position: sticky; top: 68px; z-index: 1; } }
+h2.sub { font-size: var(--step-1); margin: 12px 0 4px; }
+details.more { border-top: 1px solid var(--hair); padding-top: 12px; }
+details.more > summary { cursor: pointer; font-weight: 600; padding: 4px 0 10px; list-style: none; }
+details.more > summary::-webkit-details-marker { display: none; }
+details.more > summary::after { content: "+"; float: right; color: var(--muted); font-weight: 400; }
+details.more[open] > summary::after { content: "−"; }
+.rating-empty { margin: 0 0 12px; }
+main .crumbs a { text-decoration: none; }
+main .crumbs a:hover { text-decoration: underline; }
+.page-head + .badge, h1 + .badge { margin-top: -6px; }

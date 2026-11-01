@@ -38,6 +38,7 @@ function StarInput({ value, onChange }: { value: number; onChange: (n: number) =
 export function RatingSummary({ s }: { s: any }) {
   const { t, locale } = useApp();
   const max = Math.max(1, ...Object.values<number>(s.distribution));
+  if (!s.count) return <p className="muted rating-empty">{t("rev.no_ratings_yet")}</p>;  // NAP-093: no empty histogram
   return (
     <div className="rating-summary">
       <div className="rating-big">
