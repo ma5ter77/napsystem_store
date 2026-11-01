@@ -12,3 +12,4 @@ backups/last-status.json*
 dump.rdb
 node_modules/
 sdk/dist/
+cohost4-report/

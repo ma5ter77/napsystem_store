@@ -1,0 +1,28 @@
+{
+  "status": "EXPERIMENT_ONLY_NOT_FOR_DEPLOYMENT",
+  "aggregate_app_memory_mib": 1792,
+  "runtime_overhead_reserve_mib": 256,
+  "total_store_budget_mib": 2048,
+  "aggregate_cpu_cores": 0.75,
+  "services": {
+    "postgres": {"memory_mib":256,"cpus":0.3},
+    "redis": {"memory_mib":64,"cpus":0.1},
+    "api": {"memory_mib":256,"cpus":0.5},
+    "web": {"memory_mib":256,"cpus":0.5},
+    "worker-media": {"memory_mib":640,"cpus":0.25},
+    "worker-ops": {"memory_mib":192,"cpus":0.15},
+    "backup": {"memory_mib":128,"cpus":0.15},
+    "migrate": {"memory_mib":640,"cpus":0.5}
+  },
+  "media_concurrency": 1,
+  "api_workers": 1,
+  "max_upload_bytes": 104857600,
+  "max_duration_seconds": 1800,
+  "production_remaining_gates": [
+    "rootless daemon and ALL children under immutable parent limits",
+    "disk quota including images logs backups and media",
+    "aggregate network and disk IO limits verified on actual filesystem",
+    "busy-period platform latency, video and trainers baseline",
+    "bounded separately authorized live canary with automatic store-only stop"
+  ]
+}
