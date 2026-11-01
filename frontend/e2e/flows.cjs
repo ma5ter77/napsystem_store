@@ -293,6 +293,18 @@ async function run(L) {
     await b.locator(".badge", { hasText: t("refund_status.rejected") }).first().waitFor();
     await b.getByText("E2E decline").waitFor();
   });
+  await step("developer analytics: funnel with page views, small groups hidden (NAP-027)", async () => {
+    await d.goto(`${BASE}/${L}/developer?tab=analytics`);
+    const sel = d.getByLabel(t("an.choose_app"));
+    await sel.selectOption(await sel.locator("option", { hasText: slug }).getAttribute("value"));
+    const funnel = d.getByRole("list", { name: t("an.funnel") });
+    await funnel.getByText(t("an.step_views")).waitFor();
+    // the buyer opened the app page once: one unique view; one listener is below the group threshold
+    await funnel.locator("li").first().locator(".funnel-value", { hasText: /^1/ }).waitFor();
+    await funnel.locator("li").nth(1).getByText(t("an.hidden", { n: "5" })).waitFor();
+    await d.getByRole("img", { name: t("an.weekly") }).waitFor();
+    await d.screenshot({ path: `${out}/${L}-analytics.png`, fullPage: true });
+  });
   console.log(`[${L}] hardware scenario`);
   let orderNumber = "";
   await step("kit builder adds missing parts; checkout", async () => {

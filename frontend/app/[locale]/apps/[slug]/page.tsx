@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { AppCover } from "@/components/Art";
 import { priceLabel } from "@/components/cards";
 import { AppActions } from "@/components/AppActions";
+import { ViewBeacon } from "@/components/ViewBeacon";
 import { ReviewsSection, Stars } from "@/components/Reviews";
 import { duration, isLocale, langName, Locale, num1, translator } from "@/lib/i18n";
 import { alternates, serverApi, serverTranslator } from "@/lib/server";
@@ -32,6 +33,7 @@ export default async function AppPage({ params }: { params: P }) {
   const caps: string[] = a.requirements?.required_capabilities ?? [];
   return (
     <div className="section two">
+      <ViewBeacon slug={a.slug} />
       <div className="stack">
         <div className="hero-art" style={{ aspectRatio: "4/3" }}><AppCover a={a} eager /></div>
         <div className="panel stack">

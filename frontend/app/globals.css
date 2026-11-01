@@ -241,3 +241,23 @@ main:focus { outline: none; }
 /* NAP-023: saved addresses */
 ul.plain { list-style: none; padding: 0; margin: 0; }
 .row.between { justify-content: space-between; }
+/* NAP-027: developer analytics */
+.funnel { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.funnel li { display: grid; grid-template-columns: minmax(110px, 180px) 1fr minmax(90px, auto); gap: 12px; align-items: center; }
+.funnel-track { height: 14px; background: var(--fog); border-radius: 4px; overflow: hidden; }
+.funnel-bar { display: block; height: 100%; background: var(--left); border-radius: 0 4px 4px 0; }
+.funnel-value { font-variant-numeric: tabular-nums; }
+.chart { margin: 16px 0 0; }
+.chart-svg { width: 100%; height: auto; display: block; }
+.chart-svg .axis { stroke: var(--line); stroke-width: 1; }
+.chart-svg .tick { font-size: 13px; fill: var(--muted); }
+.chart-svg .bar-started { fill: var(--tint-left); stroke: var(--left); stroke-width: 1; }
+.chart-svg .bar-completed { fill: var(--left); }
+.chart-svg .bar-hidden { fill: var(--line); }
+.legend { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 14px; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+.sw-started { background: var(--tint-left); border: 1px solid var(--left); }
+.sw-completed { background: var(--left); }
+.chart-readout { min-height: 1.5em; }
+table.retention td.ret-cell { text-align: center; font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) { .funnel li { grid-template-columns: 1fr auto; } .funnel-track { grid-column: 1 / -1; grid-row: 2; } }
