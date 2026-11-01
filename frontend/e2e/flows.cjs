@@ -403,7 +403,7 @@ async function run(L) {
     await s.p.getByLabel(t("fields.model")).fill(`${L}-${stamp}`);
     await s.p.getByRole("button", { name: t("sp.create") }).click();
     await s.p.waitForURL(/\/seller\/products\/[0-9a-f-]+/);
-    await s.p.getByLabel(t("sp.price")).fill("49.90");
+    await s.p.getByLabel(t("sp.price"), { exact: true }).fill("49.90");
     await s.p.getByLabel(t("sp.weight")).fill("300");
     for (const k of ["length_mm", "width_mm", "height_mm"]) await s.p.getByLabel(t(`fields.${k}`), { exact: true }).fill("150");
     await s.p.getByLabel(t("sp.origin")).fill("DE");
