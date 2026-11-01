@@ -51,3 +51,48 @@ def normalize(src_path: str) -> tuple[str, dict]:
         raise
     except (UnidentifiedImageError, Image.DecompressionBombError, OSError, ValueError) as e:
         raise ApiError("cover_invalid", 422, details={"reason": type(e).__name__}) from e
+
+
+# ------------------------------------------------------------------ product photos (NAP-047)
+
+PHOTO_MIN_SIDE = 600               # shorter side, so a photo is sharp in the gallery
+PHOTO_MAX_SIDE = 1600              # longer side after re-encoding
+PHOTO_MAX_RATIO = 3.0              # panoramas and strips do not fit the gallery frame
+PHOTO_REQUIREMENTS = {"formats": ["png", "jpg", "jpeg", "webp"], "max_bytes": 10 * 1024 * 1024,
+                      "min_side": PHOTO_MIN_SIDE, "max_ratio": PHOTO_MAX_RATIO, "max_count": 8,
+                      "output": f"webp, longer side ≤ {PHOTO_MAX_SIDE}"}
+
+
+def normalize_photo(src_path: str) -> tuple[str, dict]:
+    """Like covers, but the photo keeps its proportions (no crop) and is scaled to fit 1600 px. Raises ApiError."""
+    from PIL import Image, ImageOps, UnidentifiedImageError
+    Image.MAX_IMAGE_PIXELS = MAX_PIXELS
+    try:
+        with Image.open(src_path) as im:
+            fmt = (im.format or "").upper()
+            if fmt not in ("PNG", "JPEG", "WEBP"):
+                raise ApiError("photo_invalid", 422, details={"reason": "format"})
+            im.load()
+            if getattr(im, "is_animated", False):
+                raise ApiError("photo_invalid", 422, details={"reason": "animated"})
+            im = ImageOps.exif_transpose(im)
+            w, h = im.size
+            if min(w, h) < PHOTO_MIN_SIDE:
+                raise ApiError("photo_too_small", 422, details={"width": w, "height": h}, min_side=PHOTO_MIN_SIDE)
+            if max(w, h) / min(w, h) > PHOTO_MAX_RATIO:
+                raise ApiError("photo_invalid", 422, details={"reason": "ratio"})
+            if im.mode not in ("RGB", "RGBA"):
+                im = im.convert("RGBA" if "A" in im.getbands() else "RGB")
+            if im.mode == "RGBA":  # product shots on a transparent background: flatten on white
+                bg = Image.new("RGB", im.size, (255, 255, 255))
+                bg.paste(im, mask=im.split()[-1])
+                im = bg
+            im.thumbnail((PHOTO_MAX_SIDE, PHOTO_MAX_SIDE), Image.Resampling.LANCZOS)
+            fd, path = tempfile.mkstemp(suffix=".webp")
+            os.close(fd)
+            im.save(path, "WEBP", quality=85, method=4)  # metadata (EXIF, GPS) is not copied
+            return path, {"source_format": fmt.lower(), "source_size": [w, h], "size": list(im.size)}
+    except ApiError:
+        raise
+    except (UnidentifiedImageError, Image.DecompressionBombError, OSError, ValueError) as e:
+        raise ApiError("photo_invalid", 422, details={"reason": type(e).__name__}) from e

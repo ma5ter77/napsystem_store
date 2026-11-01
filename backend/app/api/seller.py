@@ -369,3 +369,38 @@ def withdraw_product(product_id: str, request: Request, p=P, db=DB):
     x = prod.withdraw(db, u, prod.owned_product(db, ids, as_uuid(product_id, "product"), lock=True))
     db.commit()
     return prod.view(db, x, locale_of(request))
+
+
+# ------------------------------------------------------------------ product photos (NAP-047)
+
+class PhotoOrderIn(BaseModel):
+    ids: list[str]
+
+
+@router.post("/products/{product_id}/photos", status_code=201, tags=["seller/products"])
+async def add_product_photo(product_id: str, request: Request, filename: str = "photo.jpg", p=P, db=DB):
+    """Raw image body (PNG, JPEG or WebP, ≤ 10 MB). Re-encoded to WebP without metadata before it is stored."""
+    u, ids = _seller(p, db)
+    data = await request.body()
+    x = prod.owned_product(db, ids, as_uuid(product_id, "product"), lock=True)
+    prod.add_photo(db, u, x, data, filename)
+    db.commit()
+    return prod.view(db, x, locale_of(request))
+
+
+@router.delete("/products/{product_id}/photos/{asset_id}", tags=["seller/products"])
+def remove_product_photo(product_id: str, asset_id: str, request: Request, p=P, db=DB):
+    u, ids = _seller(p, db)
+    x = prod.owned_product(db, ids, as_uuid(product_id, "product"), lock=True)
+    prod.remove_photo(db, u, x, as_uuid(asset_id, "photo"))
+    db.commit()
+    return prod.view(db, x, locale_of(request))
+
+
+@router.put("/products/{product_id}/photos", tags=["seller/products"])
+def reorder_product_photos(product_id: str, body: PhotoOrderIn, request: Request, p=P, db=DB):
+    u, ids = _seller(p, db)
+    x = prod.owned_product(db, ids, as_uuid(product_id, "product"), lock=True)
+    prod.reorder_photos(db, u, x, body.ids)
+    db.commit()
+    return prod.view(db, x, locale_of(request))

@@ -17,7 +17,7 @@ JOB_STATES = ("queued", "validating", "decoding", "rendering", "quality_check", 
               "failed", "canceled")
 JOB_TERMINAL = ("completed", "failed", "canceled")
 ASSET_KINDS = ("source", "master", "delivery", "preview", "public_preview", "qa_report", "params", "layer",
-               "cover", "document", "label")
+               "cover", "document", "label", "product_photo")
 
 
 class App(Base):

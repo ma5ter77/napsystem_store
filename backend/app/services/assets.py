@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
+from .covers import PHOTO_REQUIREMENTS
 from .covers import REQUIREMENTS as COVER_REQUIREMENTS
 from ..db import utcnow
 from ..dsp.media import MediaError, probe
@@ -30,7 +31,7 @@ def limits_public() -> dict:
     s = get_settings()
     return {"max_upload_bytes": s.max_upload_bytes, "max_duration_seconds": s.max_duration_seconds,
             "accepted": sorted(SOURCE_EXT), "channels": [1, 2], "preview_seconds": s.preview_seconds,
-            "cover": COVER_REQUIREMENTS}
+            "cover": COVER_REQUIREMENTS, "product_photo": PHOTO_REQUIREMENTS}
 
 
 def create_upload(db: Session, owner_id: uuid.UUID, app: App, kind: str, filename: str, size: int,

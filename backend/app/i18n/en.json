@@ -95,7 +95,10 @@
   "nothing_changed": "Nothing changed.",
   "category_in_use": "The category is in use ({count}) — move the apps and products to another one first.",
   "cover_invalid": "The file is not a valid PNG, JPEG or WebP image (or it is damaged). Animated images are not accepted.",
-  "cover_too_small": "The cover is too small: at least {min_width}×{min_height} pixels are needed."
+  "cover_too_small": "The cover is too small: at least {min_width}×{min_height} pixels are needed.",
+  "photo_invalid": "Photo rejected: a PNG, JPEG or WebP file without animation and with a side ratio of at most 3:1 is needed.",
+  "photo_too_small": "The photo is too small: the shorter side must be at least {min_side} pixels.",
+  "photo_limit": "The product already has {max_count} photos — delete one to add another."
  },
  "jobs": {
   "decode_failed": "The file could not be fully decoded.",
