@@ -560,6 +560,14 @@ M.update({
 })
 
 
+# NAP-042: player seek
+M.update({
+"player.seek": ("Позиция в программе", "Position in the program"), "player.remaining": ("Осталось {time}", "{time} left"),
+"player.back30": ("Назад на 30 секунд", "Back 30 seconds"), "player.fwd30": ("Вперёд на 30 секунд", "Forward 30 seconds"), "player.sec": ("с", "s"),
+"player.seek_hint": ("Перематывать можно ползунком, кнопками или стрелками клавиатуры. Сеанс засчитывается завершённым, если прослушано не меньше 80 % программы.", "Seek with the slider, the buttons or the arrow keys. A session counts as completed when at least 80% of the program was listened to."),
+})
+
+
 def nest(lang):
     out = {}
     for key, pair in M.items():
