@@ -1,0 +1,47 @@
+# Disposable-stand acceptance of the guarded release runner (ops/cohost/release_control.py).
+# A fresh GitHub runner is the throwaway Linux/Docker machine required by docs/release-safety.md:
+# real bootstrap of a closed demo, upgrade, failed upgrade with automatic restore, rollback and refusals.
+# Nothing here touches the platform server, DNS, nginx or any real data.
+name: release-acceptance
+
+on:
+  pull_request:
+    paths:
+      - "ops/cohost/**"
+      - "docker-compose.yml"
+      - "backend/Dockerfile"
+      - "frontend/Dockerfile"
+      - "backend/migrations/**"
+      - ".github/workflows/release-acceptance.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: release-acceptance-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  stand:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: free disk space for images (the runner needs >= 8 GiB free, as on the server)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          df -h "$HOME" | tail -1; free -g | head -2
+      - name: offline controller tests
+        run: python3 -m unittest -v ops/cohost/test_release_control.py
+      - name: real Docker acceptance (bootstrap, upgrade, failure + restore, rollback, refusals)
+        run: bash ops/cohost/acceptance.sh
+      - name: diagnostics on failure (no environment values)
+        if: failure()
+        run: |
+          docker ps -a --format '{{.Names}}\t{{.Image}}\t{{.Status}}' || true
+          for s in api web migrate; do
+            id=$(docker ps -aq --filter label=com.docker.compose.service=$s | head -1)
+            [ -n "$id" ] && { echo "== $s"; docker logs --tail 60 "$id" 2>&1 | grep -viE 'secret|password|token' || true; }
+          done
+          ls -la "$HOME/nap-stand/srv" 2>/dev/null || true
