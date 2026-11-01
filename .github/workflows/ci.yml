@@ -4,6 +4,7 @@
 name: ci
 
 on:
+  workflow_dispatch:
   push:
     branches: [master, main]
   pull_request:
@@ -28,6 +29,10 @@ jobs:
       - uses: actions/checkout@v4
       - run: python3 ops/release.py --check
       - run: python3 ops/cohost/test_release_control.py
+      - run: python3 ops/automation/test_receive.py
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: node ops/automation/test-auto-merge.cjs
       - run: bash -n ops/cohost/deploy-cohost.sh ops/cohost/rollback-cohost.sh
 
   backend:

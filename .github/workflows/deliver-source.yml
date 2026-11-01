@@ -1,0 +1,57 @@
+name: deliver-checked-source
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: store-source-delivery
+  cancel-in-progress: false
+jobs:
+  upload:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'master' &&
+      (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch') &&
+      github.event.workflow_run.head_repository.full_name == 'BrothersB/nap-store'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check current master
+        id: gate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {data} = await github.rest.repos.getBranch({...context.repo,branch:'master'});
+            core.setOutput('current',data.commit.sha === context.payload.workflow_run.head_sha ? 'yes' : 'no');
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.current == 'yes'
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - name: Archive and deliver (no extraction or deployment)
+        if: steps.gate.outputs.current == 'yes'
+        env:
+          STORE_UPLOAD_KEY: ${{ secrets.STORE_UPLOAD_SSH_KEY }}
+          STORE_HOST_KEY: ${{ vars.STORE_UPLOAD_HOST_KEY }}
+          COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: python
+        run: |
+          import hashlib,json,os,pathlib,subprocess,tempfile
+          sha=os.environ['COMMIT_SHA']
+          assert len(sha)==40 and all(c in '0123456789abcdef' for c in sha)
+          with tempfile.TemporaryDirectory() as temp:
+            p=pathlib.Path(temp); key=p/'key'; hosts=p/'known_hosts'; archive=p/'source.tar.gz'
+            assert os.environ['STORE_UPLOAD_KEY'] and os.environ['STORE_HOST_KEY'], 'Upload credentials not configured'
+            key.write_text(os.environ['STORE_UPLOAD_KEY']+'\n'); key.chmod(0o600)
+            hosts.write_text('217.114.3.160 '+os.environ['STORE_HOST_KEY']+'\n')
+            subprocess.run(['git','archive','--format=tar.gz','--output='+str(archive),sha],check=True)
+            payload=archive.read_bytes(); assert len(payload)<=64*1024*1024
+            meta={'sha':sha,'size':len(payload),'sha256':hashlib.sha256(payload).hexdigest()}
+            result=subprocess.run(['ssh','-i',str(key),'-o','IdentitiesOnly=yes','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','UserKnownHostsFile='+str(hosts),'-o','ConnectTimeout=15','napstore@217.114.3.160','upload-v1'],input=json.dumps(meta).encode()+b'\n'+payload,capture_output=True,timeout=300,check=True)
+            receipt=json.loads(result.stdout)
+            assert receipt['status']=='UPLOADED_NOT_INSTALLED' and all(receipt[k]==v for k,v in meta.items())
+            print(json.dumps(receipt))
+            with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out: out.write('## Uploaded, not installed\n\n```json\n'+json.dumps(receipt,indent=2)+'\n```\n')
