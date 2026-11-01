@@ -6,9 +6,10 @@ import { priceLabel } from "@/components/cards";
 import { AppActions } from "@/components/AppActions";
 import { ViewBeacon } from "@/components/ViewBeacon";
 import { ReviewsSection, Stars } from "@/components/Reviews";
-import { duration, isLocale, langName, Locale, num1, translator } from "@/lib/i18n";
+import { duration, isLocale, langName, Locale, num1, translator, displayTitle } from "@/lib/i18n";
 import { alternates, serverApi, serverTranslator } from "@/lib/server";
 import { ServerError } from "@/components/State";
+import { Breadcrumbs } from "@/components/nav";
 
 type P = Promise<{ locale: string; slug: string }>;
 
@@ -32,6 +33,9 @@ export default async function AppPage({ params }: { params: P }) {
   const price = a.prices?.[0];
   const caps: string[] = a.requirements?.required_capabilities ?? [];
   return (
+    <>
+    <Breadcrumbs label={t("crumbs.label")} items={[{ href: `/${locale}`, label: t("crumbs.home") },
+      { href: `/${locale}/apps`, label: t("nav.apps") }, { label: displayTitle(a.title) }]} />
     <div className="section two">
       <ViewBeacon slug={a.slug} />
       <div className="stack">
@@ -48,7 +52,7 @@ export default async function AppPage({ params }: { params: P }) {
       </div>
       <div className="stack">
         <div>
-          <h1 lang={a.lang ?? undefined}>{a.title}</h1>
+          <h1 lang={a.lang ?? undefined}>{displayTitle(a.title)}</h1>
           {a.fallback && a.lang && <span className="badge gray">{t("common.original_lang", { lang: langName(a.lang, locale) })}</span>}
           <p className="muted" lang={a.lang ?? undefined}>{a.subtitle}</p>
           {a.rating?.average != null && <a href="#reviews-h" className="row hint"><Stars value={a.rating.average} label={t("rev.card", { avg: num1(a.rating.average, locale), count: a.rating.count })} /> {num1(a.rating.average, locale)} · {t("rev.ratings_n", { count: a.rating.count })}</a>}
@@ -74,5 +78,6 @@ export default async function AppPage({ params }: { params: P }) {
       </div>
       <div style={{ gridColumn: "1 / -1" }}><ReviewsSection slug={a.slug} /></div>
     </div>
+    </>
   );
 }
