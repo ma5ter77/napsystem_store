@@ -51,6 +51,22 @@
    "beat_hz": 10.0,
    "master_bytes": 172800044,
    "delivery_flac_bytes": 126986617
+  },
+  {
+   "input_minutes": 120.0,
+   "input_format": "wav 16-bit 44.1 kHz stereo",
+   "input_bytes": 1270080044,
+   "wall_seconds": 309.1,
+   "realtime_factor": 23.3,
+   "cpu_seconds_python": 221.3,
+   "cpu_seconds_ffmpeg": 94.8,
+   "peak_rss_pipeline_mb": 291.1,
+   "peak_rss_ffmpeg_mb": 291.1,
+   "true_peak_master_dbtp": -11.589,
+   "beat_hz": 10.0,
+   "master_bytes": 2073600044,
+   "delivery_flac_bytes": 1572549169,
+   "measured": "2026-11-01"
   }
  ],
  "notes": "Synthesized stereo input; profile alpha-demo-v1; one conversion at a time; conversion runs in a fresh process. peak_rss_ffmpeg_mb is ru_maxrss of children and includes the image inherited at fork, so it is an upper bound, not an isolated ffmpeg peak."

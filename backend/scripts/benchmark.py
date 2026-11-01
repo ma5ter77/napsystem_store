@@ -1,6 +1,7 @@
 """Real conversion benchmark: synthesizes inputs, runs the production pipeline, records wall time, CPU time and
-peak memory (process + ffmpeg children). Usage: uv run python scripts/benchmark.py 10 60 [--mp3]"""
+peak memory (process + ffmpeg children). Usage (from backend/): uv run python scripts/benchmark.py 10 60 120 [--mp3]"""
 import json, os, platform, resource, subprocess, sys, tempfile, time
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # run without PYTHONPATH
 import numpy as np
 from app.dsp.engine import ALPHA_DEMO_V1
 from app.dsp.pipeline import Limits, _wav_header, convert
