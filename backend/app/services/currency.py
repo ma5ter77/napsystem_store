@@ -1,7 +1,8 @@
 """NAP-012: buyer currency. Apps may have one active price per kind *and currency* (e.g. EUR and USD);
 the buyer sees and pays in their currency when the author set one, otherwise in the author's currency.
 
-Buyer currency: cookie `nap_currency` (explicit choice) → interface language (en → USD, ru → EUR)."""
+Buyer currency: cookie `nap_currency` (explicit choice) → the browser's region (Accept-Language, e.g. en-US →
+USD) → EUR. The interface language never changes prices: switching RU/EN keeps the same currency."""
 from __future__ import annotations
 
 from contextvars import ContextVar
@@ -9,18 +10,20 @@ from contextvars import ContextVar
 from ..config import get_settings
 
 buyer_currency_var: ContextVar[str | None] = ContextVar("buyer_currency", default=None)
-DEFAULT_BY_LOCALE = {"en": "USD", "ru": "EUR"}
+USD_REGIONS = {"US", "PR", "EC", "SV", "PA", "TL", "FM", "MH", "PW", "ZW"}  # where the US dollar is the currency
 
 
 def supported() -> list[str]:
     return [c.upper() for c in get_settings().currencies]
 
 
-def resolve(cookie: str | None, locale: str) -> str:
+def resolve(cookie: str | None, accept_language: str | None) -> str:
     c = (cookie or "").upper()
     if c in supported():
         return c
-    d = DEFAULT_BY_LOCALE.get(locale, "EUR")
+    first = (accept_language or "").split(",")[0].split(";")[0].strip()
+    region = first.split("-")[1].upper() if "-" in first else ""
+    d = "USD" if region in USD_REGIONS else "EUR"
     return d if d in supported() else supported()[0]
 
 

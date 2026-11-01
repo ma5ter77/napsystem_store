@@ -78,7 +78,7 @@ def create_app() -> FastAPI:
         loc = request.headers.get("x-locale") or request.cookies.get("nap_locale")
         request.state.locale = loc if loc in ("ru", "en") else negotiate(request.headers.get("accept-language"))
         from .services import currency as _cur  # NAP-012: buyer currency for catalog prices and checkout
-        request.state.currency = _cur.resolve(request.cookies.get("nap_currency"), request.state.locale)
+        request.state.currency = _cur.resolve(request.cookies.get("nap_currency"), request.headers.get("accept-language"))
         cur_token = _cur.buyer_currency_var.set(request.state.currency)
         t0 = time.perf_counter()
         try:

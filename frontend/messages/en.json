@@ -1458,5 +1458,15 @@
  },
  "errors": {
   "no_billing_account": "No billing profile yet: it is created with your first payment."
+ },
+ "payouts": {
+  "title": "Payouts",
+  "ready": "connected",
+  "incomplete": "setup not finished",
+  "not_connected": "not connected",
+  "hint": "Sales revenue is transferred to your own Stripe account. You enter identity, tax and bank details on Stripe's secure page — the platform does not store them.",
+  "ready_hint": "Your available balance is transferred to your Stripe account after the hold period.",
+  "connect": "Set up payouts",
+  "continue": "Continue setup"
  }
 }

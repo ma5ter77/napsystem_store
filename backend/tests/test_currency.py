@@ -29,8 +29,12 @@ def test_usd_price_does_not_replace_eur_and_buyer_sees_own_currency():
             Price.app_id == uuid.UUID(pub["app_id"]), Price.active.is_(True)))}
     assert active == {"EUR": 1000, "USD": 1200}
     ru, en = Client("ru"), Client("en")
-    assert _card_price(ru, pub["slug"])["currency"] == "EUR"   # ru interface → EUR
-    assert _card_price(en, pub["slug"])["currency"] == "USD"   # en interface → USD
+    assert _card_price(ru, pub["slug"])["currency"] == _card_price(en, pub["slug"])["currency"] == "EUR"  # UI language ≠ currency
+    us = Client("en")
+    us.headers["accept-language"] = "en-US,en;q=0.9"            # browser region US → USD
+    assert _card_price(us, pub["slug"])["currency"] == "USD"
+    us.headers["accept-language"] = "de-DE"
+    assert _card_price(us, pub["slug"])["currency"] == "EUR"
     ru.c.cookies.set("nap_currency", "USD")                    # explicit choice wins
     p = _card_price(ru, pub["slug"])
     assert (p["currency"], p["amount_minor"]) == ("USD", 1200)
@@ -43,12 +47,15 @@ def test_missing_currency_falls_back_to_the_authors_price():
     dev = Client().register(developer=True)
     mod = Client().login("moderator@nap.demo")
     pub = make_published_app(dev, mod, amount=700)  # EUR only
-    assert _card_price(Client("en"), pub["slug"])["currency"] == "EUR"
+    c = Client("en")
+    c.c.cookies.set("nap_currency", "USD")
+    assert _card_price(c, pub["slug"])["currency"] == "EUR"
 
 
 def test_checkout_charges_in_the_buyers_currency():
     _, pub = _app_with_usd()
     buyer = Client("en").register()
+    buyer.c.cookies.set("nap_currency", "USD")
     co = ok(buyer.post("/checkout/digital", {"app_id": pub["app_id"], "kind": "one_time"}), 201)
     mock_pay(buyer, co["checkout_url"])
     with session_scope() as db:
@@ -79,5 +86,7 @@ def test_unsupported_currency_rejected():
 
 
 def test_demo_apps_are_priced_in_usd_too():
-    assert _card_price(Client("en"), "quiet-harbor")["currency"] == "USD"
-    assert _card_price(Client("ru"), "quiet-harbor")["currency"] == "EUR"
+    c = Client("ru")
+    assert _card_price(c, "quiet-harbor")["currency"] == "EUR"
+    c.c.cookies.set("nap_currency", "USD")
+    assert _card_price(c, "quiet-harbor")["currency"] == "USD"
