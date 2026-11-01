@@ -11,6 +11,7 @@ from sqlalchemy import select
 from .. import ratelimit
 from ..errors import ApiError
 from ..models import App, AppVersion, Asset, Category, Price, User
+from ..services import currency
 from ..services import billing, reviews
 from ..services.assets import limits_public, receive_upload, signed_url
 from ..services.common import get_translations, localized
@@ -46,18 +47,20 @@ def app_card(db, app: App, locale: str, detail: bool = False, user_id=None, rati
         v = pre["versions"].get(app.published_version_id) if app.published_version_id else None
         tr = pre["translations"].get(app.id)
         cat = pre["categories"].get(app.category_id) if app.category_id else None
-        prices = [price_view(p) for p in pre["prices"].get(app.id, [])]
+        all_prices = pre["prices"].get(app.id, [])
     else:
         v = db.get(AppVersion, app.published_version_id) if app.published_version_id else None
         tr = get_translations(db, "app", [app.id]).get(app.id)
         cat = db.get(Category, app.category_id) if app.category_id else None
-        prices = [price_view(p) for p in db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True)))]
+        all_prices = list(db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True))))
+    prices = [price_view(p) for p in currency.choose(all_prices)]  # NAP-012: the buyer's currency when available
     loc = localized(tr, locale)
     out = {"id": str(app.id), "slug": app.slug, "author": app.author_name, "cover_hue": app.cover_hue,
            "title": loc.get("title"), "subtitle": loc.get("subtitle"), "lang": loc["lang"],
            "translation_status": loc["translation_status"], "fallback": loc["fallback"],
            "category": {"slug": cat.slug, "name": cat.names.get(locale)} if cat else None,
            "content_language": v.content_language if v else None, "prices": prices,
+           "currencies": sorted({p.currency for p in all_prices}),
            "sales_status": app.sales_status, "is_demo": app.is_demo,
            "sessions_count": len(v.sessions) if v else 0,
            "total_duration_seconds": round(sum(s.duration_seconds for s in v.sessions), 1) if v else 0,
