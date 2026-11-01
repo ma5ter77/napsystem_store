@@ -4,6 +4,8 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
+import socket
 from pathlib import Path
 import sys
 import tarfile
@@ -170,6 +172,47 @@ class Safety(unittest.TestCase):
         self.assertTrue(any(c[0] == "stop" for c in commands))
         self.assertFalse(any(c[0] == "down" for c in commands))
         self.assertEqual(r.read_json(self.controller.state_path)["status"], "initial_recovery_required")
+    @unittest.skipUnless(os.name == "posix", "Frozen environment mode checks require POSIX")
+    def test_prepare_freezes_images_without_activation(self):
+        args = self.args()
+        (self.root / "shared/.env").chmod(0o600)
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            port = probe.getsockname()[1]
+        config = {"services": {
+            "api": {"environment": {"NAP_ENV": "demo", "NAP_COOKIE_SECURE": "true",
+                "NAP_PUBLIC_BASE_URL": "https://store.napsystem.com", "NAP_SECRET_KEY": "s" * 40,
+                "NAP_STORAGE_BACKEND": "local"}, "build": {"context": "backend"}},
+            "web": {"ports": [{"host_ip": "127.0.0.1", "published": str(port)}], "build": {"context": "frontend"}},
+            "worker-media": {}, "worker-ops": {}, "migrate": {},
+            "postgres": {"image": "postgres:test", "environment": {"POSTGRES_PASSWORD": "p" * 40}},
+            "redis": {"image": "redis:test"}, "backup": {"image": "postgres:test"}}, "volumes": {}}
+        image_id = "sha256:" + "c" * 64
+        def fake_run(command, **kwargs):
+            self.engine.calls.append(("run", command))
+            if "config" in command:
+                return json.dumps(config)
+            if command[1:3] == ["image", "inspect"]:
+                return image_id
+            return ""
+        with patch.object(self.engine, "run", side_effect=fake_run):
+            meta = self.controller.prepare(args, {"current": None})
+        self.assertEqual(set(meta["images"].values()), {image_id})
+        frozen = r.read_json(meta["config"])
+        self.assertNotIn("build", frozen["services"]["api"])
+        self.controller.verify_meta(meta)
+        self.assertFalse(any(c[0] == "activate" for c in self.engine.calls))
+        self.assertFalse(self.controller.state_path.exists())
+
+    @unittest.skipUnless(os.name == "posix", "Frozen environment mode checks require POSIX")
+    def test_prepare_schema_change_stops_before_build(self):
+        args = self.args()
+        (self.root / "shared/.env").chmod(0o600)
+        old = {"files": {"docker-compose.yml": "old"}, "env_hash": self.envhash}
+        with self.assertRaisesRegex(r.Refusal, "Schema/topology"):
+            self.controller.prepare(args, {"current": old})
+        self.assertEqual(self.engine.calls, [])
+
     def test_stale_release_document_check_does_not_write(self):
         script = Path(__file__).resolve().parents[1] / "release.py"
         module_spec = importlib.util.spec_from_file_location("release_docs", script)
