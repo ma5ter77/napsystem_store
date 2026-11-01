@@ -124,3 +124,11 @@ def test_version_endpoint_matches_repository_release():
     assert f"## [{repo['version']}]" in (root / "CHANGELOG.md").read_text()
     assert c.get("/about/documents/nope").status_code == 404
     assert ok(c.get("/openapi.json"))["info"]["version"] == repo["version"]
+
+
+def test_plural_exact_number_wins_over_category():
+    """NAP-045: ICU "=1 {...}" — 1 gets its own wording, 21 (also category "one") gets the plural form."""
+    from app.i18n import format_message
+    tpl = "{count, plural, =1 {один продавец} one {# заказ} few {# заказа} many {# заказов} other {# заказа}}"
+    assert [format_message(tpl, "ru", {"count": n}) for n in (1, 2, 5, 21)] == \
+        ["один продавец", "2 заказа", "5 заказов", "21 заказ"]
