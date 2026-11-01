@@ -234,6 +234,14 @@ class Safety(unittest.TestCase):
         with patch.object(sys, "argv", ["release.py"]): docs.main()
         with patch.object(sys, "argv", ["release.py", "--check"]): docs.main()
 
+    def test_frozen_compose_preserves_literal_dollars(self):
+        original = {"environment": {"PASSWORD": "a${HOME}$x$$end"}, "command": ["echo $VALUE"], "port": 3}
+        frozen = r.escape_compose(original)
+        self.assertEqual(frozen["environment"]["PASSWORD"], "a$${HOME}$$x$$$$end")
+        self.assertEqual(frozen["environment"]["PASSWORD"].replace("$$", "$"), original["environment"]["PASSWORD"])
+        self.assertEqual(frozen["command"], ["echo $$VALUE"])
+        self.assertEqual(frozen["port"], 3)
+
     def test_no_shell_environment_override(self):
         with patch.dict(r.os.environ, {"NAP_SECRET_KEY": "never", "COMPOSE_FILE": "other.yml"}):
             clean = r.clean_environment()

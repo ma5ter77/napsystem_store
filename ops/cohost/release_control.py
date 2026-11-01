@@ -48,9 +48,29 @@ def atomic_json(path, data):
             f.flush()
             os.fsync(f.fileno())
         os.replace(tmp, path)
+        sync_directory(path.parent)
     finally:
         if os.path.exists(tmp):
             os.unlink(tmp)
+
+def sync_directory(path):
+    if sys.platform == "linux":
+        fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+
+def escape_compose(value):
+    # Compose parses the frozen JSON again on up/build. Preserve literal dollars
+    # from the first render (passwords and shell commands), not host interpolation.
+    if isinstance(value, str):
+        return value.replace("$", "$$")
+    if isinstance(value, list):
+        return [escape_compose(v) for v in value]
+    if isinstance(value, dict):
+        return {k: escape_compose(v) for k, v in value.items()}
+    return value
 
 def read_json(path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
@@ -133,7 +153,7 @@ class Engine:
                     labels.get("com.docker.compose.service") == name, "Container ownership mismatch")
             actual = dict(item.split("=", 1) for item in container["Config"]["Env"] if "=" in item)
             expected = config["services"][name].get("environment", {})
-            require(all(actual.get(k) == str(v) for k, v in expected.items()), "Running environment drift")
+            require(all(actual.get(k) == str(v).replace("$$", "$") for k, v in expected.items()), "Running environment drift")
 
     def activate(self, meta):
         self.verify_images(meta)
@@ -273,7 +293,7 @@ class Controller:
         for name, tag in tags.items():
             config["services"][name]["image"] = tag
         cfg = control / "compose.json"
-        atomic_json(cfg, config)
+        atomic_json(cfg, escape_compose(config))
         meta = {"sha": args.sha, "release": str(source), "config": str(cfg), "env": str(frozen_env),
                 "env_hash": digest(frozen_env), "files": files, "port": port,
                 "archive_hash": args.archive_sha256}
@@ -292,7 +312,7 @@ class Controller:
             require(re.fullmatch(r"sha256:[0-9a-f]{64}", image_id), "Provision infrastructure images first")
             config["services"][name]["image"] = image_id
             ids[name] = image_id
-        atomic_json(cfg, config)
+        atomic_json(cfg, escape_compose(config))
         meta.update(images=ids, config_hash=digest(cfg))
         self.verify_meta(meta)
         return meta
@@ -302,6 +322,7 @@ class Controller:
         require(not os.path.lexists(link), "Pending pointer exists; reconcile manually")
         link.symlink_to(meta["release"], target_is_directory=True)
         os.replace(link, self.root / "current")
+        sync_directory(self.root)
 
     def transition(self, state, target, bootstrap=False):
         old = state["current"]
