@@ -55,6 +55,8 @@ def serialize_product(db: Session, p: Product, locale: str, detail: bool = False
            "freight_mode": p.freight_mode, "hue": p.hue, "is_demo": p.is_demo, "skus": skus,
            "price_from_minor": min((s["price_minor"] for s in skus), default=None),
            "currency": skus[0]["currency"] if skus else None}
+    from .products import photos_view  # NAP-047: moderated supplier photos (none → the schematic illustration)
+    out["photos"] = photos_view(db, p) if p.photos else []
     from . import reviews  # NAP-079
     out["rating"] = rating if rating is not None else reviews.summaries(db, [p.id], "product")[p.id]
     if detail:

@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import { notFound } from "next/navigation";
 import { ProductArt } from "@/components/Art";
+import { ProductGallery } from "@/components/ProductGallery";
 import { availabilityText, CompatBadge } from "@/components/cards";
 import { AddToCart } from "@/components/AddToCart";
 import { BomBuilder } from "@/components/BomBuilder";
@@ -19,7 +20,8 @@ export async function ProductDetail({ locale, slug, app }: { locale: Locale; slu
   return (
     <div className="section two">
       <div className="stack">
-        <div className="hero-art" style={{ aspectRatio: "4/3" }}><ProductArt category={p.category.slug} hue={p.hue} title={p.title} /></div>
+        {p.photos?.length ? <ProductGallery photos={p.photos} title={p.title} />
+          : <div className="hero-art" style={{ aspectRatio: "4/3" }}><ProductArt category={p.category.slug} hue={p.hue} title={p.title} /></div>}
         {p.is_demo && <div className="notice test">{t("hw.demo_data")}</div>}
       </div>
       <div className="stack">

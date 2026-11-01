@@ -32,6 +32,38 @@ def products(request: Request, category: str | None = None, q: str | None = None
     return page(items, total, limit, offset)
 
 
+@router.get("/products/{slug}/photos/{asset_id}")
+def product_photo(slug: str, asset_id: str, p=P, db=DB):
+    """NAP-047: a photo of a published card is public; photos of drafts only for its supplier and moderators."""
+    import os
+
+    from fastapi.responses import FileResponse, StreamingResponse
+
+    from ..security import seller_ids_for
+    from ..storage import get_storage
+    prod_ = db.scalar(select(Product).where(Product.slug == slug))
+    if not prod_ or asset_id not in (prod_.photos or []):
+        raise ApiError("not_found", 404, entity="photo")
+    public = prod_.status == "published" and not prod_.deleted_at
+    if not public:
+        allowed = p.id and ({"moderator", "admin"} & set(p.roles)
+                            or prod_.seller_id in seller_ids_for(db, p.id, ("seller",)))
+        if not allowed:
+            raise ApiError("not_found", 404, entity="photo")
+    a = db.get(Asset, as_uuid(asset_id, "photo"))
+    headers = {"X-Content-Type-Options": "nosniff",
+               "Cache-Control": "public, max-age=31536000, immutable" if public else "private, no-store"}
+    st = get_storage()
+    path = st.local_path(a.storage_key)
+    if path:
+        if not os.path.exists(path):
+            raise ApiError("not_found", 404, entity="photo")
+        return FileResponse(path, media_type="image/webp", headers=headers)
+    body, _, length = st.open_range(a.storage_key, None)
+    return StreamingResponse(body.iter_chunks(1 << 16), media_type="image/webp",
+                             headers=headers | {"Content-Length": str(length)})
+
+
 @router.get("/products/{slug}")
 def product(slug: str, request: Request, db=DB):
     p = db.scalar(select(Product).where(Product.slug == slug, Product.status == "published"))

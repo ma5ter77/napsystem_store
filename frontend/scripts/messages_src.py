@@ -572,6 +572,21 @@ M.update({
 })
 
 
+M.update({  # NAP-047: product photos
+"sp.tab_photos": ("Фото", "Photos"), "sp.check.photos": ("Фотографии товара", "Product photos"), "sp.todo.photos": ("добавьте фото", "add photos"),
+"ph.hint": ("Первое фото — главное: оно на карточке в каталоге. До 8 фото; они проходят модерацию вместе с товаром.", "The first photo is the main one: it is shown on the catalog card. Up to 8 photos; they are moderated together with the product."),
+"ph.locked": ("Фото можно менять в черновике или после отклонения. Чтобы изменить фото товара в продаже, снимите его с модерации на вкладке «Модерация».", "Photos can be changed in a draft or after a rejection. To change photos of a product on sale, withdraw it on the Moderation tab."),
+"ph.none": ("Фото пока нет — в каталоге показывается схематичная иллюстрация.", "No photos yet — the catalog shows a schematic illustration."),
+"ph.add": ("Добавить фото", "Add a photo"),
+"ph.rules": ("PNG, JPEG или WebP до 10 МБ, короткая сторона от 600 px, соотношение сторон до 3:1. Метаданные (EXIF, геопозиция) удаляются.", "PNG, JPEG or WebP up to 10 MB, shorter side from 600 px, side ratio up to 3:1. Metadata (EXIF, location) is removed."),
+"ph.main": ("главное", "main"), "ph.delete": ("Удалить", "Delete"),
+"ph.left": ("Фото {n}: сдвинуть раньше", "Photo {n}: move earlier"), "ph.right": ("Фото {n}: сдвинуть позже", "Photo {n}: move later"),
+"ph.alt": ("Фото товара {n}", "Product photo {n}"),
+"ph.added": ("Фото добавлено.", "Photo added."), "ph.deleted": ("Фото удалено.", "Photo deleted."), "ph.saved_order": ("Порядок фото сохранён.", "Photo order saved."),
+"ph.gallery": ("Фотографии товара", "Product photos"), "ph.show": ("Показать фото {n} из {total}", "Show photo {n} of {total}"),
+"ph.prev": ("Предыдущее фото", "Previous photo"), "ph.next": ("Следующее фото", "Next photo"),
+})
+
 def nest(lang):
     out = {}
     for key, pair in M.items():

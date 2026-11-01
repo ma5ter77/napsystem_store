@@ -29,7 +29,10 @@ export function ProductCard({ p, locale, t }: { p: any; locale: Locale; t: T }) 
   const href = p.kind === "simple" ? `/${locale}/devices/${p.slug}` : `/${locale}/kits/${p.slug}`;
   return (
     <Link className="card" href={href}>
-      <div className="art"><ProductArt category={p.category.slug} hue={p.hue} title={p.title} /></div>
+      <div className="art">{p.photos?.length
+        // eslint-disable-next-line @next/next/no-img-element
+        ? <img src={p.photos[0].url} alt={p.title} loading="lazy" decoding="async" className="photo-img" />
+        : <ProductArt category={p.category.slug} hue={p.hue} title={p.title} />}</div>
       <h3 lang={p.lang ?? undefined}>{p.title}</h3>
       <div className="meta">{p.seller.name}</div>
       {p.rating?.average != null && <div className="meta" aria-label={t("rev.card", { avg: num1(p.rating.average, locale), count: p.rating.count })}><span className="stars-inline" aria-hidden="true">★</span> {num1(p.rating.average, locale)} <span aria-hidden="true">({p.rating.count})</span></div>}

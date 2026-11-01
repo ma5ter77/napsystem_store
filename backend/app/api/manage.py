@@ -103,6 +103,36 @@ def edit_product_sku(product_id: str, sku_id: str, body: EditIn, request: Reques
     return ca.product_view(db, x, locale_of(request))
 
 
+@router.post("/moderation/catalog/products/{product_id}/photos", status_code=201)
+async def add_product_photo(product_id: str, request: Request, filename: str = "photo.jpg", reason: str = "",
+                            p=P, db=DB):
+    """NAP-047: raw image body; the reason (query) is required for someone else's live card, as for other edits."""
+    u = mod(p)
+    data = await request.body()
+    x = _product(db, product_id)
+    ca.edit_product(db, u, x, "photo_add", {"data": data, "filename": filename}, reason)
+    db.commit()
+    return ca.product_view(db, x, locale_of(request))
+
+
+@router.delete("/moderation/catalog/products/{product_id}/photos/{asset_id}")
+def remove_product_photo(product_id: str, asset_id: str, request: Request, reason: str = "", p=P, db=DB):
+    u = mod(p)
+    x = _product(db, product_id)
+    ca.edit_product(db, u, x, "photo_remove", {"asset_id": as_uuid(asset_id, "photo")}, reason)
+    db.commit()
+    return ca.product_view(db, x, locale_of(request))
+
+
+@router.put("/moderation/catalog/products/{product_id}/photos")
+def reorder_product_photos(product_id: str, body: EditIn, request: Request, p=P, db=DB):
+    u = mod(p)
+    x = _product(db, product_id)
+    ca.edit_product(db, u, x, "photo_order", body.data, body.reason)
+    db.commit()
+    return ca.product_view(db, x, locale_of(request))
+
+
 @router.post("/moderation/catalog/products/{product_id}/{action}")
 def product_action(product_id: str, action: str, body: Reasoned, request: Request, p=P, db=DB):
     u = mod(p)

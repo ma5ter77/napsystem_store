@@ -204,3 +204,18 @@ tr.row-bad td { background: #fbf0f0; }
 .sku-card.off { opacity: .7; }
 /* NAP-025: uploaded covers fill the same 4:3 frame as generated ones */
 .cover-img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* NAP-047: product photos */
+.card .art .photo-img { display: block; width: 100%; height: 100%; object-fit: contain; background: #fff; }
+.gallery { display: grid; gap: 10px; }
+.gallery-main { position: relative; aspect-ratio: 4 / 3; background: #fff; border-radius: var(--r-lg); overflow: hidden; border: 1px solid var(--line); }
+.gallery-main:focus-visible { outline: 3px solid var(--left); outline-offset: 2px; }
+.gallery-main img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.gallery-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: rgba(255,255,255,.92); color: var(--slate); font-size: 26px; line-height: 1; cursor: pointer; }
+.gallery-nav.prev { left: 10px; } .gallery-nav.next { right: 10px; }
+.gallery-count { position: absolute; right: 10px; bottom: 10px; background: rgba(28,42,53,.78); color: #fff; font-size: 13px; padding: 2px 8px; border-radius: 999px; }
+.gallery-thumbs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.gallery-thumbs button { flex: 0 0 72px; height: 54px; padding: 0; border: 2px solid transparent; border-radius: var(--r-sm); overflow: hidden; background: #fff; cursor: pointer; }
+.gallery-thumbs button[aria-current="true"] { border-color: var(--left); }
+.gallery-thumbs img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.photo-grid img { width: 100%; aspect-ratio: 4 / 3; object-fit: contain; background: #fff; border-radius: var(--r-sm); display: block; }

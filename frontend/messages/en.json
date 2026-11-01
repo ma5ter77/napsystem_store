@@ -1144,7 +1144,8 @@
    "package": "Weight, dimensions and origin for every variant",
    "texts": "Title and description",
    "in_box": "Contents of the box",
-   "both_languages": "Texts in Russian and English"
+   "both_languages": "Texts in Russian and English",
+   "photos": "Product photos"
   },
   "optional": "recommended",
   "todo": {
@@ -1153,7 +1154,8 @@
    "sku": "add a variant with a price",
    "package": "set weight, dimensions and origin",
    "texts": "fill in title and description",
-   "in_box": "list the box contents"
+   "in_box": "list the box contents",
+   "photos": "add photos"
   },
   "next_fill": "To send to moderation:",
   "next_submit": "Everything is ready for moderation.",
@@ -1182,7 +1184,8 @@
   "saved": "Saved.",
   "sku_added": "Variant added.",
   "done_submitted": "The product was sent to moderation.",
-  "done_withdrawn": "The product is a draft again — you can edit it."
+  "done_withdrawn": "The product is a draft again — you can edit it.",
+  "tab_photos": "Photos"
  },
  "battery": {
   "none": "none",
@@ -1311,5 +1314,24 @@
   "missing": "missing translation: {langs}",
   "new_category": "New category",
   "add": "Add"
+ },
+ "ph": {
+  "hint": "The first photo is the main one: it is shown on the catalog card. Up to 8 photos; they are moderated together with the product.",
+  "locked": "Photos can be changed in a draft or after a rejection. To change photos of a product on sale, withdraw it on the Moderation tab.",
+  "none": "No photos yet — the catalog shows a schematic illustration.",
+  "add": "Add a photo",
+  "rules": "PNG, JPEG or WebP up to 10 MB, shorter side from 600 px, side ratio up to 3:1. Metadata (EXIF, location) is removed.",
+  "main": "main",
+  "delete": "Delete",
+  "left": "Photo {n}: move earlier",
+  "right": "Photo {n}: move later",
+  "alt": "Product photo {n}",
+  "added": "Photo added.",
+  "deleted": "Photo deleted.",
+  "saved_order": "Photo order saved.",
+  "gallery": "Product photos",
+  "show": "Show photo {n} of {total}",
+  "prev": "Previous photo",
+  "next": "Next photo"
  }
 }

@@ -344,6 +344,15 @@ async function run(L) {
     await f.getByLabel(t("sp.in_box")).fill("Item 1\nItem 2");
     await f.getByRole("button", { name: t("common.save") }).click();
     await s.p.getByText(t("sp.saved")).waitFor();
+    // NAP-047: two photos, the second one becomes the main photo
+    await s.p.getByRole("tab", { name: t("sp.tab_photos") }).click();
+    for (const [w, h] of [[900, 700], [1000, 800]]) {
+      await s.p.getByLabel(t("ph.add")).setInputFiles(png(w, h));
+      await s.p.getByText(t("ph.added")).waitFor();
+    }
+    await s.p.getByTestId("photo-list").locator("li").nth(1).locator("img").waitFor();
+    await s.p.getByRole("button", { name: t("ph.left", { n: "2" }) }).click();
+    await s.p.getByText(t("ph.saved_order")).waitFor();
     await s.p.getByRole("tab", { name: t("sp.tab_submit") }).click();
     await s.p.getByRole("button", { name: t("sp.submit") }).click();
     await s.p.getByText(t("sp.done_submitted")).waitFor();
@@ -358,6 +367,11 @@ async function run(L) {
     await b.goto(`${BASE}/${L}/devices/e2e-${L}-${stamp}`);
     await b.getByRole("heading", { name: title }).waitFor();
     await b.getByText("Item 2").waitFor();
+    const gallery = b.getByRole("region", { name: t("ph.gallery") });
+    await gallery.locator(".gallery-main img").waitFor();
+    if (!(await gallery.locator(".gallery-main img").evaluate((im) => im.complete && im.naturalWidth === 1000))) throw new Error("main photo is not the reordered one");
+    await gallery.getByRole("button", { name: t("ph.next") }).click();
+    await gallery.getByText("2 / 2").waitFor();
     await s.p.reload();
     await s.p.getByText(t("sp.next_published")).waitFor();
     await s.ctx.close();
