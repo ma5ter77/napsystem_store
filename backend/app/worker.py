@@ -16,7 +16,7 @@ celery = Celery("nap", broker=s.redis_url, backend=None)
 os.makedirs("var", exist_ok=True)
 celery.conf.update(beat_schedule_filename=os.path.join("var", "celerybeat-schedule"), task_acks_late=True, worker_prefetch_multiplier=1, task_reject_on_worker_lost=True,
                    broker_connection_retry_on_startup=True, timezone="UTC",
-                   task_routes={"nap.run_conversion": {"queue": "media"}}, task_default_queue="ops",
+                   task_routes={"nap.run_conversion": {"queue": "media"}, "nap.run_render": {"queue": "media"}}, task_default_queue="ops",
                    beat_schedule={
                        "process-inbox": {"task": "nap.process_inbox", "schedule": 30.0},
                        "dispatch-outbox": {"task": "nap.dispatch_outbox", "schedule": 15.0},
@@ -36,6 +36,14 @@ def run_conversion(self, job_id: str):
     return res
 
 
+@celery.task(name="nap.run_render", bind=True, max_retries=5)
+def run_render_task(self, job_id: str):
+    """NAP Audio Studio (spec v2.1 M1): offline render of a project revision."""
+    from .services.audio_projects import run_render
+    if run_render(job_id) == "queued":
+        raise self.retry(countdown=30)
+
+
 @celery.task(name="nap.process_inbox")
 def process_inbox():
     from .services.billing import process_inbox as f
@@ -51,10 +59,14 @@ def dispatch_outbox():
 @celery.task(name="nap.recover_leases")
 def recover_leases():
     from .services.conversion import recover_expired_leases, stale_queued_jobs
+    from .services.audio_projects import recover_render_leases
     ids = recover_expired_leases() + stale_queued_jobs()
     for i in dict.fromkeys(ids):
         dispatch_job(i)
-    return len(ids)
+    renders = recover_render_leases()
+    for i in renders:
+        dispatch_render(i)
+    return len(ids) + len(renders)
 
 
 @celery.task(name="nap.expire_reservations")
@@ -97,6 +109,24 @@ def dispatch_job(job_id) -> None:
 
 
 _threads: list[threading.Thread] = []
+
+
+def dispatch_render(job_id) -> None:
+    if get_settings().run_jobs_inline:
+        from .services.audio_projects import run_render
+
+        def _run():
+            for _ in range(get_settings().job_max_attempts):
+                if run_render(job_id) != "queued":
+                    break
+        t = threading.Thread(target=_run, daemon=True)
+        t.start()
+        _threads.append(t)
+        return
+    try:
+        run_render_task.apply_async(args=[str(job_id)], queue="media")
+    except Exception:
+        logging.getLogger("nap.worker").warning("broker unavailable, render %s stays queued", job_id, exc_info=True)
 
 
 def wait_inline_jobs(timeout: float = 120) -> None:

@@ -102,7 +102,11 @@
     "refund_request_exists": "There is already a refund request under review for this order.",
     "refund_request_decided": "This request has already been decided.",
     "legal_consent_required": "To sign up, accept the Terms of Service and give consent to the processing of personal data.",
-    "no_billing_account": "No billing profile yet: it is created with your first payment."
+    "no_billing_account": "No billing profile yet: it is created with your first payment.",
+    "empty_project": "The project has no clips — add material to the tracks.",
+    "invalid_project": "The project has errors — fix the marked fields.",
+    "not_ready": "The source is still being processed — try again in a minute.",
+    "revision_conflict": "The project was changed in another tab or device. Load the latest version."
   },
   "jobs": {
     "decode_failed": "The file could not be fully decoded.",
