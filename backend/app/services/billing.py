@@ -12,7 +12,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from ..adapters.payments import (MockPaymentProvider, NormalizedEvent, ProviderUnavailable, WebhookSignatureError,
-                                 get_payment_provider, mock_sign, provider_by_name)
+                                 get_payment_provider, mock_sign, provider_by_name, provider_for_currency)
 from ..config import get_settings
 from ..db import session_scope, utcnow
 from ..errors import ApiError
@@ -83,9 +83,13 @@ def start_checkout(db: Session, user: User, app_id: uuid.UUID, kind: str, locale
         db.commit()
         return {"order_id": None, "status": "granted", "checkout_url": None, "test_mode": False}
     s = get_settings()
+    try:
+        provider = provider_for_currency(price.currency)  # NAP-012: RUB → YooKassa, others → Stripe
+    except ProviderUnavailable as e:
+        raise ApiError("payment_provider_unavailable", 503, reason=str(e))
     sub = None
     if kind == "subscription":
-        sub = Subscription(user_id=user.id, app_id=app.id, price_id=price.id, provider=get_payment_provider().name)
+        sub = Subscription(user_id=user.id, app_id=app.id, price_id=price.id, provider=provider.name)
         db.add(sub)
         db.flush()
     order = DigitalOrder(buyer_id=user.id, app_id=app.id, developer_id=app.developer_id, price_id=price.id, kind=kind,
@@ -95,7 +99,6 @@ def start_checkout(db: Session, user: User, app_id: uuid.UUID, kind: str, locale
     db.add(order)
     db.flush()
     db.commit()  # the order exists before the external call (no distributed transaction)
-    provider = get_payment_provider()
     title = (db.get(App, app.id).slug)
     try:
         customer_ref = ensure_customer(db, provider, user)
@@ -161,7 +164,7 @@ def process_inbox_item(inbox_id: uuid.UUID) -> bool:
                          .with_for_update(skip_locked=True))
         if item is None:
             return False
-        provider = provider_by_name(item.source) if item.source in ("mock", "stripe") else None
+        provider = provider_by_name(item.source) if item.source in ("mock", "stripe", "yookassa") else None
         try:
             if provider is None:
                 from .hardware_orders import apply_shipping_event

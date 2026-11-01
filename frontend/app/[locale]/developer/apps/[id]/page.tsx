@@ -335,7 +335,7 @@ function PriceTab({ app, reload, done }: { app: any; reload: () => void; done: (
       <div className="form wide">
         <label className="field">{t("dev.price_kind")}<select value={kind} onChange={(e) => setKind(e.target.value)}><option value="one_time">{t("kinds.one_time")}</option><option value="subscription">{t("kinds.subscription")}</option><option value="free">{t("app.free")}</option></select></label>
         {kind !== "free" && <label className="field">{t("account.amount")}<input type="number" step="0.01" min="0.5" value={amount} onChange={(e) => setAmount(Number(e.target.value))} /></label>}
-        {kind !== "free" && <label className="field">{t("dev.currency")}<select value={currency} onChange={(e) => { setCurrency(e.target.value); const same = app.prices.find((p: any) => p.currency === e.target.value && p.kind === kind); if (same) setAmount(same.amount_minor / 100); }}><option>EUR</option><option>USD</option></select></label>}
+        {kind !== "free" && <label className="field">{t("dev.currency")}<select value={currency} onChange={(e) => { setCurrency(e.target.value); const same = app.prices.find((p: any) => p.currency === e.target.value && p.kind === kind); if (same) setAmount(same.amount_minor / 100); }}><option>EUR</option><option>USD</option><option>RUB</option></select></label>}
         {kind === "subscription" && <label className="field">{t("dev.interval")}<select value={interval} onChange={(e) => setInterval(e.target.value)}><option value="month">{t("interval.month")}</option><option value="year">{t("interval.year")}</option></select></label>}
       </div>
       <p className="hint">{t("dev.price_note")}</p>

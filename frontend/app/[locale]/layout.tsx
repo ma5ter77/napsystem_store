@@ -29,7 +29,7 @@ export default async function LocaleLayout({ children, params }: { children: Rea
   const jar = await cookies();
   const hdr = (await headers()).get("accept-language") ?? "";
   const region = (hdr.split(",")[0].split(";")[0].split("-")[1] ?? "").toUpperCase();  // same rule as the API
-  const cur = ((c) => (c === "USD" || c === "EUR" ? c : ["US", "PR", "EC", "SV", "PA", "TL", "FM", "MH", "PW", "ZW"].includes(region) ? "USD" : "EUR"))(jar.get("nap_currency")?.value);
+  const cur = ((c) => (c === "USD" || c === "EUR" || c === "RUB" ? c : ["US", "PR", "EC", "SV", "PA", "TL", "FM", "MH", "PW", "ZW"].includes(region) ? "USD" : region === "RU" ? "RUB" : "EUR"))(jar.get("nap_currency")?.value);
   return (
     <html lang={locale}>
       <body>
@@ -44,6 +44,7 @@ export default async function LocaleLayout({ children, params }: { children: Rea
               <p className="row foot-legal"><Link href={`/${locale}/legal`}>{t("footer.legal")}</Link>
                 <Link href={`/${locale}/legal/terms`}>{t("legal.terms")}</Link>
                 <Link href={`/${locale}/legal/privacy`}>{t("legal.privacy")}</Link></p>
+              <p className="row">{t("footer.currency")}: <CurrencySwitch current={cur} options={["EUR", "USD", "RUB"]} /></p>
               {rel.ok && <p><Link href={`/${locale}/about`}>{t("footer.version", { version: rel.data.version, spec: rel.data.spec.version })}</Link></p>}
             </div>
           </footer>

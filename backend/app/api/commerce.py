@@ -175,7 +175,7 @@ def entitlement(app_id: str, p=P, db=DB):
 @router.post("/webhooks/payments/{provider}", tags=["webhooks"])
 async def payment_webhook(provider: str, request: Request):
     ratelimit.check(request, "webhook", key=ratelimit.who(request))
-    if provider not in ("mock", "stripe") or (provider == "mock" and get_settings().env == "production"):
+    if provider not in ("mock", "stripe", "yookassa") or (provider == "mock" and get_settings().env == "production"):
         raise ApiError("not_found", 404, entity="provider")
     raw = await request.body()  # signature is verified on the exact raw body
     return billing.receive_webhook(provider, raw, dict(request.headers))

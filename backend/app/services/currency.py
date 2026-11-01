@@ -2,7 +2,7 @@
 the buyer sees and pays in their currency when the author set one, otherwise in the author's currency.
 
 Buyer currency: cookie `nap_currency` (explicit choice) → the browser's region (Accept-Language, e.g. en-US →
-USD) → EUR. The interface language never changes prices: switching RU/EN keeps the same currency."""
+USD, ru-RU → RUB) → EUR. The interface language never changes prices: switching RU/EN keeps the same currency."""
 from __future__ import annotations
 
 from contextvars import ContextVar
@@ -23,7 +23,7 @@ def resolve(cookie: str | None, accept_language: str | None) -> str:
         return c
     first = (accept_language or "").split(",")[0].split(";")[0].strip()
     region = first.split("-")[1].upper() if "-" in first else ""
-    d = "USD" if region in USD_REGIONS else "EUR"
+    d = "USD" if region in USD_REGIONS else "RUB" if region == "RU" and "RUB" in supported() else "EUR"
     return d if d in supported() else supported()[0]
 
 

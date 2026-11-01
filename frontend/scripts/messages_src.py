@@ -700,7 +700,7 @@ M.update({  # NAP-012/020: Stripe for the US and world markets
 
 M.update({  # NAP-012: buyer currency
 "footer.currency": ("Валюта цен", "Price currency"),
-"dev.price_currencies": ("Можно задать цену в евро и в долларах: покупатель видит и платит в своей валюте. Если цены в его валюте нет — в той, что задана.", "You can price in euros and dollars: buyers see and pay in their currency, or in the one you set if theirs is missing."),
+"dev.price_currencies": ("Можно задать цену в евро, долларах и рублях: покупатель видит и платит в своей валюте (рубли — через ЮKassa с онлайн-чеком). Если цены в его валюте нет — в той, что задана.", "You can price in euros, dollars and roubles: buyers see and pay in their currency (roubles via YooKassa with an online receipt), or in the one you set if theirs is missing."),
 })
 
 M.update({  # NAP-011: author payouts via Stripe Connect
