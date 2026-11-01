@@ -398,10 +398,26 @@ def get_payment_provider() -> PaymentProvider:
     return _provider
 
 
+def provider_for_currency(currency: str) -> PaymentProvider:
+    """NAP-012: roubles go to YooKassa (buyers in Russia), every other currency to the main provider (Stripe)."""
+    s = get_settings()
+    if currency.upper() == "RUB":
+        if s.yookassa_shop_id and s.yookassa_secret_key:
+            from .yookassa import YooKassaProvider
+            return YooKassaProvider()
+        if s.env != "production":
+            return get_payment_provider() if get_payment_provider().name == "mock" else provider_by_name("mock")
+        raise ProviderUnavailable("yookassa_not_configured")
+    return get_payment_provider()
+
+
 def provider_by_name(name: str) -> PaymentProvider:
     p = get_payment_provider()
     if p.name == name:
         return p
+    if name == "yookassa":
+        from .yookassa import YooKassaProvider
+        return YooKassaProvider()
     if name == "mock" and get_settings().env != "production":
         from ..services.billing import deliver_mock_webhook
         return MockPaymentProvider(emit=deliver_mock_webhook)

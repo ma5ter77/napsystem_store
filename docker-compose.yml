@@ -36,6 +36,7 @@ x-backend-env: &backend-env
   NAP_SMTP_SECURITY: ${NAP_SMTP_SECURITY:-starttls}
   NAP_BUILD: ${NAP_BUILD:-docker}
   NAP_API_WORKERS: ${NAP_API_WORKERS:-2}
+  NAP_CURRENCIES: '${NAP_CURRENCIES:-["EUR","USD"]}'
 
 services:
   postgres:
@@ -140,7 +141,7 @@ services:
 
   web:
     build: { context: ./frontend, args: { BACKEND_URL: "http://api:8000" } }
-    environment: { BACKEND_URL: "http://api:8000", PUBLIC_BASE_URL: "${NAP_PUBLIC_BASE_URL:-http://localhost:3000}" }
+    environment: { BACKEND_URL: "http://api:8000", PUBLIC_BASE_URL: "${NAP_PUBLIC_BASE_URL:-http://localhost:3000}", NAP_CURRENCIES: '${NAP_CURRENCIES:-["EUR","USD"]}' }
     ports: ["3000:3000"]
     depends_on: { api: { condition: service_healthy } }
     networks: [edge]

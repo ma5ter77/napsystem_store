@@ -328,7 +328,8 @@ def start_payment(db: Session, o: HardwareOrder, user: User) -> dict:
         raise ApiError("rate_stale", 409)
     o.payment_status = "pending"
     db.commit()
-    provider = get_payment_provider()
+    from ..adapters.payments import provider_for_currency
+    provider = provider_for_currency(o.currency)  # NAP-012: RUB → YooKassa
     s = get_settings()
     n = db.scalar(select(func.count()).select_from(PaymentAttempt).where(PaymentAttempt.order_id == o.id)) or 0
     f = (o.address or {}).get("fields") or {}

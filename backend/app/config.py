@@ -74,7 +74,7 @@ class Settings(BaseSettings):
 
     # billing
     # NAP-012: currencies authors may price in; buyers see their own when the author set it
-    currencies: list[str] = ["EUR", "USD"]
+    currencies: list[str] = ["EUR", "USD"]  # add "RUB" (and YooKassa keys) to sell to buyers in Russia
     payment_provider: Literal["mock", "stripe"] = "mock"
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
@@ -82,6 +82,11 @@ class Settings(BaseSettings):
     stripe_automatic_tax: bool = False
     stripe_tax_id_collection: bool = False  # business buyers may enter a VAT/tax id
     stripe_api_base: str | None = None      # tests: stripe-mock (http://localhost:12111); never in production
+    # NAP-012: YooKassa for buyers in Russia (RUB), online receipts under 54-FZ
+    yookassa_shop_id: str | None = None
+    yookassa_secret_key: str | None = None
+    yookassa_vat_code: int = 1             # 1 = без НДС (УСН/патент); 4 = 20 %; 11 = 22 % — ask the accountant
+    yookassa_check_ip: bool = True         # notifications only from YooKassa's published networks
     platform_commission_bps: int = 3000  # 30 %
     payout_hold_days: int = 0
     subscription_grace_days: int = 0
