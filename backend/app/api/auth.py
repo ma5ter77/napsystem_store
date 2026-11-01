@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from ..db import utcnow
 from ..errors import ApiError
-from ..models import Notification, RoleGrant, User
+from ..models import Consent, Notification, RoleGrant, User
 from ..security import (check_login_rate, clear_session_cookies, create_session, hash_password, record_login,
                         set_session_cookies, verify_password)
 from ..services.common import audit
@@ -22,6 +22,10 @@ class RegisterIn(BaseModel):
     display_name: str = Field(min_length=1, max_length=120)
     locale: str | None = None
     as_developer: bool = False
+    # NAP-062: two separate, unticked checkboxes on the form — the terms (with the privacy policy) and the
+    # personal-data consent (a separate document under 152-FZ since 01.09.2025)
+    accept_terms: bool = False
+    consent_personal_data: bool = False
 
 
 class LoginIn(BaseModel):
@@ -38,6 +42,9 @@ def me_payload(p) -> dict:
 @router.post("/auth/register", status_code=201)
 def register(body: RegisterIn, request: Request, response: Response, db=DB):
     loc = body.locale if body.locale in ("ru", "en") else locale_of(request)
+    missing = [f for f in ("accept_terms", "consent_personal_data") if not getattr(body, f)]
+    if missing:
+        raise ApiError("legal_consent_required", 422, details={"fields": missing})
     u = User(email=body.email.lower(), password_hash=hash_password(body.password), display_name=body.display_name,
              locale=loc)
     db.add(u)
@@ -50,6 +57,11 @@ def register(body: RegisterIn, request: Request, response: Response, db=DB):
     if body.as_developer:
         db.add(RoleGrant(user_id=u.id, role="developer"))
     audit(db, u.id, "user.registered", "user", u.id, {"developer": body.as_developer})
+    from .about import legal_version
+    accepted = {"terms": legal_version("terms"), "privacy": legal_version("privacy"),
+                "consent-personal-data": legal_version("consent-personal-data")}
+    db.add(Consent(user_id=u.id, kind="personal_data", retention_days=0))
+    audit(db, u.id, "legal.accepted", "user", u.id, {"documents": accepted, "locale": loc, "at": "registration"})
     token, sess = create_session(db, u)
     db.commit()
     set_session_cookies(response, token, sess.csrf_token)

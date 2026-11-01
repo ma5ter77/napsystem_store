@@ -320,7 +320,8 @@
  "footer": {
   "disclaimer": "NAP Store verifies technical signal parameters. It is not a medical service: neither the frequencies in a file nor a session guarantee any brain state or therapeutic result.",
   "methods": "The converter is our own two-carrier generator. Published approaches of The Monroe Institute and the Center for Neuroacoustic Research served as methodological references; there is no licence, partnership or access to proprietary algorithms.",
-  "version": "NAP Store {version} · spec v{spec}"
+  "version": "NAP Store {version} · spec v{spec}",
+  "legal": "Legal documents"
  },
  "coverage": {
   "done": "implemented",
@@ -1416,7 +1417,10 @@
   "send": "Send request",
   "cancel": "Cancel",
   "sent": "Request sent. The decision arrives in notifications and appears here.",
-  "answer": "Answer"
+  "answer": "Answer",
+  "withdrawal": "Withdrawal from the contract (no reason needed)",
+  "reason_optional": "Comment (optional)",
+  "withdrawal_hint": "Buyers in the EU and Serbia can withdraw within 14 days without giving a reason if access has not started or the law keeps the right. Decision and refund within 10 days."
  },
  "refund_status": {
   "requested": "refund: under review",
@@ -1424,5 +1428,25 @@
   "succeeded": "refund completed",
   "failed": "refund failed — an administrator will contact you",
   "rejected": "refund declined"
+ },
+ "legal": {
+  "title": "Legal documents",
+  "back": "← All documents",
+  "version": "Version {version} of {date}",
+  "review_note": "These documents apply in this version and are being reviewed by a lawyer; we will announce changes in advance.",
+  "terms": "Terms of Service",
+  "privacy": "Privacy Policy",
+  "privacy_with": "Privacy Policy",
+  "consent": "consent to the processing of personal data",
+  "measurements": "Consent to the processing of wellbeing data",
+  "reg_terms": "I accept the {terms} and have read the {privacy}",
+  "reg_consent": "I give {consent}",
+  "reg_hint": "Both are required to sign up. Consent to wellbeing data is asked separately and only if you choose to give it.",
+  "buy_note": "By pressing the purchase button you accept the {terms}, ask for immediate access and acknowledge that once access starts you lose the right to withdraw from the purchase of digital content (except where the law provides otherwise).",
+  "order_note": "By paying for the order you accept the {terms}. The seller of the goods is named in the order.",
+  "measurements_note": "Details: “{measurements}”. The service works fully without this consent; withdrawing it deletes all measurements at once."
+ },
+ "vat": {
+  "note": "Prices exclude VAT; VAT is added where required by the law of the buyer's country."
  }
 }

@@ -54,7 +54,7 @@ export default function CartPage() {
               </table></div>
             </section>
           ))}
-          <p className="hint">{t("cart.shipping_later")}</p>
+          <p className="hint">{t("cart.shipping_later")} {t("vat.note")}</p>
           {blocked.length > 0 && <div className="notice bad" role="alert">{t("cart.blocked", { items: blocked.map((x: any) => x.title).join(", ") })}</div>}
           <ErrorBox error={act.error} />
           {me ? (

@@ -100,7 +100,8 @@
   "photo_too_small": "The photo is too small: the shorter side must be at least {min_side} pixels.",
   "photo_limit": "The product already has {max_count} photos — delete one to add another.",
   "refund_request_exists": "There is already a refund request under review for this order.",
-  "refund_request_decided": "This request has already been decided."
+  "refund_request_decided": "This request has already been decided.",
+  "legal_consent_required": "To sign up, accept the Terms of Service and give consent to the processing of personal data."
  },
  "jobs": {
   "decode_failed": "The file could not be fully decoded.",
@@ -121,7 +122,7 @@
   },
   "purchase_paid": {
    "subject": "Purchase confirmed: {app}",
-   "body": "Payment of {amount} is confirmed. {app} is now in your library."
+   "body": "Payment of {amount} is confirmed. {app} is now in your library. At purchase you asked for immediate access and acknowledged that once access starts you lose the right to withdraw from the purchase of digital content (except where the law provides otherwise). Terms: Terms of Service, version {terms_version}, https://store.napsystem.com/en/legal/terms"
   },
   "subscription_paid": {
    "subject": "Subscription paid",

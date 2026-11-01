@@ -227,8 +227,9 @@ def _on_checkout_succeeded(db: Session, provider: str, d: dict) -> None:
                                           source="one_time", order_id=order.id, status="active")
                .on_conflict_do_nothing(index_elements=["order_id"]))
     app = db.get(App, order.app_id)
+    from ..api.about import legal_version  # NAP-062: durable-medium confirmation of the immediate-access consent
     notify(db, order.buyer_id, order.locale, "purchase_paid", f"paid:{order.id}", app=app.slug,
-           amount=_fmt(order.amount_minor, order.currency))
+           amount=_fmt(order.amount_minor, order.currency), terms_version=legal_version("terms") or "1.0")
 
 
 def _mark_paid(db: Session, order: DigitalOrder, provider: str, payment_ref: str | None) -> None:
@@ -375,7 +376,7 @@ def latest_refund_request(db: Session, order_id: uuid.UUID) -> Refund | None:
 
 
 def buyer_request_refund(db: Session, buyer_id: uuid.UUID, order_id: uuid.UUID, reason: str,
-                         amount_minor: int | None = None) -> Refund:
+                         amount_minor: int | None = None, withdrawal: bool = False) -> Refund:
     order = db.get(DigitalOrder, order_id, with_for_update=True)
     if not order or order.buyer_id != buyer_id:
         raise ApiError("not_found", 404, entity="order")
@@ -384,7 +385,9 @@ def buyer_request_refund(db: Session, buyer_id: uuid.UUID, order_id: uuid.UUID, 
     if open_refund_request(db, order.id):
         raise ApiError("refund_request_exists", 409)
     reason = (reason or "").strip()
-    if len(reason) < 10:
+    if withdrawal and not reason:  # NAP-062: withdrawal from the contract needs no explanation (EU/Serbia)
+        reason = "withdrawal"
+    elif len(reason) < 10:
         raise ApiError("validation_failed", 422, details={"fields": ["reason"]})
     left = _refundable_left(db, order)
     amount = left if amount_minor is None else amount_minor
@@ -392,7 +395,7 @@ def buyer_request_refund(db: Session, buyer_id: uuid.UUID, order_id: uuid.UUID, 
         raise ApiError("refund_exceeds_payment", 422)
     r = Refund(context="digital", order_id=order.id, amount_minor=amount, currency=order.currency,
                reason=reason[:1000], status="requested", created_by=buyer_id,
-               lines={"source": "buyer_request", "requested_minor": amount})
+               lines={"source": "buyer_request", "requested_minor": amount, "withdrawal": withdrawal})
     db.add(r)
     db.flush()
     audit(db, buyer_id, "refund.request_created", "digital_order", order.id, {"refund_id": str(r.id), "amount_minor": amount})
@@ -444,7 +447,8 @@ def refund_request_view(r: Refund | None) -> dict | None:
     lines = r.lines or {}
     return {"id": str(r.id), "status": r.status, "amount_minor": r.amount_minor, "currency": r.currency,
             "requested_minor": lines.get("requested_minor", r.amount_minor), "reason": r.reason,
-            "note": lines.get("note") or None, "created_at": r.created_at.isoformat(),
+            "note": lines.get("note") or None, "withdrawal": bool(lines.get("withdrawal")),
+            "created_at": r.created_at.isoformat(),
             "decided_at": lines.get("decided_at")}
 
 

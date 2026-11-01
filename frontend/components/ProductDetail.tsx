@@ -42,6 +42,7 @@ export async function ProductDetail({ locale, slug, app }: { locale: Locale; slu
             <AddToCart skuId={s.id} disabled={s.availability.type === "out_of_stock"} />
           </div>
         ))}
+        <p className="hint">{t("vat.note")}</p>
         <dl className="kv">
           <dt>{t("hw.seller")}</dt><dd>{p.seller.name}{p.seller.kind === "operator" ? ` (${t("hw.operator_sale")})` : ""}</dd>
           <dt>{t("hw.brand_model")}</dt><dd>{p.brand} / {p.model}</dd>

@@ -47,10 +47,11 @@ def _app():
 def test_views_are_unique_per_visitor_and_need_a_published_app():
     dev, pub = _app()
     anon = Client()
+    # cookieless (NAP-062): nothing is sent or stored by the browser; a guest = address + browser + day
     for _ in range(3):
-        assert anon.post(f"/catalog/apps/{pub['slug']}/view", {"visitor": "visitor-aaaa-1111"}).status_code == 204
-    assert Client().post(f"/catalog/apps/{pub['slug']}/view", {"visitor": "visitor-bbbb-2222"}).status_code == 204
-    assert anon.post("/catalog/apps/no-such-app/view", {"visitor": "visitor-aaaa-1111"}).status_code == 404
+        assert anon.post(f"/catalog/apps/{pub['slug']}/view", headers={"user-agent": "BrowserA/1"}).status_code == 204
+    assert Client().post(f"/catalog/apps/{pub['slug']}/view", headers={"user-agent": "BrowserB/2"}).status_code == 204
+    assert anon.post("/catalog/apps/no-such-app/view").status_code == 404
     rep = ok(dev.get(f"/developer/analytics/apps/{pub['app_id']}?days=7"))
     assert rep["funnel"]["steps"]["views"] == 2
     assert rep["weekly"][-1]["views"] == 2
@@ -94,6 +95,6 @@ def test_views_unavailable_without_redis(monkeypatch):
     def boom():
         raise ConnectionError("redis down")
     monkeypatch.setattr(analytics, "_redis", boom)
-    assert Client().post(f"/catalog/apps/{pub['slug']}/view", {"visitor": "visitor-cccc-3333"}).status_code == 204
+    assert Client().post(f"/catalog/apps/{pub['slug']}/view").status_code == 204
     rep = ok(dev.get(f"/developer/analytics/apps/{pub['app_id']}?days=7"))
     assert rep["funnel"]["steps"]["views"] is None and rep["funnel"]["views_unavailable"]

@@ -28,6 +28,37 @@ def documents() -> dict[str, Path]:
     return docs
 
 
+@lru_cache
+def legal_index() -> dict:
+    """NAP-062: legal documents with their current version (docs/legal/legal.json)."""
+    p = DATA / "legal" / "legal.json"
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {"documents": {}}
+
+
+def legal_version(key: str) -> str | None:
+    d = legal_index()["documents"].get(key)
+    return d["version"] if d else None
+
+
+@router.get("/legal")
+def legal():
+    out = []
+    for key, d in legal_index()["documents"].items():
+        out.append({"key": key, "version": d["version"], "date": d["date"], "title": d["title"],
+                    "languages": [l for l in ("ru", "en") if (DATA / "legal" / f"{key}.{l}.md").exists()]})
+    return {"status": legal_index().get("status"), "documents": out}
+
+
+@router.get("/legal/{key}/{lang}", response_class=PlainTextResponse)
+def legal_document(key: str, lang: str):
+    if key not in legal_index()["documents"] or lang not in ("ru", "en"):
+        raise ApiError("not_found", 404, entity="document")
+    p = DATA / "legal" / f"{key}.{lang}.md"
+    if not p.exists():
+        raise ApiError("not_found", 404, entity="document")
+    return PlainTextResponse(p.read_text(encoding="utf-8"), media_type="text/markdown; charset=utf-8")
+
+
 @router.get("/version")
 def version():
     r = release()

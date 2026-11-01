@@ -68,6 +68,7 @@ class Client:
         email = f"u{uuid.uuid4().hex[:10]}@example.com"
         r = self.c.post("/api/v1/auth/register", json={"email": email, "password": "long-password-123",
                                                        "display_name": "Tester", "as_developer": developer,
+                                                       "accept_terms": True, "consent_personal_data": True,
                                                        "locale": locale or self.locale}, headers=self._h())
         assert r.status_code == 201, r.text
         self.csrf = r.json()["csrf_token"]
