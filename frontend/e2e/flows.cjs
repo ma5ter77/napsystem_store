@@ -190,8 +190,9 @@ async function run(L) {
   await step("catalog covers: neighbours never share a tone (NAP-040)", async () => {
     await d.goto(`${BASE}/${L}/apps`);
     await d.locator(".grid .card svg[data-tone]").first().waitFor();
-    const tones = await d.$$eval(".grid .card svg[data-tone]", (els) => els.map((e) => e.getAttribute("data-tone")));
-    tones.forEach((x, i) => { for (let k = Math.max(0, i - 4); k < i; k++) if (tones[k] === x) throw new Error(`cards ${k} and ${i} share tone ${x}`); });
+    // positions over all cards: an app with an uploaded cover (NAP-025) shows its image and has no tone
+    const tones = await d.$$eval(".grid .card", (els) => els.map((e) => e.querySelector("svg[data-tone]")?.getAttribute("data-tone") ?? null));
+    tones.forEach((x, i) => { if (x === null) return; for (let k = Math.max(0, i - 4); k < i; k++) if (tones[k] === x) throw new Error(`cards ${k} and ${i} share tone ${x}`); });
   });
   const buyer = await register(browser, L, t, false);
   const b = buyer.p;

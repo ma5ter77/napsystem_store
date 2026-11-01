@@ -9,11 +9,11 @@ const AXE = fs.readFileSync(require.resolve("axe-core/axe.min.js", { paths: [pro
 const PUBLIC = ["", "/apps", "/apps/quiet-harbor", "/devices", "/devices/nap-studio-headphones", "/kits",
   "/kits/nap-starter-kit?app=quiet-harbor", "/cart", "/about", "/login", "/register"];
 const ROLES = {
-  "user@nap.demo": ["/library", "/orders", "/play/quiet-harbor", "/account?tab=purchases", "/account?tab=notifications", "/account?tab=privacy"],
-  "dev1@nap.demo": ["/developer?tab=apps", "/developer?tab=reviews", "/developer?tab=finance"],
+  "user@nap.demo": ["/library", "/orders", "/play/quiet-harbor", "/account?tab=purchases", "/account?tab=notifications", "/account?tab=privacy", "/account?tab=addresses"],
+  "dev1@nap.demo": ["/developer?tab=apps", "/developer?tab=reviews", "/developer?tab=finance", "/developer?tab=analytics"],
   "seller@nap.demo": ["/seller?tab=orders", "/seller?tab=products", "/seller?tab=inventory"],
   "moderator@nap.demo": ["/moderation", "/moderation?tab=apps", "/moderation?tab=products", "/moderation?tab=reviews"],
-  "admin@nap.demo": ["/admin?tab=users", "/admin?tab=ops", "/content", "/content?tab=categories"],
+  "admin@nap.demo": ["/admin?tab=users", "/admin?tab=refunds", "/admin?tab=ops", "/content", "/content?tab=categories"],
 };
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 const found = new Map(); // rule id -> {impact, help, pages:Set, nodes:[...]}
@@ -69,6 +69,12 @@ async function keyboard(p, url) {
 (async () => {
   const b = await chromium.launch();
   let n = 0;
+  // NAP-047: a product with a photo gallery (the E2E scenario that runs before this audit creates one)
+  try {
+    const r = await fetch(`${BASE}/api/v1/hardware/products?limit=100`).then((x) => x.json());
+    const g = r.items.find((x) => x.photos?.length);
+    if (g) PUBLIC.push(`/devices/${g.slug}`);
+  } catch { /* no API: audit the fixed list */ }
   for (const L of ["ru", "en"]) {
     const ctx = await b.newContext({ viewport: { width: 1280, height: 900 }, locale: L });
     const p = await ctx.newPage();
