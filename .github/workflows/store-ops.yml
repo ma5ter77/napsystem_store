@@ -1,0 +1,34 @@
+# NAP-087: operate the store server from GitHub (or by Claude via the API) without SSH access:
+# status, logs of one service, restart after a settings change, rollback to the previous release, a backup now, redeploy of a commit.
+name: store-ops
+on:
+  workflow_dispatch:
+    inputs:
+      op:
+        description: Operation
+        type: choice
+        options: [status, logs, restart, rollback, backup]
+        default: status
+      service:
+        description: Service for logs
+        type: choice
+        options: [api, web, worker-ops, worker-media, migrate, caddy, postgres, redis, backup]
+        default: api
+permissions:
+  contents: read
+concurrency:
+  group: store-vps-delivery
+  cancel-in-progress: false
+jobs:
+  op:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - env:
+          SSH_KEY: ${{ secrets.STORE_DEPLOY_SSH_KEY }}
+          HOST: ${{ vars.STORE_DEPLOY_HOST }}
+          HOST_KEY: ${{ vars.STORE_DEPLOY_HOST_KEY }}
+        run: python3 ops/vps/ci_deploy.py "${{ inputs.op }}" "${{ inputs.service }}"

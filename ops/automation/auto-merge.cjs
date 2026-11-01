@@ -4,13 +4,14 @@ module.exports = async ({github, context, core}) => {
   const prs = await github.paginate(github.rest.pulls.list, {...repo, state:'open', base:'master', per_page:100});
   for (const item of prs) {
     const {data: pr} = await github.rest.pulls.get({...repo, pull_number:item.number});
-    if (pr.user.login !== 'ma5ter77' || pr.draft || pr.head.repo?.full_name !== 'BrothersB/nap-store') continue;
+    if (pr.user.login !== 'ma5ter77' || pr.draft || pr.head.repo?.full_name !== 'ma5ter77/napsystem_store') continue;
     const {data: base} = await github.rest.repos.getBranch({...repo, branch:'master'});
     const {data: cmp} = await github.rest.repos.compareCommitsWithBasehead({...repo, basehead:`${base.commit.sha}...${pr.head.sha}`});
     if (cmp.merge_base_commit.sha !== base.commit.sha) { core.info(`PR ${pr.number}: update branch from master first`); continue; }
     const files = await github.paginate(github.rest.pulls.listFiles, {...repo,pull_number:pr.number,per_page:100});
     const required = ['ci.yml'];
     if (files.some(f => [f.filename, f.previous_filename || ''].some(name => /^(ops\/cohost\/|docker-compose.yml$|backend\/Dockerfile$|frontend\/Dockerfile$|backend\/migrations\/|\.github\/workflows\/release-acceptance.yml$)/.test(name)))) required.push('release-acceptance.yml');
+    if (files.some(f => [f.filename, f.previous_filename || ''].some(name => /^(ops\/vps\/|ops\/backup-loop.sh$|ops\/backup.sh$|ops\/restore_verify.sh$|backend\/Dockerfile$|frontend\/Dockerfile$|backend\/migrations\/|\.github\/workflows\/(vps-acceptance|deliver-vps).yml$)/.test(name)))) required.push('vps-acceptance.yml');
     let passed = true;
     for (const workflow_id of required) {
       const {data} = await github.rest.actions.listWorkflowRuns({...repo,workflow_id,event:'pull_request',head_sha:pr.head.sha,per_page:100});

@@ -1,7 +1,7 @@
 name: auto-accept-ma5ter77
 on:
   workflow_run:
-    workflows: [ci, release-acceptance]
+    workflows: [ci, release-acceptance, vps-acceptance]
     types: [completed]
   pull_request_target:
     types: [ready_for_review, reopened]

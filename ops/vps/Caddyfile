@@ -1,0 +1,12 @@
+# NAP-087: TLS termination for the store. Certificates are issued and renewed automatically
+# once the DNS A record of {$STORE_DOMAIN} points at this server.
+{$STORE_DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+	reverse_proxy web:3000
+}
