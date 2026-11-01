@@ -30,6 +30,19 @@ def checkout(body: CheckoutIn, request: Request, p=P, db=DB, key=Depends(idem)):
     return billing.start_checkout(db, db.merge(u), as_uuid(body.app_id, "app"), body.kind, locale_of(request), key)
 
 
+class PortalIn(BaseModel):
+    return_path: str = "/account"
+
+
+@router.post("/billing/portal")
+def billing_portal(body: PortalIn, request: Request, p=P, db=DB):
+    """NAP-012: provider's billing portal — saved cards, invoices, subscription renewal and cancellation."""
+    u = p.require_user()
+    path = body.return_path if body.return_path.startswith("/") and not body.return_path.startswith("//") else "/account"
+    url = billing.portal_url(db, db.merge(u), f"{get_settings().public_base_url}/{locale_of(request)}{path}")
+    return {"url": url}
+
+
 @router.get("/mock-checkout/{ref}")
 def mock_checkout(ref: str, request: Request, p=P, db=DB):
     if get_settings().env == "production":
@@ -133,7 +146,7 @@ def subscriptions(p=P, db=DB):
     out = []
     for s in rows:
         price = db.get(Price, s.price_id)
-        out.append({"id": str(s.id), "app_slug": db.get(App, s.app_id).slug, "status": s.status,
+        out.append({"id": str(s.id), "app_slug": db.get(App, s.app_id).slug, "status": s.status, "provider": s.provider,
                     "cancel_at_period_end": s.cancel_at_period_end,
                     "paid_until": s.paid_until.isoformat() if s.paid_until else None,
                     "price": {"amount_minor": price.amount_minor, "currency": price.currency, "interval": price.interval},
