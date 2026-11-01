@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BeatCover } from "@/components/Art";
+import { AppCover } from "@/components/Art";
 import { priceLabel } from "@/components/cards";
 import { AppActions } from "@/components/AppActions";
+import { ViewBeacon } from "@/components/ViewBeacon";
 import { ReviewsSection, Stars } from "@/components/Reviews";
 import { duration, isLocale, langName, Locale, num1, translator } from "@/lib/i18n";
 import { alternates, serverApi, serverTranslator } from "@/lib/server";
+import { ServerError } from "@/components/State";
 
 type P = Promise<{ locale: string; slug: string }>;
 
@@ -24,15 +26,16 @@ export default async function AppPage({ params }: { params: P }) {
   const r = await serverApi<any>(`/catalog/apps/${slug}`, locale);
   if (!r.ok) {
     if (r.status === 404) notFound();
-    return <div className="section notice bad">{t("common.error")}</div>;
+    return <ServerError t={t} locale={locale} status={r.status} />;
   }
   const a = r.data;
   const price = a.prices?.[0];
   const caps: string[] = a.requirements?.required_capabilities ?? [];
   return (
     <div className="section two">
+      <ViewBeacon slug={a.slug} />
       <div className="stack">
-        <div className="hero-art" style={{ aspectRatio: "4/3" }}><BeatCover hue={a.cover_hue} seed={a.slug} title={a.title} /></div>
+        <div className="hero-art" style={{ aspectRatio: "4/3" }}><AppCover a={a} eager /></div>
         <div className="panel stack">
           <h2>{t("app.program")}</h2>
           <ol className="steps">

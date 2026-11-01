@@ -20,26 +20,42 @@ COMPAT_RANK = {"verified": 0, "vendor_claimed": 1, "unverified": 2, "incompatibl
 
 # ------------------------------------------------------------------ availability
 
-def sku_availability(db: Session, sku: Sku, product: Product) -> dict:
+def sku_availability(db: Session, sku: Sku, product: Product, inventory: dict | None = None) -> dict:
     if product.made_to_order:
         return {"type": "made_to_order", "lead_time_days": product.lead_time_days, "available": None}
-    inv = db.scalar(select(Inventory).where(Inventory.sku_id == sku.id, Inventory.warehouse_id == product.warehouse_id))
+    if inventory is not None:
+        inv = inventory.get((sku.id, product.warehouse_id))
+    else:
+        inv = db.scalar(select(Inventory).where(Inventory.sku_id == sku.id, Inventory.warehouse_id == product.warehouse_id))
     avail = (inv.on_hand - inv.reserved - inv.allocated) if inv else 0
     return {"type": "in_stock" if avail > 0 else "out_of_stock", "available": max(0, avail),
             "last_unit": avail == 1}
 
 
-def serialize_product(db: Session, p: Product, locale: str, detail: bool = False, rating: dict | None = None) -> dict:
-    tr = get_translations(db, "product", [p.id]).get(p.id)
+def preload_products(db: Session, rows: list[Product]) -> dict:
+    """NAP-050: translations, sellers, categories and stock for a product list in four queries."""
+    ids = [p.id for p in rows]
+    sku_ids = [s.id for p in rows for s in p.skus]
+    return {"translations": get_translations(db, "product", ids),
+            "sellers": {x.id: x for x in db.scalars(select(Seller).where(Seller.id.in_({p.seller_id for p in rows})))} if rows else {},
+            "categories": {c.id: c for c in db.scalars(select(Category).where(Category.kind == "hardware"))},
+            "inventory": {(i.sku_id, i.warehouse_id): i for i in db.scalars(select(Inventory).where(Inventory.sku_id.in_(sku_ids)))}
+            if sku_ids else {}}
+
+
+def serialize_product(db: Session, p: Product, locale: str, detail: bool = False, rating: dict | None = None,
+                      pre: dict | None = None) -> dict:
+    tr = (pre["translations"] if pre else get_translations(db, "product", [p.id])).get(p.id)
     loc = localized(tr, locale)
-    seller = db.get(Seller, p.seller_id)
-    cat = db.get(Category, p.category_id)
+    seller = pre["sellers"].get(p.seller_id) if pre else db.get(Seller, p.seller_id)
+    cat = pre["categories"].get(p.category_id) if pre else db.get(Category, p.category_id)
     skus = []
     for s in p.skus:
         if not s.active:
             continue
         item = {"id": str(s.id), "code": s.code, "variant": s.variant, "price_minor": s.price_minor,
-                "currency": s.currency, "availability": sku_availability(db, s, p), "provides": s.provides}
+                "currency": s.currency, "availability": sku_availability(db, s, p, pre["inventory"] if pre else None),
+                "provides": s.provides}
         if detail:
             item |= {"weight_g": s.weight_g, "dims_mm": [s.length_mm, s.width_mm, s.height_mm],
                      "package_count": s.package_count, "origin_country": s.origin_country,
@@ -55,6 +71,8 @@ def serialize_product(db: Session, p: Product, locale: str, detail: bool = False
            "freight_mode": p.freight_mode, "hue": p.hue, "is_demo": p.is_demo, "skus": skus,
            "price_from_minor": min((s["price_minor"] for s in skus), default=None),
            "currency": skus[0]["currency"] if skus else None}
+    from .products import photos_view  # NAP-047: moderated supplier photos (none → the schematic illustration)
+    out["photos"] = photos_view(db, p) if p.photos else []
     from . import reviews  # NAP-079
     out["rating"] = rating if rating is not None else reviews.summaries(db, [p.id], "product")[p.id]
     if detail:
@@ -93,22 +111,21 @@ def list_products(db: Session, locale: str, category: str | None = None, q: str 
     rows = list(db.scalars(stmt.order_by(Product.created_at)))
     from . import reviews
     ratings = reviews.summaries(db, [p.id for p in rows], "product")
-    items = [serialize_product(db, p, locale, rating=ratings[p.id]) for p in rows]
+    pre = preload_products(db, rows)
+    items = [serialize_product(db, p, locale, rating=ratings[p.id], pre=pre) for p in rows]
     if min_rating:
         items = [i for i in items if i["rating"]["average"] is not None and i["rating"]["average"] >= min_rating]
     if sort == "rating":
         items.sort(key=lambda i: (i["rating"]["average"] is not None, i["rating"]["average"] or 0,
                                   i["rating"]["count"]), reverse=True)
-    if q:
-        ql = q.lower()
-        trs = get_translations(db, "product", [p.id for p in rows])
-        keep = set()
-        for p in rows:
-            hay = " ".join([p.brand, p.model, p.slug] + [" ".join(str(v) for v in t.data.values())
-                                                         for t in trs.get(p.id, {}).values()]).lower()
-            if ql in hay:
-                keep.add(str(p.id))
-        items = [i for i in items if i["id"] in keep]
+    if q:  # NAP-028: full-text search with RU/EN morphology
+        from .search import rank_products
+        ranks = rank_products(db, [p.id for p in rows], q)
+        if ranks is not None:
+            keep = {str(k): v for k, v in ranks.items()}
+            items = [i for i in items if i["id"] in keep]
+            if not sort:
+                items.sort(key=lambda i: -keep[i["id"]])
     return items[offset:offset + limit], len(items)
 
 

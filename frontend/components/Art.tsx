@@ -1,5 +1,36 @@
+/** NAP-040: a curated set of well-separated cover tones (no muddy dark reds). Each tone keeps white and the
+ * steel/rose carrier lines readable (contrast ≥ 3:1 for the lines on the darkest point of the background). */
+export const COVER_TONES: { bg: string; glow: string }[] = [
+  { bg: "hsl(205 48% 24%)", glow: "hsl(190 60% 31%)" },  // ocean
+  { bg: "hsl(168 42% 19%)", glow: "hsl(150 45% 34%)" },  // teal
+  { bg: "hsl(250 34% 27%)", glow: "hsl(275 40% 42%)" },  // indigo-violet
+  { bg: "hsl(38 46% 21%)", glow: "hsl(45 60% 30%)" },    // amber
+  { bg: "hsl(222 20% 22%)", glow: "hsl(205 25% 40%)" },  // slate
+  { bg: "hsl(318 30% 23%)", glow: "hsl(335 40% 38%)" },  // plum
+  { bg: "hsl(130 26% 19%)", glow: "hsl(95 32% 34%)" },   // forest
+  { bg: "hsl(16 36% 22%)", glow: "hsl(26 58% 40%)" },    // copper (orange-brown, not the old dark red)
+];
+
+/** Stable tone for an app on its own (detail page, player): its hue bucket. */
+export function toneFor(hue: number | null | undefined) {
+  return Math.floor((((hue ?? 210) % 360) + 360) % 360 / (360 / COVER_TONES.length)) % COVER_TONES.length;
+}
+
+/** Tones for a list in display order: each card keeps its own tone unless one of the previous `window` cards
+ *  already has it — then it takes the nearest free tone, so neighbours in a row and in the row above differ. */
+export function spreadTones(hues: (number | null | undefined)[], window = 4): number[] {
+  const out: number[] = [];
+  hues.forEach((h, i) => {
+    const recent = new Set(out.slice(Math.max(0, i - window), i));
+    let t = toneFor(h);
+    for (let k = 0; k < COVER_TONES.length && recent.has(t); k++) t = (t + 3) % COVER_TONES.length;
+    out.push(t);
+  });
+  return out;
+}
+
 /** Generated covers: two carriers (L steel, R rose) and the beat envelope they produce. No stock imagery. */
-export function BeatCover({ hue = 210, seed = "x", beats = 3, title }: { hue?: number; seed?: string; beats?: number; title?: string }) {
+export function BeatCover({ hue = 210, tone, seed = "x", beats = 3, title }: { hue?: number; tone?: number; seed?: string; beats?: number; title?: string }) {
   const W = 400, H = 300;
   let h = 0;
   for (const c of seed) h = (h * 31 + c.charCodeAt(0)) >>> 0;
@@ -15,11 +46,16 @@ export function BeatCover({ hue = 210, seed = "x", beats = 3, title }: { hue?: n
     const e = Math.abs(Math.cos((i / 160) * (f2 - f1) * Math.PI));
     return `${x.toFixed(1)},${(H / 2 - 92 * e).toFixed(1)}`;
   }).join(" ");
-  const bg = `hsl(${hue} 32% 22%)`;
+  const c = COVER_TONES[tone ?? toneFor(hue)];
+  // the glow sits in one of four corners (from the seed), so equal tones still look different
+  const gx = (h >> 3) % 2 ? W * 0.85 : W * 0.15, gy = (h >> 4) % 2 ? H * 0.8 : H * 0.2;
+  const gid = `g${h.toString(36)}`;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title ?? ""} preserveAspectRatio="xMidYMid slice">
-      <rect width={W} height={H} fill={bg} />
-      <rect width={W} height={H} fill={`hsl(${(hue + 40) % 360} 40% 30%)`} opacity=".35" />
+    <svg viewBox={`0 0 ${W} ${H}`} {...(title ? { role: "img", "aria-label": title } : { "aria-hidden": true })} preserveAspectRatio="xMidYMid slice" data-tone={tone ?? toneFor(hue)}>
+      <defs><radialGradient id={gid} cx={gx} cy={gy} r={W * 0.75} gradientUnits="userSpaceOnUse">
+        <stop offset="0" stopColor={c.glow} stopOpacity=".75" /><stop offset="1" stopColor={c.glow} stopOpacity="0" /></radialGradient></defs>
+      <rect width={W} height={H} fill={c.bg} />
+      <rect width={W} height={H} fill={`url(#${gid})`} />
       <polyline points={env} fill="none" stroke="#fff" strokeOpacity=".22" strokeWidth="26" strokeLinecap="round" />
       <polyline points={pts(f1, 70, 0)} fill="none" stroke="#8cc6e0" strokeWidth="2.5" />
       <polyline points={pts(f2, 70, 0.6)} fill="none" stroke="#f0a5c4" strokeWidth="2.5" />
@@ -39,7 +75,7 @@ const SHAPES: Record<string, string> = {
 
 export function ProductArt({ category, hue = 30, title }: { category: string; hue?: number; title?: string }) {
   return (
-    <svg viewBox="0 0 400 300" role="img" aria-label={title ?? ""} preserveAspectRatio="xMidYMid slice">
+    <svg viewBox="0 0 400 300" {...(title ? { role: "img", "aria-label": title } : { "aria-hidden": true })} preserveAspectRatio="xMidYMid slice">
       <rect width="400" height="300" fill={`hsl(${hue} 22% 88%)`} />
       <circle cx="320" cy="60" r="90" fill={`hsl(${hue} 35% 80%)`} />
       <path d={SHAPES[category] ?? SHAPES.controllers} fill="none" stroke={`hsl(${hue} 30% 24%)`} strokeWidth="7"
@@ -55,4 +91,13 @@ export function BrandMark() {
       <path d="M1 9 Q5.6 17 10 9 T19 9 T28 9" fill="none" stroke="var(--right)" strokeWidth="2.2" />
     </svg>
   );
+}
+
+/** NAP-025: the uploaded, moderated cover when the app has one; otherwise the generated beat cover. */
+export function AppCover({ a, title, eager, tone }: { a: { cover_url?: string | null; cover_hue: number; slug: string; title?: string | null }; title?: string | null; eager?: boolean; tone?: number }) {
+  if (a.cover_url) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={a.cover_url} alt={title ?? a.title ?? ""} loading={eager ? "eager" : "lazy"} decoding="async" width={1200} height={900} className="cover-img" />;
+  }
+  return <BeatCover hue={a.cover_hue} tone={tone} seed={a.slug} title={title ?? a.title ?? undefined} />;
 }

@@ -16,6 +16,23 @@ function wav(seconds = 4, fs_ = 48000) {
   const p = path.join(out, "e2e.wav"); fs.writeFileSync(p, b); return p;
 }
 
+// NAP-025: a small valid PNG for the cover upload (no image libraries needed)
+function png(w = 900, h = 675) {
+  const zlib = require("zlib");
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    const td = Buffer.concat([Buffer.from(type), data]);
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(zlib.crc32(td) >>> 0);
+    return Buffer.concat([len, td, crc]);
+  };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2;
+  const raw = Buffer.alloc((w * 3 + 1) * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const o = y * (w * 3 + 1) + 1 + x * 3; raw[o] = 40 + (x % 200); raw[o + 1] = 90; raw[o + 2] = 140 + (y % 100); }
+  const p = path.join(out, "cover.png");
+  fs.writeFileSync(p, Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk("IHDR", ihdr), chunk("IDAT", zlib.deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]));
+  return p;
+}
+
 function dict(l) {
   const d = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "messages", `${l}.json`), "utf8"));
   return (k, params = {}) => {
@@ -45,6 +62,10 @@ async function register(browser, L, t, dev) {
   await p.getByLabel(t("auth.email")).fill(email);
   await p.getByLabel(t("auth.password")).fill("long-password-123");
   if (dev) await p.getByLabel(t("auth.as_developer")).check();
+  // NAP-062: the form refuses to submit without both legal checkboxes (browser validation), then they are ticked
+  await p.getByRole("button", { name: t("auth.register") }).click();
+  if (!(await p.url()).includes("/register")) throw new Error("registered without accepting the terms");
+  for (const box of await p.locator(".legal-checks input[type=checkbox]").all()) await box.check();
   await p.getByRole("button", { name: t("auth.register") }).click();
   await p.waitForURL(dev ? `**/${L}/developer` : `**/${L}`);
   return { ctx, p, email };
@@ -69,6 +90,15 @@ async function run(L) {
   const dev = await register(browser, L, t, true);
   const d = dev.p;
   CUR = d;
+  await step("legal documents: list, terms with version, links in the footer (NAP-062)", async () => {
+    await d.goto(`${BASE}/${L}/legal`);
+    await d.getByRole("heading", { name: t("legal.title") }).waitFor();
+    await d.getByRole("link", { name: t("legal.terms") }).first().click();
+    await d.waitForURL(`**/${L}/legal/terms`);
+    await d.locator(".legal-doc h1").waitFor();
+    await d.getByText(t("legal.version", { version: "1.0", date: "" }).split(" ").slice(0, 2).join(" ")).first().waitFor();
+    await d.goto(`${BASE}/${L}/developer`);  // the next step starts in the developer dashboard
+  });
   await step("create app", async () => {
     await d.getByRole("button", { name: t("dev.new_app") }).first().click();
     const slugInput = d.getByLabel(t("dev.slug"));
@@ -108,6 +138,9 @@ async function run(L) {
     await d.getByText(t("dev.unsaved_rights")).waitFor();
     await d.getByRole("button", { name: t("common.save"), exact: true }).click();
     await d.getByText(t("dev.saved_details")).waitFor();
+    // NAP-025: own cover, moderated with the version
+    await d.locator("input[type=file][accept^='image']").setInputFiles(png());
+    await d.getByText(t("dev.cover_saved")).waitFor({ timeout: 30000 });
     await d.getByRole("tab", { name: t("dev.tab_program") }).click();
     // the first finished track is already session 1, titled like the app
     await d.getByLabel(t("dev.track")).waitFor(); // the Program tab is shown (Details also has title fields)
@@ -137,6 +170,13 @@ async function run(L) {
     await d.getByText(t("dev.done_submitted")).waitFor();
     await d.locator(".badge", { hasText: t("version_state.submitted") }).first().waitFor();
   });
+  await step("unknown address shows the localized not-found page (NAP-044)", async () => {
+    const r = await d.goto(`${BASE}/${L}/no-such-page-${Date.now()}`);
+    if (r.status() !== 404) throw new Error("expected 404, got " + r.status());
+    await d.getByRole("heading", { name: t("state.not_found_title") }).waitFor();
+    await d.getByRole("link", { name: t("home.cta_apps") }).first().waitFor();
+    await d.goBack();
+  });
   await step("moderator approves: the app goes live at once (NAP-083)", async () => {
     const m = await login(browser, L, t, "moderator@nap.demo");
     await m.p.goto(`${BASE}/${L}/moderation`);
@@ -153,6 +193,19 @@ async function run(L) {
     await d.reload();
     await d.getByText(t("dev.next_published")).waitFor();
     await d.locator(".badge", { hasText: t("version_state.published") }).first().waitFor();
+    // the uploaded cover is now public on the store page
+    const r = await d.request.get(`${BASE}/api/v1/catalog/apps/${slug}`);
+    const card = await r.json();
+    if (!card.cover_url) throw new Error("published app has no cover_url");
+    const img = await d.request.get(`${BASE}${card.cover_url}`);
+    if (img.status() !== 200 || img.headers()["content-type"] !== "image/webp") throw new Error("cover not served: " + img.status());
+  });
+  await step("catalog covers: neighbours never share a tone (NAP-040)", async () => {
+    await d.goto(`${BASE}/${L}/apps`);
+    await d.locator(".grid .card svg[data-tone]").first().waitFor();
+    // positions over all cards: an app with an uploaded cover (NAP-025) shows its image and has no tone
+    const tones = await d.$$eval(".grid .card", (els) => els.map((e) => e.querySelector("svg[data-tone]")?.getAttribute("data-tone") ?? null));
+    tones.forEach((x, i) => { if (x === null) return; for (let k = Math.max(0, i - 4); k < i; k++) if (tones[k] === x) throw new Error(`cards ${k} and ${i} share tone ${x}`); });
   });
   const buyer = await register(browser, L, t, false);
   const b = buyer.p;
@@ -176,6 +229,10 @@ async function run(L) {
     await b.getByRole("button", { name: t("player.play") }).click({ timeout: 30000 });
     await b.waitForTimeout(1500);
     await b.screenshot({ path: `${out}/${L}-player.png`, fullPage: true });
+    // NAP-042: seek bar, remaining time and large back/forward buttons
+    await b.getByRole("slider", { name: t("player.seek") }).waitFor();
+    await b.getByText(t("player.remaining", { time: "" }).trim()).first().waitFor();
+    await b.getByRole("button", { name: t("player.back30") }).click();
     // connection drops while the session runs: local stop must still work, events sync once afterwards
     await buyer.ctx.setOffline(true);
     await b.waitForTimeout(800);
@@ -232,6 +289,36 @@ async function run(L) {
     await b.reload();
     await b.locator("article.review", { hasText: text }).getByText(t("rev.dev_reply")).waitFor();
   });
+  await step("refund request from the profile, admin declines with a reason (NAP-024)", async () => {
+    await b.goto(`${BASE}/${L}/account?tab=purchases`);
+    await b.getByRole("button", { name: t("refund.request") }).first().click();
+    await b.getByLabel(t("refund.reason")).fill("E2E: проверка запроса возврата");
+    await b.getByRole("button", { name: t("refund.send") }).click();
+    await b.getByText(t("refund.sent")).waitFor();
+    await b.locator(".badge", { hasText: t("refund_status.requested") }).first().waitFor();
+    const a = await login(browser, L, t, "admin@nap.demo");
+    await a.p.goto(`${BASE}/${L}/admin?tab=refunds`);
+    const card = a.p.getByTestId("refund-request").filter({ hasText: "E2E: проверка запроса возврата" }).first();
+    await card.getByLabel(t("admin.refund_note")).fill("E2E decline");
+    await card.getByRole("button", { name: t("admin.refund_reject") }).click();
+    await a.p.getByTestId("refund-request").filter({ hasText: "E2E: проверка запроса возврата" }).first().waitFor({ state: "detached" });
+    await a.ctx.close();
+    await b.reload();
+    await b.locator(".badge", { hasText: t("refund_status.rejected") }).first().waitFor();
+    await b.getByText("E2E decline").waitFor();
+  });
+  await step("developer analytics: funnel with page views, small groups hidden (NAP-027)", async () => {
+    await d.goto(`${BASE}/${L}/developer?tab=analytics`);
+    const sel = d.getByLabel(t("an.choose_app"));
+    await sel.selectOption(await sel.locator("option", { hasText: slug }).getAttribute("value"));
+    const funnel = d.getByRole("list", { name: t("an.funnel") });
+    await funnel.getByText(t("an.step_views")).waitFor();
+    // the buyer opened the app page once: one unique view; one listener is below the group threshold
+    await funnel.locator("li").first().locator(".funnel-value", { hasText: /^1/ }).waitFor();
+    await funnel.locator("li").nth(1).getByText(t("an.hidden", { n: "5" })).waitFor();
+    await d.getByRole("img", { name: t("an.weekly") }).waitFor();
+    await d.screenshot({ path: `${out}/${L}-analytics.png`, fullPage: true });
+  });
   console.log(`[${L}] hardware scenario`);
   let orderNumber = "";
   await step("kit builder adds missing parts; checkout", async () => {
@@ -282,6 +369,21 @@ async function run(L) {
     await b.getByText(t("orders.parcels")).waitFor();
     await b.screenshot({ path: `${out}/${L}-order.png`, fullPage: true });
   });
+  await step("saved address: one click on the next order, listed in the account (NAP-023)", async () => {
+    await b.goto(`${BASE}/${L}/devices/nap-cable-35`);
+    await b.getByRole("button", { name: t("cart.add") }).first().click();
+    await b.getByRole("link", { name: t("cart.added") }).waitFor();
+    await b.goto(`${BASE}/${L}/cart`);
+    await b.getByRole("button", { name: t("cart.checkout") }).click();
+    await b.waitForURL("**/orders?group=**");
+    await b.locator("a.card").first().click();
+    await b.waitForURL(/\/orders\/[0-9a-f-]{36}$/);
+    const row = b.getByTestId("saved-addresses").locator("li", { hasText: "Abovyan st. 10" }).first();
+    await row.getByRole("button", { name: t("address.use") }).click();
+    await b.getByRole("button", { name: t("orders.calculate") }).waitFor();
+    await b.goto(`${BASE}/${L}/account?tab=addresses`);
+    await b.getByTestId("saved-addresses").getByText("Abovyan st. 10").first().waitFor();
+  });
   await step("product ratings: verified purchases only (NAP-079)", async () => {
     await b.goto(`${BASE}/${L}/devices/nap-studio-headphones`);
     await b.getByRole("heading", { name: t("rev.title_section") }).waitFor();
@@ -318,6 +420,15 @@ async function run(L) {
     await f.getByLabel(t("sp.in_box")).fill("Item 1\nItem 2");
     await f.getByRole("button", { name: t("common.save") }).click();
     await s.p.getByText(t("sp.saved")).waitFor();
+    // NAP-047: two photos, the second one becomes the main photo
+    await s.p.getByRole("tab", { name: t("sp.tab_photos") }).click();
+    for (const [w, h] of [[900, 700], [1000, 800]]) {
+      await s.p.getByLabel(t("ph.add")).setInputFiles(png(w, h));
+      await s.p.getByText(t("ph.added")).waitFor();
+    }
+    await s.p.getByTestId("photo-list").locator("li").nth(1).locator("img").waitFor();
+    await s.p.getByRole("button", { name: t("ph.left", { n: "2" }) }).click();
+    await s.p.getByText(t("ph.saved_order")).waitFor();
     await s.p.getByRole("tab", { name: t("sp.tab_submit") }).click();
     await s.p.getByRole("button", { name: t("sp.submit") }).click();
     await s.p.getByText(t("sp.done_submitted")).waitFor();
@@ -332,6 +443,11 @@ async function run(L) {
     await b.goto(`${BASE}/${L}/devices/e2e-${L}-${stamp}`);
     await b.getByRole("heading", { name: title }).waitFor();
     await b.getByText("Item 2").waitFor();
+    const gallery = b.getByRole("region", { name: t("ph.gallery") });
+    await gallery.locator(".gallery-main img").waitFor();
+    if (!(await gallery.locator(".gallery-main img").evaluate((im) => im.complete && im.naturalWidth === 1000))) throw new Error("main photo is not the reordered one");
+    await gallery.getByRole("button", { name: t("ph.next") }).click();
+    await gallery.getByText("2 / 2").waitFor();
     await s.p.reload();
     await s.p.getByText(t("sp.next_published")).waitFor();
     await s.ctx.close();

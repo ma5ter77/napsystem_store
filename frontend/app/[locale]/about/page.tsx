@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { date, isLocale, Locale, translator } from "@/lib/i18n";
 import { alternates, serverApi, serverTranslator } from "@/lib/server";
+import { ServerError } from "@/components/State";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
@@ -15,7 +16,7 @@ export default async function About({ params }: { params: Promise<{ locale: stri
   const locale = (isLocale(l) ? l : "ru") as Locale;
   const t = (await serverTranslator(locale));
   const r = await serverApi<any>("/version", locale);
-  if (!r.ok) return <div className="section notice bad">{t("common.error")}</div>;
+  if (!r.ok) return <ServerError t={t} locale={locale} status={r.status} />;
   const v = r.data;
   const specDocs = v.documents.filter((d: string) => d.startsWith("spec-"));
   return (

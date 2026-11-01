@@ -19,8 +19,8 @@ function lookup(d: Record<string, unknown>, key: string): string | undefined {
   return typeof cur === "string" ? cur : undefined;
 }
 
-const PLURAL = /\{(\w+), plural,((?:\s*\w+\s*\{[^{}]*\})+)\s*\}/g;
-const FORM = /(\w+)\s*\{([^{}]*)\}/g;
+const PLURAL = /\{(\w+), plural,((?:\s*=?\w+\s*\{[^{}]*\})+)\s*\}/g;
+const FORM = /(=?\w+)\s*\{([^{}]*)\}/g;  // "=1 {...}": an exact number wins over the plural category
 
 export function format(template: string, locale: Locale, params: Record<string, string | number> = {}): string {
   const pr = new Intl.PluralRules(locale);
@@ -28,7 +28,7 @@ export function format(template: string, locale: Locale, params: Record<string, 
     const n = Number(params[name] ?? 0);
     const forms: Record<string, string> = {};
     for (const f of body.matchAll(FORM)) forms[f[1]] = f[2];
-    const text = forms[pr.select(n)] ?? forms.other ?? "";
+    const text = forms[`=${n}`] ?? forms[pr.select(n)] ?? forms.other ?? "";
     return text.replace(/#/g, new Intl.NumberFormat(locale).format(n));
   });
   for (const [k, v] of Object.entries(params)) out = out.split(`{${k}}`).join(String(v));

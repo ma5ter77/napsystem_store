@@ -7,9 +7,9 @@
   --muted: #5d6c76;
   --line: #d3dbdc;
   --left: #2e6e8e;
-  --right: #b0517a;
-  --ok: #2f7a4f;
-  --warn: #9a6a12;
+  --right: #9c4069;
+  --ok: #2a6f47;
+  --warn: #83580c;
   --bad: #b23a3a;
   --tint-left: #e3eef3;
   --tint-right: #f5e6ed;
@@ -202,3 +202,72 @@ tr.row-bad td { background: #fbf0f0; }
 .dims { display: grid; gap: 6px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .sku-card { border-left: 3px solid var(--line, #d3dbdc); }
 .sku-card.off { opacity: .7; }
+
+/* NAP-043: keyboard users skip the header straight to the page content (WCAG 2.4.1) */
+.skip-link { position: absolute; left: 12px; top: -48px; z-index: 100; padding: 8px 14px; border-radius: var(--r-sm);
+  background: var(--slate); color: #fff; font-weight: 600; text-decoration: none; }
+.skip-link:focus { top: 12px; outline: 3px solid var(--left); outline-offset: 2px; }
+main:focus { outline: none; }
+/* NAP-042: seek bar and large player controls (touch target >= 48 px) */
+.seek { width: 100%; height: 28px; accent-color: var(--left); cursor: pointer; }
+.player-controls .btn { min-height: 52px; padding: 0 22px; font-size: 1.05rem; }
+/* NAP-044: shared state panels (empty, error, not found, unavailable, locked) */
+.state { display: flex; gap: 16px; align-items: flex-start; }
+.state-icon { flex: none; width: 40px; height: 40px; border-radius: 50%; display: inline-grid; place-items: center;
+  font-weight: 700; font-size: 1.1rem; background: var(--tint-left); color: var(--left); }
+.state-error .state-icon { background: #f8e7e7; color: var(--bad); }
+.state-unavailable .state-icon, .state-locked .state-icon { background: #f6efdf; color: var(--warn); }
+.state-not_found .state-icon { background: var(--tint-right); color: var(--right); }
+.state-title { font-size: 1.15rem; margin: 0; }
+.state-body { min-width: 0; flex: 1; }
+.state-body > .muted { margin: 0; }
+/* NAP-025: uploaded covers fill the same 4:3 frame as generated ones */
+.cover-img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* NAP-047: product photos */
+.card .art .photo-img { display: block; width: 100%; height: 100%; object-fit: contain; background: #fff; }
+.gallery { display: grid; gap: 10px; }
+.gallery-main { position: relative; aspect-ratio: 4 / 3; background: #fff; border-radius: var(--r-lg); overflow: hidden; border: 1px solid var(--line); }
+.gallery-main:focus-visible { outline: 3px solid var(--left); outline-offset: 2px; }
+.gallery-main img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.gallery-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: rgba(255,255,255,.92); color: var(--slate); font-size: 26px; line-height: 1; cursor: pointer; }
+.gallery-nav.prev { left: 10px; } .gallery-nav.next { right: 10px; }
+.gallery-count { position: absolute; right: 10px; bottom: 10px; background: rgba(28,42,53,.78); color: #fff; font-size: 13px; padding: 2px 8px; border-radius: 999px; }
+.gallery-thumbs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.gallery-thumbs button { flex: 0 0 72px; height: 54px; padding: 0; border: 2px solid transparent; border-radius: var(--r-sm); overflow: hidden; background: #fff; cursor: pointer; }
+.gallery-thumbs button[aria-current="true"] { border-color: var(--left); }
+.gallery-thumbs img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.photo-grid img { width: 100%; aspect-ratio: 4 / 3; object-fit: contain; background: #fff; border-radius: var(--r-sm); display: block; }
+/* NAP-023: saved addresses */
+ul.plain { list-style: none; padding: 0; margin: 0; }
+.row.between { justify-content: space-between; }
+/* NAP-027: developer analytics */
+.funnel { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.funnel li { display: grid; grid-template-columns: minmax(110px, 180px) 1fr minmax(90px, auto); gap: 12px; align-items: center; }
+.funnel-track { height: 14px; background: var(--fog); border-radius: 4px; overflow: hidden; }
+.funnel-bar { display: block; height: 100%; background: var(--left); border-radius: 0 4px 4px 0; }
+.funnel-value { font-variant-numeric: tabular-nums; }
+.chart { margin: 16px 0 0; }
+.chart-svg { width: 100%; height: auto; display: block; }
+.chart-svg .axis { stroke: var(--line); stroke-width: 1; }
+.chart-svg .tick { font-size: 13px; fill: var(--muted); }
+.chart-svg .bar-started { fill: var(--tint-left); stroke: var(--left); stroke-width: 1; }
+.chart-svg .bar-completed { fill: var(--left); }
+.chart-svg .bar-hidden { fill: var(--line); }
+.legend { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 14px; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+.sw-started { background: var(--tint-left); border: 1px solid var(--left); }
+.sw-completed { background: var(--left); }
+.chart-readout { min-height: 1.5em; }
+table.retention td.ret-cell { text-align: center; font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) { .funnel li { grid-template-columns: 1fr auto; } .funnel-track { grid-column: 1 / -1; grid-row: 2; } }
+/* NAP-062: legal documents */
+.legal-doc { max-width: 82ch; line-height: 1.65; }
+.legal-doc h1 { font-size: 1.7rem; margin-top: 0; }
+.legal-doc h2 { font-size: 1.25rem; margin-top: 1.6em; }
+.legal-doc h3 { font-size: 1.08rem; margin-top: 1.2em; }
+.legal-doc blockquote { margin: 1em 0; }
+.legal-doc table { font-size: .92rem; }
+.legal-checks { border: 0; padding: 0; margin: 0; }
+.legal-checks .check { align-items: flex-start; }
+.foot-legal { gap: 16px; }

@@ -13,7 +13,7 @@ function pick(req: NextRequest): string {
   return "ru"; // fallback language
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {  // Next 16: "proxy" replaces the "middleware" convention (NAP-051)
   const { pathname, search } = req.nextUrl;
   const first = pathname.split("/")[1];
   if (LOCALES.includes(first)) {

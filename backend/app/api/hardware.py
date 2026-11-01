@@ -21,6 +21,7 @@ from ..services.common import get_translations, localized
 from .deps import DB, P, as_uuid, idem, locale_of, page
 
 router = APIRouter(prefix="/hardware", tags=["hardware"])
+account_router = APIRouter(tags=["account/addresses"])  # NAP-023: /me/addresses
 CART_COOKIE = "nap_cart"
 
 
@@ -30,6 +31,38 @@ def products(request: Request, category: str | None = None, q: str | None = None
              limit: int = Query(50, le=100), offset: int = Query(0, ge=0), db=DB):
     items, total = hw.list_products(db, locale_of(request), category, q, kind, limit, offset, min_rating, sort)
     return page(items, total, limit, offset)
+
+
+@router.get("/products/{slug}/photos/{asset_id}")
+def product_photo(slug: str, asset_id: str, p=P, db=DB):
+    """NAP-047: a photo of a published card is public; photos of drafts only for its supplier and moderators."""
+    import os
+
+    from fastapi.responses import FileResponse, StreamingResponse
+
+    from ..security import seller_ids_for
+    from ..storage import get_storage
+    prod_ = db.scalar(select(Product).where(Product.slug == slug))
+    if not prod_ or asset_id not in (prod_.photos or []):
+        raise ApiError("not_found", 404, entity="photo")
+    public = prod_.status == "published" and not prod_.deleted_at
+    if not public:
+        allowed = p.id and ({"moderator", "admin"} & set(p.roles)
+                            or prod_.seller_id in seller_ids_for(db, p.id, ("seller",)))
+        if not allowed:
+            raise ApiError("not_found", 404, entity="photo")
+    a = db.get(Asset, as_uuid(asset_id, "photo"))
+    headers = {"X-Content-Type-Options": "nosniff",
+               "Cache-Control": "public, max-age=31536000, immutable" if public else "private, no-store"}
+    st = get_storage()
+    path = st.local_path(a.storage_key)
+    if path:
+        if not os.path.exists(path):
+            raise ApiError("not_found", 404, entity="photo")
+        return FileResponse(path, media_type="image/webp", headers=headers)
+    body, _, length = st.open_range(a.storage_key, None)
+    return StreamingResponse(body.iter_chunks(1 << 16), media_type="image/webp",
+                             headers=headers | {"Content-Length": str(length)})
 
 
 @router.get("/products/{slug}")
@@ -195,17 +228,29 @@ def get_order(order_id: str, request: Request, p=P, db=DB):
 
 
 class AddressIn(BaseModel):
-    country: str
-    fields: dict
+    country: str | None = None
+    fields: dict | None = None
+    address_id: str | None = None  # NAP-023: one click — a saved address, checked again by this order's rules
 
 
 @router.put("/orders/{order_id}/address")
 def set_address(order_id: str, body: AddressIn, request: Request, p=P, db=DB):
     u = p.require_user()
     o = ho.buyer_order(db, as_uuid(order_id, "order"), u.id, lock=True)
-    ho.set_address(db, o, body.country, body.fields)
+    if body.address_id:
+        from ..models import Address
+        a = db.get(Address, as_uuid(body.address_id, "address"))
+        if not a or a.user_id != u.id:
+            raise ApiError("not_found", 404, entity="address")
+        country, fields = a.country, a.fields
+    else:
+        if not body.country or body.fields is None:
+            raise ApiError("validation_failed", 422, details={"fields": ["country"]})
+        country, fields = body.country, body.fields
+    ho.set_address(db, o, country, fields)
     db.commit()
     return order_view(db, o, locale_of(request))
+
 
 
 class QtyIn(BaseModel):
@@ -357,3 +402,35 @@ def order_document(order_id: str, asset_id: str, p=P, db=DB):
         raise ApiError("not_found", 404, entity="document")
     a = db.get(Asset, as_uuid(asset_id))
     return {"url": signed_url(a, f"{o.number}-{a.kind}.pdf")}
+
+
+@account_router.get("/me/addresses")
+def my_addresses(p=P, db=DB):
+    from ..models import Address
+    from ..services.addresses import book_view
+    u = p.require_user()
+    rows = db.scalars(select(Address).where(Address.user_id == u.id).order_by(Address.created_at.desc()))
+    return {"items": [book_view(a) for a in rows]}
+
+
+@account_router.post("/me/addresses", status_code=201)
+def add_address(body: AddressIn, p=P, db=DB):
+    from ..services.addresses import book_view, save_to_book, validate_address
+    u = p.require_user()
+    if not body.country or body.fields is None:
+        raise ApiError("validation_failed", 422, details={"fields": ["country"]})
+    clean = validate_address(body.country, body.fields, requires_latin=False)
+    a = save_to_book(db, u.id, body.country, clean)
+    db.commit()
+    return book_view(a)
+
+
+@account_router.delete("/me/addresses/{address_id}", status_code=204)
+def delete_address(address_id: str, p=P, db=DB):
+    from ..models import Address
+    u = p.require_user()
+    a = db.get(Address, as_uuid(address_id, "address"))
+    if not a or a.user_id != u.id:
+        raise ApiError("not_found", 404, entity="address")
+    db.delete(a)
+    db.commit()

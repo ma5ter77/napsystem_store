@@ -220,10 +220,12 @@ def ingest_events(db: Session, s: PlaySession, events: list[dict]) -> dict:
             dup.append(e["event_id"])
             continue
         accepted.append(e["event_id"])
+        newest = int(e["seq"]) > s.last_event_seq
         s.last_event_seq = max(s.last_event_seq, int(e["seq"]))
         d = e.get("data") or {}
-        if "position_seconds" in d:
-            s.position_seconds = max(s.position_seconds, float(d["position_seconds"]))
+        if "position_seconds" in d and newest:
+            # NAP-042: the latest event wins, so seeking backwards is kept; a late, older event cannot move it
+            s.position_seconds = max(0.0, float(d["position_seconds"]))
         # controller reports its actual state (e.g. local stop/complete while offline)
         if e["type"] == "state" and s.state in SESSION_ACTIVE and d.get("state") in ("completed", "cancelled", "failed"):
             s.state = d["state"]
@@ -326,7 +328,10 @@ def set_consent(db: Session, user: User, granted: bool, retention_days: int | No
                        retention_days=retention_days or get_settings().measurement_retention_days))
     elif not granted and cur:
         cur.revoked_at = utcnow()
-    audit(db, user.id, "consent.changed", "user", user.id, {"granted": granted})
+        delete_measurements(db, user)  # NAP-062: withdrawing the consent deletes the stored measurements at once
+    from ..api.about import legal_version
+    audit(db, user.id, "consent.changed", "user", user.id,
+          {"granted": granted, "document": "consent-measurements", "version": legal_version("consent-measurements")})
 
 
 def delete_measurements(db: Session, user: User) -> int:

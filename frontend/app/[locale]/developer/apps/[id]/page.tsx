@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useEffect, useRef, useState } from "react";
 import { useApp } from "@/components/Providers";
+import { AppCover } from "@/components/Art";
 import { ErrorBox, errorFields, Loading, Price, RequireAuth, StatusBadge, useAction, useLoad } from "@/components/ui";
 import { api, sha256File, uid, uploadWithProgress } from "@/lib/api";
 import { date, duration } from "@/lib/i18n";
@@ -67,6 +68,51 @@ function Details({ app, v, reload, done }: { app: any; v: any; reload: () => voi
   );
 }
 
+// NAP-025: uploaded cover — checked and normalized by the server (PNG/JPEG/WebP, at least 800x600, 4:3 crop, metadata
+// removed); moderated with the version, shown in the store after publishing. Without it the generated cover is used.
+function CoverPicker({ app, v, reload, done }: { app: any; v: any; reload: () => void; done: (m: string) => void }) {
+  const { t } = useApp();
+  const act = useAction();
+  const [progress, setProgress] = useState<number | null>(null);
+  const editable = v.state === "draft";
+  const pick = async (file: File) => {
+    const ok = await act.run(async () => {
+      const sha = await sha256File(file);
+      const tk = await api<any>(`/developer/apps/${app.id}/uploads`, { body: { filename: file.name, size_bytes: file.size, sha256: sha, kind: "cover" } });
+      setProgress(0);
+      await uploadWithProgress(tk.upload_url, file, (p) => setProgress(p));
+      return api(`/developer/apps/${app.id}/versions/${v.id}`, { method: "PATCH", body: { cover_asset_id: tk.asset_id } });
+    });
+    setProgress(null);
+    if (ok) { reload(); done(t("dev.cover_saved")); }
+  };
+  const remove = async () => {
+    if (await act.run(() => api(`/developer/apps/${app.id}/versions/${v.id}`, { method: "PATCH", body: { cover_asset_id: null } }))) { reload(); done(t("dev.cover_removed")); }
+  };
+  return (
+    <section className="panel stack" aria-labelledby="cover-h">
+      <h3 id="cover-h">{t("dev.cover")}</h3>
+      <div className="two">
+        <div className="hero-art" style={{ aspectRatio: "4/3" }}><AppCover a={{ cover_url: v.cover?.url, cover_hue: app.cover_hue, slug: app.slug, title: v.metadata?.ru?.title }} eager /></div>
+        <div className="stack">
+          <p className="hint">{v.cover ? t("dev.cover_uploaded") : t("dev.cover_generated")}</p>
+          <p className="hint">{t("dev.cover_rules")}</p>
+          {editable ? (
+            <div className="row">
+              <label className="btn">{v.cover ? t("dev.cover_replace") : t("dev.cover_upload")}
+                <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" disabled={act.pending}
+                  onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) pick(f); }} /></label>
+              {v.cover && <button type="button" className="btn ghost" disabled={act.pending} onClick={remove}>{t("dev.cover_remove")}</button>}
+            </div>
+          ) : <p className="hint">{t("dev.cover_frozen")}</p>}
+          {progress !== null && <progress max={1} value={progress} aria-label={t("dev.cover_upload")} />}
+          <ErrorBox error={act.error} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function JobCard({ job, onChange }: { job: any; onChange: () => void }) {
   const { t, locale } = useApp();
   const [detail, setDetail] = useState<any>(null);
@@ -99,6 +145,7 @@ function JobCard({ job, onChange }: { job: any; onChange: () => void }) {
           </div>
           <dl className="kv">
             <dt>{t("qa.carriers")}</dt><dd>{typeof qa.layer === "object" ? `${qa.layer.left_hz} / ${qa.layer.right_hz} Hz, Δ ${qa.layer.beat_hz} Hz` : t(`qa.${qa.layer}`)}</dd>
+            {typeof qa.layer === "object" && qa.layer.curve && <><dt>{t("qa.curve")}</dt><dd>{t("qa.curve_value", { points: qa.layer.curve.points.length, err: String(qa.layer.curve.max_error_hz ?? "—") })}</dd></>}
             {typeof qa.layer === "object" && <><dt>{t("qa.separation")}</dt><dd>{String(qa.layer.opposite_suppression_db.left)} / {String(qa.layer.opposite_suppression_db.right)} dB</dd></>}
             <dt>{t("qa.lufs")}</dt><dd>{String(qa.levels.source_integrated_lufs)} → {String(qa.levels.output_integrated_lufs)} LUFS</dd>
             <dt>{t("qa.tp")}</dt><dd>{String(qa.levels.true_peak_master_dbtp)} dBTP ({t("qa.ceiling", { c: qa.levels.true_peak_ceiling_dbtp, tol: qa.levels.true_peak_tolerance_db })})</dd>
@@ -403,7 +450,7 @@ function Editor() {
       <NextStep v={v} app={app} ready={ready} checks={checks} decision={lastDecision} goTab={goTab} />
       <div className="tabs" role="tablist">{TABS.map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => goTab(x)}>{t(`dev.tab_${x}`)}</button>)}</div>
       {flash && <div className="notice ok" role="status">{flash}</div>}
-      {tab === "details" && <Details key={v.id + v.state} app={app} v={v} reload={reload} done={showFlash} />}
+      {tab === "details" && <><Details key={v.id + v.state} app={app} v={v} reload={reload} done={showFlash} /><CoverPicker app={app} v={v} reload={reload} done={showFlash} /></>}
       {tab === "audio" && <Audio app={app} onTrackReady={reload} />}
       {tab === "program" && <Program key={v.id + v.sessions.length} app={app} v={v} reload={reload} saved={showFlash} />}
       {tab === "price" && <PriceTab app={app} reload={reload} done={showFlash} />}

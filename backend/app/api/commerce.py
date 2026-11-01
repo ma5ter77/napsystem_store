@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from .. import ratelimit
@@ -97,10 +97,33 @@ def library(request: Request, p=P, db=DB):
 def purchases(p=P, db=DB):
     u = p.require_user()
     rows = db.scalars(select(DigitalOrder).where(DigitalOrder.buyer_id == u.id).order_by(DigitalOrder.created_at.desc()))
-    return {"items": [{"id": str(o.id), "app_id": str(o.app_id), "app_slug": db.get(App, o.app_id).slug,
-                       "kind": o.kind, "amount_minor": o.amount_minor, "refunded_minor": o.refunded_minor,
-                       "currency": o.currency, "status": o.status, "created_at": o.created_at.isoformat()}
-                      for o in rows]}
+    out = []
+    for o in rows:
+        req = billing.latest_refund_request(db, o.id)  # NAP-024
+        out.append({"id": str(o.id), "app_id": str(o.app_id), "app_slug": db.get(App, o.app_id).slug,
+                    "kind": o.kind, "amount_minor": o.amount_minor, "refunded_minor": o.refunded_minor,
+                    "currency": o.currency, "status": o.status, "created_at": o.created_at.isoformat(),
+                    "refund_request": billing.refund_request_view(req),
+                    "can_request_refund": o.status in ("paid", "partially_refunded")
+                    and not (req and req.status in ("requested", "pending"))
+                    and billing._refundable_left(db, o) > 0})
+    return {"items": out}
+
+
+class RefundRequestIn(BaseModel):
+    reason: str = Field("", max_length=1000)
+    amount_minor: int | None = None
+    withdrawal: bool = False  # NAP-062: "withdrawal from the contract" — no reason required
+
+
+@router.post("/purchases/{order_id}/refund-request", status_code=201)
+def request_refund(order_id: str, body: RefundRequestIn, p=P, db=DB):
+    """NAP-024: the buyer asks for a refund; an administrator decides, the money goes back through the provider."""
+    u = p.require_user()
+    r = billing.buyer_request_refund(db, u.id, as_uuid(order_id, "order"), body.reason, body.amount_minor,
+                                     body.withdrawal)
+    db.commit()
+    return billing.refund_request_view(r)
 
 
 @router.get("/subscriptions")

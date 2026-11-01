@@ -136,6 +136,14 @@ def edit_product(db: Session, moderator: User, p: Product, kind: str, d: dict, r
         prod.add_sku(db, moderator, p, d, force=True)
     elif kind == "sku_update":
         prod.update_sku(db, moderator, p, sku_id, d, force=True)
+    elif kind == "photo_add":  # NAP-047
+        prod.add_photo(db, moderator, p, d["data"], d["filename"], force=True)
+        d = {"photo": True}
+    elif kind == "photo_remove":
+        prod.remove_photo(db, moderator, p, d["asset_id"], force=True)
+        d = {"photo": True}
+    elif kind == "photo_order":
+        prod.reorder_photos(db, moderator, p, d.get("ids") or [], force=True)
     else:
         raise ApiError("validation_failed", 422)
     audit(db, moderator.id, "product.mod_edited", "product", p.id,

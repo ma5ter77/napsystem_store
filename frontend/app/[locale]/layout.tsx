@@ -28,12 +28,16 @@ export default async function LocaleLayout({ children, params }: { children: Rea
     <html lang={locale}>
       <body>
         <Providers locale={locale}>
+          <a className="skip-link" href="#main">{t("nav.skip")}</a>
           <Suspense><Header /></Suspense>
-          <main className="wrap" id="main">{children}</main>
+          <main className="wrap" id="main" tabIndex={-1}>{children}</main>
           <footer className="foot">
             <div className="wrap stack">
               <p>{t("footer.disclaimer")}</p>
               <p>{t("footer.methods")}</p>
+              <p className="row foot-legal"><Link href={`/${locale}/legal`}>{t("footer.legal")}</Link>
+                <Link href={`/${locale}/legal/terms`}>{t("legal.terms")}</Link>
+                <Link href={`/${locale}/legal/privacy`}>{t("legal.privacy")}</Link></p>
               {rel.ok && <p><Link href={`/${locale}/about`}>{t("footer.version", { version: rel.data.version, spec: rel.data.spec.version })}</Link></p>}
             </div>
           </footer>

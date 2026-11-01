@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from .engine import (ENGINE_VERSION, FS, BinauralRenderer, LoudnessMeter, Profile, TruePeakMeter,
-                     analyze_layer, db_to_lin, lin_to_db)
+                     analyze_layer, curve_checkpoints, db_to_lin, lin_to_db)
 from .media import Decoder, MediaError, free_bytes, probe, run_ffmpeg, tool_versions
 
 BLOCK = 65_536
@@ -186,7 +186,11 @@ def convert(src_path: str, workdir: str, profile_dict: dict, limits: Limits,
     steady_end = min(layer_frames, frames - fo, steady_start + QA_ANALYSIS_SECONDS * FS)
     layer_analysis: dict | str
     if profile.layer_enabled and steady_end - steady_start >= FS // 2:
-        layer_analysis = analyze_layer(layer_buf[steady_start:steady_end], profile)
+        layer_analysis = analyze_layer(layer_buf[steady_start:steady_end], profile, start_frame=steady_start)
+        if profile.beat_curve:  # NAP-021: the transition is checked along the whole curve
+            pts = curve_checkpoints(profile, frames)
+            layer_analysis["curve"] = {"points": pts, "max_error_hz": max((p["error_hz"] for p in pts), default=None),
+                                       "method": "4 s windows rendered with the same phase-integrating renderer"}
     elif profile.layer_enabled:
         layer_analysis = "not_measurable"
     else:

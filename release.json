@@ -1,8 +1,8 @@
 {
   "product": "NAP Store",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "stage": "MVP для тестирования",
-  "released": "2026-10-31",
+  "released": "2026-11-01",
   "spec": {
     "version": "1.0",
     "status": "принято в работу",
@@ -79,8 +79,8 @@
       },
       "status": "done",
       "note": {
-        "ru": "Все кабинеты; товары поставщик пока заводит через администратора",
-        "en": "All cabinets; supplier product editing goes through admin for now"
+        "ru": "Все кабинеты: поставщики сами ведут товары с фото, модератор управляет каталогом, аналитика разработчика",
+        "en": "All dashboards: suppliers manage products with photos, moderators manage the catalog, developer analytics"
       }
     },
     {
@@ -103,8 +103,8 @@
       },
       "status": "done",
       "note": {
-        "ru": "Next.js 15, FastAPI, PostgreSQL, Celery; MinIO — опционально",
-        "en": "Next.js 15, FastAPI, PostgreSQL, Celery; MinIO optional"
+        "ru": "Next.js 16, FastAPI, PostgreSQL, Celery; S3 — опционально",
+        "en": "Next.js 16, FastAPI, PostgreSQL, Celery; S3 optional"
       }
     },
     {
@@ -115,8 +115,8 @@
       },
       "status": "done",
       "note": {
-        "ru": "Реальная обработка, QA, очередь; частоты постоянные (переходы — бэклог)",
-        "en": "Real processing, QA, queue; constant frequencies (transitions in backlog)"
+        "ru": "Реальная обработка, QA, очередь; плавные переходы частот внутри сеанса",
+        "en": "Real processing, QA, queue; smooth frequency transitions within a session"
       }
     },
     {
@@ -253,6 +253,15 @@
     }
   ],
   "releases": [
+    {
+      "version": "0.8.0",
+      "date": "2026-11-01",
+      "spec": "1.0",
+      "summary": {
+        "ru": "Адреса, возвраты по запросу, обложки и фото товаров, аналитика, поиск с морфологией, перемотка в плеере, доступность WCAG AA, Next.js 16",
+        "en": "Saved addresses, refund requests, app covers and product photos, analytics, morphology search, player seeking, WCAG AA accessibility, Next.js 16"
+      }
+    },
     {
       "version": "0.7.1",
       "date": "2026-10-31",

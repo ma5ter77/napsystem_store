@@ -17,14 +17,14 @@
 
 | Слой | Технология | Версия (lock-файлы) |
 |---|---|---|
-| Frontend | Next.js App Router, React, TypeScript | next 15.5.28, react 19.2.0 (`frontend/package-lock.json`) |
+| Frontend | Next.js App Router, React, TypeScript | next 16.4.2, react 19.2.0 (`frontend/package-lock.json`) |
 | Backend | Python, FastAPI, SQLAlchemy 2, Alembic, Pydantic 2 | Python 3.13, fastapi 0.162.0, sqlalchemy 2.1.6, alembic 1.20.1 (`backend/uv.lock`) |
 | DSP | NumPy, SciPy, FFmpeg/ffprobe (soxr) | numpy 2.5.4, scipy 1.18.1, ffmpeg 6.1.1 |
 | Очередь | Celery + Redis | celery 5.6.3 |
 | Хранилище | S3-совместимое (SeaweedFS в compose или внешний S3) или локальная ФС | boto3 |
 | SDK | TypeScript | typescript 5.9.3 |
 
-Next.js 15 выбран вместо 16, так как это проверенная стабильная ветка с известным API (асинхронные `params`, middleware); переход на 16 — отдельная задача.
+С 01.11.2026 фронтенд работает на Next.js 16 (NAP-051): сборка через Turbopack, выбор языка по адресу — в `frontend/proxy.ts` (в Next 16 это соглашение заменило `middleware.ts`). Версия зафиксирована точно (`16.4.2`): обновлять отдельным PR после прогона E2E, брать выпуски не моложе двух недель.
 
 ## Ключевые решения
 

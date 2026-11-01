@@ -274,6 +274,7 @@ def checks(db: Session, p: Product) -> list[dict]:
         {"key": "texts", "ok": has_text, "tab": "texts"},
         {"key": "in_box", "ok": box, "tab": "texts"},
         {"key": "both_languages", "ok": {"ru", "en"} <= set(trs), "tab": "texts", "optional": True},
+        {"key": "photos", "ok": bool(p.photos), "tab": "photos", "optional": True},  # NAP-047: recommended
     ]
 
 
@@ -332,6 +333,7 @@ def view(db: Session, p: Product, locale: str) -> dict:
                   "hs_code": s.hs_code, "customs_description": s.customs_description,
                   "contains_battery": s.contains_battery, "active": s.active,
                   "on_hand": inv[s.id].on_hand if s.id in inv else 0} for s in p.skus],
+        "photos": photos_view(db, p),
         "checks": cs, "ready": all(c["ok"] for c in cs if not c.get("optional")),
         "history": history(db, p), "created_at": p.created_at.isoformat(),
     }
@@ -388,3 +390,79 @@ def decide(db: Session, moderator: User, p: Product, decision: str, comment: str
         notify(db, uid, loc, f"product_{p.status}", f"product:{p.id}:{p.status}:{n}",
                product=f"{p.brand} {p.model}", comment=comment.strip() or "—")
     return p
+
+
+# ------------------------------------------------------------------ photos (NAP-047)
+# Photos are part of the card: the supplier changes them while the card is editable (draft / rejected), and they reach
+# buyers together with the card when the moderator approves it. A moderator may change them on any card (force).
+
+def photo_url(p: Product, asset) -> str:
+    return f"/api/v1/hardware/products/{p.slug}/photos/{asset.id}?v={(asset.sha256 or '')[:12]}"
+
+
+def photos_view(db: Session, p: Product) -> list[dict]:
+    from ..models import Asset
+    out = []
+    for aid in p.photos or []:
+        a = db.get(Asset, uuid.UUID(aid))
+        if a and a.status == "ready":
+            out.append({"id": aid, "url": photo_url(p, a), "width": (a.probe or {}).get("size", [None, None])[0],
+                        "height": (a.probe or {}).get("size", [None, None])[1]})
+    return out
+
+
+def add_photo(db: Session, user: User, p: Product, data: bytes, filename: str, force: bool = False) -> dict:
+    import hashlib
+    import os
+    import tempfile
+
+    from ..models import Asset
+    from ..storage import get_storage, new_key
+    from .covers import PHOTO_REQUIREMENTS, normalize_photo
+    _require_editable(p, force)
+    if len(p.photos or []) >= PHOTO_REQUIREMENTS["max_count"]:
+        raise ApiError("photo_limit", 409, max_count=PHOTO_REQUIREMENTS["max_count"])
+    ext = (filename.rsplit(".", 1)[-1] if "." in filename else "").lower()
+    if ext not in PHOTO_REQUIREMENTS["formats"]:
+        raise ApiError("unsupported_format", 415)
+    if not data:
+        raise ApiError("empty_file", 422)
+    if len(data) > PHOTO_REQUIREMENTS["max_bytes"]:
+        raise ApiError("file_too_large", 413, max_bytes=PHOTO_REQUIREMENTS["max_bytes"])
+    fd, src = tempfile.mkstemp(suffix="." + ext)
+    with os.fdopen(fd, "wb") as fh:
+        fh.write(data)
+    try:
+        out, info = normalize_photo(src)
+    finally:
+        os.remove(src)
+    try:
+        with open(out, "rb") as fh:
+            digest = hashlib.sha256(fh.read()).hexdigest()
+        a = Asset(owner_id=user.id, kind="product_photo", storage_key=new_key("product_photo", user.id, "webp"),
+                  original_name=filename[:255], content_type="image/webp", size_bytes=os.path.getsize(out),
+                  sha256=digest, status="ready", immutable=True, probe=info)
+        get_storage().put_file(a.storage_key, out, "image/webp")
+    finally:
+        os.remove(out)
+    db.add(a)
+    db.flush()
+    p.photos = [*(p.photos or []), str(a.id)]
+    audit(db, user.id, "product.photo_added", "product", p.id, {"asset_id": str(a.id)})
+    return {"id": str(a.id), "url": photo_url(p, a)}
+
+
+def remove_photo(db: Session, user: User, p: Product, asset_id: uuid.UUID, force: bool = False) -> None:
+    _require_editable(p, force)
+    if str(asset_id) not in (p.photos or []):
+        raise ApiError("not_found", 404, entity="photo")
+    p.photos = [x for x in p.photos if x != str(asset_id)]  # the file stays (audit / orders may reference the card)
+    audit(db, user.id, "product.photo_removed", "product", p.id, {"asset_id": str(asset_id)})
+
+
+def reorder_photos(db: Session, user: User, p: Product, ids: list[str], force: bool = False) -> None:
+    _require_editable(p, force)
+    if sorted(ids) != sorted(p.photos or []):
+        raise ApiError("validation_failed", 422, details={"fields": ["ids"]})
+    p.photos = list(ids)
+    audit(db, user.id, "product.photos_reordered", "product", p.id, {})

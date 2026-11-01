@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Copies the release metadata and versioned documents into the backend package so the running product
-serves exactly what the repository says. Run after editing release.json, docs/spec/*, docs/PROJECT.md or
+serves exactly what the repository says. Run after editing release.json, docs/spec/*, docs/legal/*, docs/PROJECT.md or
 CHANGELOG.md:  python3 ops/release.py   (a backend test fails if the copies are stale)."""
 import argparse, json, pathlib, shutil, sys
 
@@ -14,6 +14,9 @@ def sources():
     yield ROOT / "docs" / "PROJECT.md", "PROJECT.md"
     for p in sorted((ROOT / "docs" / "spec").glob("TZ-v*.md")):
         yield p, f"spec/{p.name}"
+    for p in sorted((ROOT / "docs" / "legal").glob("*")):  # NAP-062: offer, privacy policy, consents (RU/EN)
+        if p.suffix in (".md", ".json"):
+            yield p, f"legal/{p.name}"
 
 
 def main():

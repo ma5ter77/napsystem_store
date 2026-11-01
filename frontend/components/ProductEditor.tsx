@@ -9,10 +9,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createContext, useContext, useEffect, useState } from "react";
 import { useApp } from "@/components/Providers";
 import { ErrorBox, Loading, Price, StatusBadge, useAction, useLoad } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, postFile } from "@/lib/api";
 import { date } from "@/lib/i18n";
 
-const TABS = ["basics", "skus", "texts", "submit"] as const;
+const TABS = ["basics", "skus", "texts", "photos", "submit"] as const;
 const CURRENCIES = ["EUR", "USD", "RSD", "GBP"];
 const BATTERY = ["none", "li_ion_contained", "li_ion_packed", "li_metal"];
 
@@ -276,6 +276,55 @@ export function AuditList({ items }: { items: any[] }) {
   );
 }
 
+function Photos({ p, onSaved, reason }: { p: any; onSaved: (x: any, m: string) => void; reason: string }) {  // NAP-047
+  const { t } = useApp();
+  const { mode, send } = useContext(PCtx);
+  const base = mode === "seller" ? `/seller/products/${p.id}` : `/moderation/catalog/products/${p.id}`;
+  const canEdit = mode === "moderator" ? p.status !== "deleted" : p.editable;
+  const act = useAction();
+  const q = mode === "moderator" ? `&reason=${encodeURIComponent(reason)}` : "";
+  const ids: string[] = p.photos.map((x: any) => x.id);
+  const move = (i: number, d: number) => {
+    const next = [...ids]; [next[i], next[i + d]] = [next[i + d], next[i]];
+    act.run(() => send("/" + p.id + "/photos", "PUT", { ids: next })).then((x) => x && onSaved(x, t("ph.saved_order")));
+  };
+  return (
+    <div className="stack">
+      <p className="hint">{t("ph.hint")}</p>
+      {!canEdit && mode === "seller" && <div className="notice">{t("ph.locked")}</div>}
+      {p.photos.length === 0 ? <p className="hint">{t("ph.none")}</p> : (
+        <ol className="photo-grid" data-testid="photo-list">
+          {p.photos.map((ph: any, i: number) => (
+            <li key={ph.id} className="panel flat stack">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={ph.url} alt={t("ph.alt", { n: i + 1 })} loading="lazy" width={ph.width ?? undefined} height={ph.height ?? undefined} />
+              <div className="row">
+                {i === 0 ? <span className="badge ok">{t("ph.main")}</span> : <span className="hint">{i + 1}</span>}
+                {canEdit && <>
+                  <button type="button" className="btn ghost small" disabled={act.pending || i === 0} onClick={() => move(i, -1)} aria-label={t("ph.left", { n: i + 1 })}>←</button>
+                  <button type="button" className="btn ghost small" disabled={act.pending || i === p.photos.length - 1} onClick={() => move(i, 1)} aria-label={t("ph.right", { n: i + 1 })}>→</button>
+                  <button type="button" className="btn ghost small" disabled={act.pending} onClick={() => act.run(() => api(`${base}/photos/${ph.id}${mode === "moderator" ? `?reason=${encodeURIComponent(reason)}` : ""}`, { method: "DELETE" })).then((x) => x && onSaved(x, t("ph.deleted")))}>{t("ph.delete")}</button>
+                </>}
+              </div>
+            </li>))}
+        </ol>)}
+      {canEdit && p.photos.length < 8 && (
+        <label className="field">{t("ph.add")}
+          <input type="file" accept="image/png,image/jpeg,image/webp" disabled={act.pending} onChange={async (e) => {
+            const f = e.target.files?.[0];
+            e.target.value = "";
+            if (!f) return;
+            const x = await act.run(() => postFile(`${base}/photos?filename=${encodeURIComponent(f.name)}${q}`, f));
+            if (x) onSaved(x, t("ph.added"));
+          }} />
+          <span className="hint">{t("ph.rules")}</span>
+        </label>)}
+      {act.pending && <Loading />}
+      <ErrorBox error={act.error} />
+    </div>
+  );
+}
+
 export function ProductEditor({ mode, id }: { mode: EditorMode; id: string }) {
   const { t, locale } = useApp();
   const router = useRouter();
@@ -319,6 +368,7 @@ export function ProductEditor({ mode, id }: { mode: EditorMode; id: string }) {
         {tab === "skus" && <Skus p={p} onSaved={onSaved} />}
         {tab === "texts" && <div className="stack"><p className="hint">{t("sp.texts_hint")}</p>
           <div className="two">{(["ru", "en"] as const).map((l) => <TextsForm key={l + p.status} p={p} lang={l} onSaved={onSaved} />)}</div></div>}
+        {tab === "photos" && <Photos p={p} onSaved={onSaved} reason={reason} />}
         {tab === "submit" && <Submit p={p} onSaved={onSaved} goTab={goTab} />}
       </div>
     </PCtx.Provider>

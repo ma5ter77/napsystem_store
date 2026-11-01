@@ -1,8 +1,12 @@
+import atexit
 import os
+import shutil
 import tempfile
 import uuid
 
 _tmp = tempfile.mkdtemp(prefix="nap-test-")
+# each run converts real audio (~340 MB of files): remove this run's folder at exit so runs do not fill the disk
+atexit.register(shutil.rmtree, _tmp, ignore_errors=True)
 os.environ.setdefault("NAP_DATABASE_URL", "postgresql+psycopg://nap:nap@localhost:5432/nap_test")
 os.environ["NAP_ENV"] = "test"
 os.environ["NAP_RUN_JOBS_INLINE"] = "true"
@@ -64,6 +68,7 @@ class Client:
         email = f"u{uuid.uuid4().hex[:10]}@example.com"
         r = self.c.post("/api/v1/auth/register", json={"email": email, "password": "long-password-123",
                                                        "display_name": "Tester", "as_developer": developer,
+                                                       "accept_terms": True, "consent_personal_data": True,
                                                        "locale": locale or self.locale}, headers=self._h())
         assert r.status_code == 201, r.text
         self.csrf = r.json()["csrf_token"]

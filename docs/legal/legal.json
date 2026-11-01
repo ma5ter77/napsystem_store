@@ -1,0 +1,10 @@
+{
+  "_comment": "NAP-062: legal documents. Bump the version and date of a document when its text changes; acceptance records store the version.",
+  "status": "review",
+  "documents": {
+    "terms": {"version": "1.0", "date": "2026-11-01", "title": {"ru": "Пользовательское соглашение и публичная оферта", "en": "Terms of Service and Public Offer"}},
+    "privacy": {"version": "1.0", "date": "2026-11-01", "title": {"ru": "Политика обработки персональных данных", "en": "Privacy Policy"}},
+    "consent-personal-data": {"version": "1.0", "date": "2026-11-01", "title": {"ru": "Согласие на обработку персональных данных", "en": "Consent to the Processing of Personal Data"}},
+    "consent-measurements": {"version": "1.0", "date": "2026-11-01", "title": {"ru": "Согласие на обработку данных о самочувствии и измерений", "en": "Consent to the Processing of Wellbeing Data and Measurements"}}
+  }
+}

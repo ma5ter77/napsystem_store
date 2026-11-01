@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { LegalText } from "./LegalText";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, uid } from "@/lib/api";
@@ -49,6 +50,8 @@ export function AppActions({ app }: { app: any }) {
           ))}
         </div>
       ) : <p className="muted">{t("app.not_for_sale")}</p>}
+      {!access?.has_access && forSale && app.prices.some((p: any) => p.kind !== "free") && (
+        <p className="hint"><LegalText text={t("legal.buy_note")} locale={locale} labels={{ terms: t("legal.terms") }} /> {t("vat.note")}</p>)}
       {app.has_public_preview && !preview && <button className="btn ghost" onClick={loadPreview}>{t("app.listen_preview")}</button>}
       {preview && (
         <div>
