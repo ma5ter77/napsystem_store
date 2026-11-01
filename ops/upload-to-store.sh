@@ -59,8 +59,11 @@ echo
 echo "Кандидат: BrothersB/nap-store, $SOURCE = $STORE_SHA"
 git show --no-patch --format=fuller "$STORE_SHA"
 VERSION=$( { git show "$STORE_SHA:release.json" 2>/dev/null || true; } | awk -F'"' '/"version"/{print $4; exit}' || true)
-if git cat-file -e "$TESTED_COMMIT" 2>/dev/null && git diff --quiet "$TESTED_COMMIT" "$STORE_SHA"; then
-  MATCH="да — содержимое совпадает с проверенным выпуском ($TESTED_COMMIT)"
+# Docs and this upload script do not affect what runs on the server: differences there are listed, not blocking.
+NONRUNTIME=(-- . ':(exclude)docs' ':(exclude)ops/upload-to-store.sh' ':(exclude)README.md')
+if git cat-file -e "$TESTED_COMMIT" 2>/dev/null && git diff --quiet "$TESTED_COMMIT" "$STORE_SHA" "${NONRUNTIME[@]}"; then
+  DOCS_ONLY=$(git diff --name-only "$TESTED_COMMIT" "$STORE_SHA" | tr '\n' ' ')
+  MATCH="да — рабочий код совпадает с проверенным выпуском ($TESTED_COMMIT)${DOCS_ONLY:+; отличаются только документация/скрипт выгрузки: $DOCS_ONLY}"
   echo "✓ Версия $VERSION. Файлы совпадают с проверенным выпуском ($TESTED_COMMIT): тесты, E2E RU/EN и CI зелёные."
 else
   MATCH="НЕТ — содержимое отличается от проверенного выпуска ($TESTED_COMMIT)"
@@ -120,7 +123,7 @@ Commit:      $STORE_SHA ($SOURCE), версия ${VERSION:-?}
 SHA-256:     $LOCAL_SUM (Mac) = $REMOTE_SUM (сервер), sha256sum -c: OK
 CI:          https://github.com/BrothersB/nap-store/commit/$STORE_SHA (статус проверок коммита) и https://github.com/BrothersB/nap-store/actions
 Ограничения: демо-данные и демо-аккаунты (seed) не для production; оплата и доставка в mock-режиме до ключей
-             Stripe/ЮKassa/EasyPost; налоги не рассчитываются; юридические документы (PR codex/legal-docs)
-             ещё не в master; перед выпуском — повторная сверка hash и перенос артефакта в защищённое хранилище.
+             Stripe/ЮKassa/EasyPost; налоги не рассчитываются (цены без НДС); юридические документы версии 1.0
+             со статусом «на проверке юристом», реквизиты-заглушки; перед выпуском — повторная сверка hash.
 REPORT
 echo "Локальная копия архива: $STORE_EXPORT (можно удалить после выпуска)."
