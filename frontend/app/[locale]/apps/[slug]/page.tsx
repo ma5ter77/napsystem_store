@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BeatCover } from "@/components/Art";
+import { AppCover } from "@/components/Art";
 import { priceLabel } from "@/components/cards";
 import { AppActions } from "@/components/AppActions";
 import { ReviewsSection, Stars } from "@/components/Reviews";
@@ -33,7 +33,7 @@ export default async function AppPage({ params }: { params: P }) {
   return (
     <div className="section two">
       <div className="stack">
-        <div className="hero-art" style={{ aspectRatio: "4/3" }}><BeatCover hue={a.cover_hue} seed={a.slug} title={a.title} /></div>
+        <div className="hero-art" style={{ aspectRatio: "4/3" }}><AppCover a={a} eager /></div>
         <div className="panel stack">
           <h2>{t("app.program")}</h2>
           <ol className="steps">

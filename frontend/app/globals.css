@@ -221,3 +221,5 @@ main:focus { outline: none; }
 .state-title { font-size: 1.15rem; margin: 0; }
 .state-body { min-width: 0; flex: 1; }
 .state-body > .muted { margin: 0; }
+/* NAP-025: uploaded covers fill the same 4:3 frame as generated ones */
+.cover-img { display: block; width: 100%; height: 100%; object-fit: cover; }

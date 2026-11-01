@@ -579,6 +579,17 @@ M.update({
 "state.crash_title": ("Что-то пошло не так", "Something went wrong"),
 "state.crash_text": ("Страница не смогла отобразиться. Попробуйте ещё раз; если повторяется — напишите нам и укажите код.", "The page could not be displayed. Try again; if it keeps happening, contact us with the code."),
 "state.login_title": ("Нужен вход", "Sign-in required"), "state.device_title": ("Устройство недоступно", "Device unavailable"), "state.provider_title": ("Внешний сервис не ответил", "An external service did not respond"), "state.my_devices": ("Мои устройства", "My devices"), "state.no_role_title": ("Нет доступа", "No access"),
+# NAP-025: app covers
+})
+
+M.update({
+"dev.cover": ("Обложка", "Cover"), "dev.cover_upload": ("Загрузить обложку", "Upload cover"), "dev.cover_replace": ("Заменить обложку", "Replace cover"),
+"dev.cover_remove": ("Вернуть сгенерированную", "Use generated cover"),
+"dev.cover_generated": ("Сейчас используется сгенерированная обложка по частотам программы.", "The generated cover based on the program's frequencies is used now."),
+"dev.cover_uploaded": ("Загружена своя обложка. Модератор проверит её вместе с версией; в магазине она появится после публикации.", "Your own cover is uploaded. The moderator checks it with the version; it appears in the store after publishing."),
+"dev.cover_rules": ("PNG, JPEG или WebP до 10 МБ, не меньше 800×600 пикселей. Изображение обрезается по центру до 4:3 и сохраняется как 1200×900; данные камеры и геолокация удаляются. Без текста мелким шрифтом — на карточке его не прочитать.", "PNG, JPEG or WebP up to 10 MB, at least 800×600 pixels. The image is centre-cropped to 4:3 and saved as 1200×900; camera data and location are removed. Avoid small text — it is unreadable on the card."),
+"dev.cover_frozen": ("Обложка версии на модерации или опубликована — для замены создайте новую версию.", "The cover of a version in moderation or published cannot change — create a new version to replace it."),
+"dev.cover_saved": ("Обложка сохранена.", "Cover saved."), "dev.cover_removed": ("Будет использоваться сгенерированная обложка.", "The generated cover will be used."),
 })
 
 

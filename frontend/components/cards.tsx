@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { duration, langName, Locale, money, num1, T } from "@/lib/i18n";
-import { BeatCover, ProductArt } from "./Art";
+import { AppCover, ProductArt } from "./Art";
 
 export function priceLabel(prices: any[], t: T, locale: Locale): string {
   if (!prices?.length) return t("app.not_for_sale");
@@ -13,7 +13,7 @@ export function priceLabel(prices: any[], t: T, locale: Locale): string {
 export function AppCard({ a, locale, t }: { a: any; locale: Locale; t: T }) {
   return (
     <Link className="card" href={`/${locale}/apps/${a.slug}`}>
-      <div className="art"><BeatCover hue={a.cover_hue} seed={a.slug} title={a.title} /></div>
+      <div className="art"><AppCover a={a} /></div>
       <h3 lang={a.lang ?? undefined}>{a.title ?? a.slug}</h3>
       {a.fallback && a.lang && <span className="badge gray">{t("common.original_lang", { lang: langName(a.lang, locale) })}</span>}
       <div className="meta">{a.author} · {t("app.sessions", { count: a.sessions_count })} · {duration(a.total_duration_seconds, locale)}</div>

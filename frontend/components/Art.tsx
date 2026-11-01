@@ -56,3 +56,12 @@ export function BrandMark() {
     </svg>
   );
 }
+
+/** NAP-025: the uploaded, moderated cover when the app has one; otherwise the generated beat cover. */
+export function AppCover({ a, title, eager }: { a: { cover_url?: string | null; cover_hue: number; slug: string; title?: string | null }; title?: string | null; eager?: boolean }) {
+  if (a.cover_url) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={a.cover_url} alt={title ?? a.title ?? ""} loading={eager ? "eager" : "lazy"} decoding="async" width={1200} height={900} className="cover-img" />;
+  }
+  return <BeatCover hue={a.cover_hue} seed={a.slug} title={title ?? a.title ?? undefined} />;
+}

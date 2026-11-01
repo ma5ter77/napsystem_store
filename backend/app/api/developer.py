@@ -43,6 +43,8 @@ def version_view(db, v: AppVersion, locale: str) -> dict:
             "moderation": [{"decision": d.decision, "comment": d.comment, "at": d.created_at.isoformat()}
                            for d in decisions],
             "auto_release": v.auto_release,
+            "cover": ({"asset_id": str(v.cover_asset_id), "url": signed_url(db.get(Asset, v.cover_asset_id), "cover.webp")}
+                      if v.cover_asset_id else None),
             "release_blockers": appsvc.release_blockers(db, db.get(App, v.app_id), v) if v.state == "approved" else [],
             "submitted_at": v.submitted_at.isoformat() if v.submitted_at else None,
             "published_at": v.published_at.isoformat() if v.published_at else None}
@@ -89,7 +91,10 @@ def my_apps(request: Request, p=P, db=DB):
         out.append({"id": str(a.id), "slug": a.slug, "title": title, "sales_status": a.sales_status,
                     "published_version_id": str(a.published_version_id) if a.published_version_id else None,
                     "latest_version": {"id": str(latest.id), "state": latest.state, "label": latest.version_label}
-                    if latest else None, "cover_hue": a.cover_hue})
+                    if latest else None, "cover_hue": a.cover_hue,
+                    # NAP-025: the draft's own cover first, so the author sees the new cover before publishing
+                    "cover_url": (signed_url(db.get(Asset, latest.cover_asset_id), "cover.webp")
+                                  if latest and latest.cover_asset_id else None)})
     return {"items": out}
 
 
