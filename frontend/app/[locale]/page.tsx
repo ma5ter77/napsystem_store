@@ -1,6 +1,6 @@
 import { spreadTones } from "@/components/Art";
 import Link from "next/link";
-import { BeatCover } from "@/components/Art";
+import { HeroWaves } from "@/components/Art";
 import { AppCard, ProductCard } from "@/components/cards";
 import { isLocale, Locale, translator } from "@/lib/i18n";
 import { serverApi, serverTranslator } from "@/lib/server";
@@ -18,17 +18,15 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
   return (
     <>
       <section className="hero">
-        <div>
-          <h1>{t("home.title")}</h1>
-          <p className="muted" style={{ fontSize: "1.1rem" }}>{t("home.lead")}</p>
-          <div className="row">
-            <Link className="btn" href={`/${locale}/apps`}>{t("home.cta_apps")}</Link>
-            <Link className="btn ghost" href={`/${locale}/developer`}>{t("home.cta_dev")}</Link>
-          </div>
+        <h1>{t("home.title")}</h1>
+        <p className="lead">{t("home.lead_short")}</p>
+        <div className="row">
+          <Link className="btn" href={`/${locale}/apps`}>{t("home.cta_apps_short")}</Link>
+          <Link className="btn ghost" href={`/${locale}/devices`}>{t("home.cta_devices")}</Link>
         </div>
-        <div className="hero-art" aria-hidden="true"><BeatCover hue={205} seed="nap-hero" beats={4} /></div>
+        <div className="hero-art" aria-hidden="true"><HeroWaves /></div>
+        <p className="hero-note">{t("home.art_note")}</p>
       </section>
-      <p className="hint" style={{ marginTop: -8 }}>{t("home.art_note")}</p>
       <section className="section">
         <div className="spread"><h2>{t("home.apps")}</h2><Link href={`/${locale}/apps`}>{t("common.all")}</Link></div>
         {apps.ok ? (

@@ -18,7 +18,10 @@
   "login": "Sign in",
   "language": "Interface language",
   "content": "Site content",
-  "skip": "Skip to content"
+  "skip": "Skip to content",
+  "cart_label": "Cart, items: {count}",
+  "account_menu": "Account",
+  "signed_in_as": "Signed in as"
  },
  "about": {
   "spec_draft": "draft, awaiting approval",
@@ -323,6 +326,15 @@
   "methods": "The converter is our own two-carrier generator. Published approaches of The Monroe Institute and the Center for Neuroacoustic Research served as methodological references; there is no licence, partnership or access to proprietary algorithms.",
   "version": "NAP Store {version} · spec v{spec}",
   "legal": "Legal documents",
+  "col_shop": "Shop",
+  "col_authors": "Authors and sellers",
+  "col_account": "Account",
+  "col_about": "About",
+  "publish": "Publish an app",
+  "sell": "Supplier dashboard",
+  "about": "Product and versions",
+  "methods_more": "Method and limits",
+  "copyright": "© {year} NAP Store",
   "currency": "Price currency"
  },
  "coverage": {
@@ -340,7 +352,10 @@
   "art_note": "Covers show the two carriers, left and right. Their difference produces the beat.",
   "apps": "Apps",
   "kits": "Kits",
-  "devices": "Devices"
+  "devices": "Devices",
+  "lead_short": "Meditations, audiobooks and courses with a binaural layer — and the chairs and headphones to hear them. Every track is measured for frequencies, levels and peaks.",
+  "cta_apps_short": "Browse apps",
+  "cta_devices": "Find equipment"
  },
  "common": {
   "all": "All",
@@ -357,7 +372,8 @@
   "yes": "yes",
   "no": "no",
   "save": "Save",
-  "change": "Change"
+  "change": "Change",
+  "demo": "Demo"
  },
  "catalog": {
   "title": "Apps",
@@ -377,7 +393,8 @@
   "sort": "Sort",
   "sort_default": "default",
   "sort_rating": "by rating",
-  "sort_new": "newest"
+  "sort_new": "newest",
+  "lead": "Meditations, audiobooks and courses with a binaural layer. Every track is measured for frequencies, levels and peaks."
  },
  "app": {
   "sessions": "{count, plural, one {# session} other {# sessions}}",
@@ -423,11 +440,11 @@
  },
  "devices": {
   "title": "Devices",
-  "lead": "Chairs, headphones, vibroacoustics, controllers, sensors and connection parts. Compatibility is shown with its verification status."
+  "lead": "Chairs, headphones and everything for binaural sound. Compatibility is verified or honestly labelled."
  },
  "kits": {
   "title": "Kits",
-  "lead": "Boxed kits and kits built from components. Mark what you already own and we'll add only what is missing.",
+  "lead": "Ready kits for your apps: we show what's missing and add it in one click.",
   "for_app": "Equipment for “{app}”",
   "requires": "The app needs",
   "license_note": "Buying equipment does not include an app licence — it is purchased separately.",
@@ -482,7 +499,9 @@
   "parcel": "parcel at carrier rate",
   "returns": "Returns",
   "delivery_terms": "Delivery terms",
-  "compat_note": "“Verified” — confirmed by the platform in the stated configuration. “Claimed” — per the supplier. Stereo speakers do not prove left/right ear separation."
+  "compat_note": "“Verified” — confirmed by the platform in the stated configuration. “Claimed” — per the supplier. Stereo speakers do not prove left/right ear separation.",
+  "about": "About this product",
+  "delivery_returns": "Delivery, returns and terms"
  },
  "orders": {
   "title": "Hardware orders",
@@ -524,6 +543,8 @@
   "source": "source",
   "label_not_shipped": "Label created — the parcel has not shipped yet.",
   "packing_list": "Packing list (PDF)",
+  "lead": "Status, delivery and returns for every order.",
+  "open": "Open order",
   "tax": "Tax (calculated at checkout)"
  },
  "address": {
@@ -915,7 +936,8 @@
   "mod_publish_reply": "Publish reply",
   "mod_hide_reply": "Hide reply",
   "card": "Rated {avg} out of 5, {count} ratings",
-  "edited_by_moderator": "edited by a moderator"
+  "edited_by_moderator": "edited by a moderator",
+  "no_ratings_yet": "No ratings yet. Buy and be the first to rate — it helps others choose."
  },
  "caps": {
   "stereo_output": "stereo output",
@@ -1451,6 +1473,39 @@
  },
  "vat": {
   "note": "Prices exclude VAT; VAT is added where required by the law of the buyer's country."
+ },
+ "crumbs": {
+  "label": "You are here",
+  "home": "Store"
+ },
+ "steps": {
+  "order_progress": "Order progress",
+  "next": "What's next:",
+  "state": {
+   "done": "done",
+   "current": "now",
+   "upcoming": "upcoming",
+   "problem": "needs attention"
+  },
+  "order": {
+   "placed": "Placed",
+   "paid": "Paid",
+   "packing": "Packing",
+   "shipped": "Shipped",
+   "delivered": "Delivered"
+  },
+  "order_next": {
+   "quote": "the supplier will quote delivery for the bulky item. We'll email you when the price is ready.",
+   "paying": "choose delivery and pay. The items are reserved for you.",
+   "payment_failed": "the payment didn't go through. Try again or use another card — the order is kept.",
+   "packing": "the supplier is packing your order. The tracking number will appear here once it ships.",
+   "partially_shipped": "part of the order is on its way; the rest will come in a separate parcel.",
+   "shipped": "your order is on its way. Track the parcel under Delivery.",
+   "delivered": "delivered. If something is wrong, request a return on the order page.",
+   "exception": "there's a delivery problem. The supplier will contact you; details are on the order page.",
+   "cancelled": "the order was cancelled. Any payment will be returned to the same method.",
+   "closed": "the order is closed. Its history stays here."
+  }
  },
  "billing": {
   "portal": "Cards and invoices",

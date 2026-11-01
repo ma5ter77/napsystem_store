@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { Locale, swapLocalePath } from "@/lib/i18n";
 import { BrandMark } from "./Art";
+import { BagIcon, MenuIcon, PersonIcon } from "./icons";
 import { useApp } from "./Providers";
 
 export function Header() {
@@ -33,7 +34,21 @@ export function Header() {
   const [open, setOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { setOpen(false); }, [path]);
+  const accountRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => { setOpen(false); if (accountRef.current) accountRef.current.open = false; }, [path]);
+  useEffect(() => {  // account menu: Escape or a click outside closes it
+    const close = (e: Event) => {
+      const d = accountRef.current;
+      if (!d?.open) return;
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !d.contains(e.target as Node)) {
+        d.open = false;
+        if (e instanceof KeyboardEvent) d.querySelector("summary")?.focus();
+      }
+    };
+    document.addEventListener("keydown", close);
+    document.addEventListener("click", close);
+    return () => { document.removeEventListener("keydown", close); document.removeEventListener("click", close); };
+  }, []);
   useEffect(() => {
     if (!open) return;
     panelRef.current?.querySelector<HTMLElement>("a,button")?.focus();
@@ -74,24 +89,27 @@ export function Header() {
           ))}
         </nav>
         <div className="tools">
-          <Link className="btn ghost small cart-link" href={`/${locale}/cart`}>{t("nav.cart", { count: cartCount })}</Link>
-          <button ref={toggleRef} type="button" className="btn ghost small menu-toggle" aria-expanded={open}
-                  aria-controls="mobile-menu" onClick={() => setOpen(!open)}>{open ? t("nav.close_menu") : t("nav.menu")}</button>
+          <Link className="icon-btn cart-link" href={`/${locale}/cart`} aria-label={t("nav.cart_label", { count: cartCount })}
+                aria-current={path.startsWith(`/${locale}/cart`) ? "page" : undefined}>
+            <BagIcon />{cartCount > 0 && <span className="count" aria-hidden="true">{cartCount}</span>}
+          </Link>
           {me ? (
-            <>
-              <Link className="btn ghost small" href={`/${locale}/library`}>{t("nav.library")}</Link>
-              <details className="menu">
-                <summary className="btn ghost small">{me.display_name}</summary>
-                <div className="panel flat stack" style={{ position: "absolute", right: 20, marginTop: 8, minWidth: 220, zIndex: 30 }}>
-                  {accountLinks.map((x) => <Link key={x.href} href={x.href}>{x.label}</Link>)}
-                  <button className="btn ghost small" onClick={logout}>{t("nav.logout")}</button>
-                </div>
-              </details>
-            </>
+            <details className="menu" ref={accountRef}>
+              <summary className="icon-btn" aria-label={t("nav.account_menu")}><PersonIcon /></summary>
+              <div className="menu-panel">
+                <div className="who"><span className="hint">{t("nav.signed_in_as")}</span><strong>{me.display_name}</strong></div>
+                <Link href={`/${locale}/library`} aria-current={path.startsWith(`/${locale}/library`) ? "page" : undefined}>{t("nav.library")}</Link>
+                {accountLinks.map((x) => <Link key={x.href} href={x.href} aria-current={path.startsWith(x.href) ? "page" : undefined}>{x.label}</Link>)}
+                <hr />
+                <button className="item" onClick={logout}>{t("nav.logout")}</button>
+              </div>
+            </details>
           ) : me === null ? (
-            <Link className="btn small" href={`/${locale}/login?next=${encodeURIComponent(path)}`}>{t("nav.login")}</Link>
+            <Link className="btn small ghost" href={`/${locale}/login?next=${encodeURIComponent(path)}`}>{t("nav.login")}</Link>
           ) : null}
           {langSwitch}
+          <button ref={toggleRef} type="button" className="icon-btn menu-toggle" aria-expanded={open}
+                  aria-controls="mobile-menu" aria-label={open ? t("nav.close_menu") : t("nav.menu")} onClick={() => setOpen(!open)}><MenuIcon open={open} /></button>
         </div>
       </div>
       {open && (
@@ -105,7 +123,7 @@ export function Header() {
                 <strong>{me.display_name}</strong>
                 <Link href={`/${locale}/library`}>{t("nav.library")}</Link>
                 {accountLinks.map((x) => <Link key={x.href} href={x.href}>{x.label}</Link>)}
-                <button className="btn ghost small" onClick={logout}>{t("nav.logout")}</button>
+                <button className="item" onClick={logout}>{t("nav.logout")}</button>
               </>
             ) : me === null ? <Link className="btn small" href={`/${locale}/login?next=${encodeURIComponent(path)}`}>{t("nav.login")}</Link> : null}
           </div>

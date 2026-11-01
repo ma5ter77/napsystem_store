@@ -102,3 +102,9 @@ export function swapLocalePath(path: string, to: Locale): string {
   else parts.splice(1, 0, to);
   return parts.join("/") || `/${to}`;
 }
+
+
+/** NAP-095: "(демо)" / "(demo, ready)" are data markers, not part of the name — the UI shows a separate Demo badge. */
+export function displayTitle(title: string | null | undefined): string {
+  return (title ?? "").replace(/\s*\((?:демо|demo)(?:,\s*([^)]+))?\)/i, (_m, rest) => (rest ? ` (${rest})` : "")).trim();
+}

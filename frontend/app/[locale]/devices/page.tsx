@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PageHead } from "@/components/nav";
 import Link from "next/link";
 import { ProductCard } from "@/components/cards";
 import { isLocale, Locale, translator } from "@/lib/i18n";
@@ -24,7 +25,7 @@ export default async function Devices({ params, searchParams }: { params: Promis
                                          serverApi<any>("/categories?kind=hardware", locale)]);
   return (
     <div className="section">
-      <h1>{t("devices.title")}</h1>
+      <PageHead title={t("devices.title")} lead={t("devices.lead")} />
       <p className="muted">{t("devices.lead")}</p>
       <form className="filters" method="get" role="search">
         <label className="field">{t("catalog.search")}<input name="q" defaultValue={sp.q ?? ""} /></label>

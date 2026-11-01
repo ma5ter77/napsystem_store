@@ -1,4 +1,5 @@
 import { spreadTones } from "@/components/Art";
+import { PageHead } from "@/components/nav";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AppCard } from "@/components/cards";
@@ -30,7 +31,7 @@ export default async function Catalog({ params, searchParams }: { params: Promis
   };
   return (
     <div className="section">
-      <h1>{t("catalog.title")}</h1>
+      <PageHead title={t("catalog.title")} lead={t("catalog.lead")} />
       <form className="filters" method="get" role="search">
         <label className="field">{t("catalog.search")}
           <input name="q" defaultValue={sp.q ?? ""} placeholder={t("catalog.search_ph")} /></label>
