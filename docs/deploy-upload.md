@@ -50,7 +50,8 @@ STORE_SHA=<полный SHA> bash ~/Projects/_nap-store-backup-20261031/nap-stor
 | Дата | Коммит | Версия | Папка на сервере | SHA-256 архива | Примечание |
 |---|---|---|---|---|---|
 | 2026-11-01 | `f0aa5aa0b991f1c235acbb217b5fd940bc9514ca` | 0.7.1 (+ док. публикации, PR #1) | `/srv/nap-store/incoming/upload.4D9G9czc` | `ff7e64e793af0bbd08b973e0d16674bcfb1b457e756bf21d623392ddf31c125b` | sha256sum -c OK. Это НЕ выпуск 0.8.0: общий PR #16 тогда ещё не был принят. |
-| 2026-11-01 | `02491163fcb6c4fdcf38fc69c076815681bd8988` | 0.8.0 (master после PR #16; содержимое = проверенный `def54f3`) | `/srv/nap-store/incoming/upload.9LqO20Vj` | `c24fc9c59c790a739551857c1268818045b7c5b95b91656fd2dc82f37d3ea08e` | sha256sum -c OK, Mac = сервер. **Актуальный артефакт для выпуска.** |
+| 2026-11-01 | `02491163fcb6c4fdcf38fc69c076815681bd8988` | 0.8.0 (master после PR #16; содержимое = проверенный `def54f3`) | `/srv/nap-store/incoming/upload.9LqO20Vj` | `c24fc9c59c790a739551857c1268818045b7c5b95b91656fd2dc82f37d3ea08e` | sha256sum -c OK, Mac = сервер. Заменён более новым. |
+| 2026-11-01 | `f585a58b6bcce6ada01aa34fa8fb1f23e0fb3ad9` | 0.8.0 (master после PR #21; рабочий код = проверенный `12ead32`, отличаются только docs/deploy-upload.md и ops/upload-to-store.sh) | `/srv/nap-store/incoming/upload.ZROqdHrQ` | `ef5e4a1d393cc9a1d4b97e3f37afc555401fd227ab422e0acea1ca186e2a5e46` | sha256sum -c OK, Mac = сервер. Содержит скрипты безопасного выпуска (ops/cohost). **Актуальный артефакт для выпуска.** |
 
 ## Что дальше (не делается этим скриптом)
 

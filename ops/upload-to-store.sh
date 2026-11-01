@@ -123,7 +123,7 @@ Commit:      $STORE_SHA ($SOURCE), версия ${VERSION:-?}
 SHA-256:     $LOCAL_SUM (Mac) = $REMOTE_SUM (сервер), sha256sum -c: OK
 CI:          https://github.com/BrothersB/nap-store/commit/$STORE_SHA (статус проверок коммита) и https://github.com/BrothersB/nap-store/actions
 Ограничения: демо-данные и демо-аккаунты (seed) не для production; оплата и доставка в mock-режиме до ключей
-             Stripe/ЮKassa/EasyPost; налоги не рассчитываются; юридические документы (PR codex/legal-docs)
-             ещё не в master; перед выпуском — повторная сверка hash и перенос артефакта в защищённое хранилище.
+             Stripe/ЮKassa/EasyPost; налоги не рассчитываются (цены без НДС); юридические документы версии 1.0
+             со статусом «на проверке юристом», реквизиты-заглушки; перед выпуском — повторная сверка hash.
 REPORT
 echo "Локальная копия архива: $STORE_EXPORT (можно удалить после выпуска)."
