@@ -28,8 +28,9 @@ export default async function LocaleLayout({ children, params }: { children: Rea
     <html lang={locale}>
       <body>
         <Providers locale={locale}>
+          <a className="skip-link" href="#main">{t("nav.skip")}</a>
           <Suspense><Header /></Suspense>
-          <main className="wrap" id="main">{children}</main>
+          <main className="wrap" id="main" tabIndex={-1}>{children}</main>
           <footer className="foot">
             <div className="wrap stack">
               <p>{t("footer.disclaimer")}</p>

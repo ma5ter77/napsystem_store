@@ -499,7 +499,7 @@ M.update({
 
 # NAP-084: moderator catalog management and site content editor
 M.update({
-"nav.content": ("Контент сайта", "Site content"), "fields.reason": ("Причина", "Reason"), "fields.names": ("Названия", "Names"), "fields.value": ("Текст", "Text"), "fields.seller_id": ("Поставщик", "Supplier"),
+"nav.content": ("Контент сайта", "Site content"), "nav.skip": ("Перейти к содержимому", "Skip to content"), "player.progress": ("Прогресс сеанса", "Session progress"), "admin.role_for": ("Роль для {email}", "Role for {email}"), "fields.reason": ("Причина", "Reason"), "fields.names": ("Названия", "Names"), "fields.value": ("Текст", "Text"), "fields.seller_id": ("Поставщик", "Supplier"),
 "roles.user": ("Пользователь", "User"), "roles.developer": ("Разработчик", "Developer"), "roles.seller": ("Поставщик", "Supplier"),
 "roles.fulfillment": ("Исполнение заказов", "Fulfillment"), "roles.moderator": ("Модератор", "Moderator"),
 "roles.content_editor": ("Редактор контента сайта", "Site content editor"), "roles.admin": ("Администратор", "Administrator"),
