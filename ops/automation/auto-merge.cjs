@@ -11,6 +11,7 @@ module.exports = async ({github, context, core}) => {
     const files = await github.paginate(github.rest.pulls.listFiles, {...repo,pull_number:pr.number,per_page:100});
     const required = ['ci.yml'];
     if (files.some(f => [f.filename, f.previous_filename || ''].some(name => /^(ops\/cohost\/|docker-compose.yml$|backend\/Dockerfile$|frontend\/Dockerfile$|backend\/migrations\/|\.github\/workflows\/release-acceptance.yml$)/.test(name)))) required.push('release-acceptance.yml');
+    if (files.some(f => [f.filename, f.previous_filename || ''].some(name => /^(ops\/vps\/|ops\/backup-loop.sh$|ops\/backup.sh$|ops\/restore_verify.sh$|backend\/Dockerfile$|frontend\/Dockerfile$|backend\/migrations\/|\.github\/workflows\/(vps-acceptance|deliver-vps).yml$)/.test(name)))) required.push('vps-acceptance.yml');
     let passed = true;
     for (const workflow_id of required) {
       const {data} = await github.rest.actions.listWorkflowRuns({...repo,workflow_id,event:'pull_request',head_sha:pr.head.sha,per_page:100});

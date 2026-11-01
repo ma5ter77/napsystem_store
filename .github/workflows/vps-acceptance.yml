@@ -1,0 +1,41 @@
+# NAP-087: acceptance of the dedicated-server release runner on a throwaway GitHub runner.
+name: vps-acceptance
+on:
+  pull_request:
+    paths:
+      - "ops/vps/**"
+      - "ops/backup-loop.sh"
+      - "ops/backup.sh"
+      - "ops/restore_verify.sh"
+      - "backend/Dockerfile"
+      - "frontend/Dockerfile"
+      - "backend/migrations/**"
+      - ".github/workflows/vps-acceptance.yml"
+      - ".github/workflows/deliver-vps.yml"
+  workflow_dispatch:
+concurrency:
+  group: vps-acceptance-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  vps:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: offline tests + installer builds
+        run: |
+          python3 -m unittest -v ops/vps/test_napdeploy.py
+          python3 ops/vps/make-installer.py "$RUNNER_TEMP/nap-vps-install.sh" && bash -n "$RUNNER_TEMP/nap-vps-install.sh"
+          shellcheck -S warning ops/vps/bootstrap.sh ops/vps/acceptance.sh
+      - name: real Docker acceptance
+        run: bash ops/vps/acceptance.sh
+      - name: diagnostics on failure (no environment values)
+        if: failure()
+        run: |
+          docker ps -a --format '{{.Names}}\t{{.Image}}\t{{.Status}}'
+          for s in migrate api web caddy worker-ops; do
+            id=$(docker ps -aq --filter label=com.docker.compose.service=$s | head -1)
+            [ -n "$id" ] && { echo "== $s"; docker logs --tail 80 "$id" 2>&1 | grep -viE 'secret|password|token' || true; }
+          done

@@ -30,6 +30,7 @@ jobs:
       - run: python3 ops/release.py --check
       - run: python3 ops/cohost/test_release_control.py
       - run: python3 ops/automation/test_receive.py
+      - run: python3 ops/vps/test_napdeploy.py
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
       - run: node ops/automation/test-auto-merge.cjs
