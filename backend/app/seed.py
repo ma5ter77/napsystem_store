@@ -152,6 +152,18 @@ def compat(db, s: Sku, feature, status, source, dm=None, cfg=None, details=None)
                          details=details or {}))
 
 
+USD_DEMO = {"quiet-harbor": ("one_time", 499, None), "focus-course": ("subscription", 999, "month")}
+
+
+def seed_usd_prices(db):
+    """NAP-012: demo apps are also priced in USD so buyers outside the euro area see their currency."""
+    for slug, (kind, amount, interval) in USD_DEMO.items():
+        app = db.scalar(select(App).where(App.slug == slug))
+        if app and not db.scalar(select(Price).where(Price.app_id == app.id, Price.active.is_(True),
+                                                     Price.kind == kind, Price.currency == "USD")):
+            appsvc.set_price(db, app, kind, amount, "USD", interval, actor_id=app.developer_id)
+
+
 def make_app(db, dev, slug, category, author, meta, lang, price, sessions_spec, profile_slug, state="published",
              kit=None, preview=True):
     if db.scalar(select(App).where(App.slug == slug)):
@@ -220,6 +232,7 @@ def run() -> None:
                 if not db.scalar(select(DspProfile).where(DspProfile.slug == slug)):
                     db.add(DspProfile(slug=slug, version=1, names=names, descriptions=desc, params=params,
                                       created_by=admin.id))
+            seed_usd_prices(db)  # added with NAP-012
             print("demo data already present")
             return
         admin = user(db, "admin@nap.demo", "Admin (demo)", ["user", "admin", "moderator"])
@@ -398,6 +411,7 @@ def run() -> None:
         db.add(Device(owner_id=buyer.id, adapter="simulated", name="Simulated NAP chair", model_code="sim-chair-v1",
                       capabilities=chair.to_dict() | {"provides": sorted(chair.provides())}))
         seed_reviews(db)
+        seed_usd_prices(db)
     seed_multi_parcel_order()
     print("demo data created")
 

@@ -698,6 +698,11 @@ M.update({  # NAP-012/020: Stripe for the US and world markets
 "errors.no_billing_account": ("Платёжный профиль ещё не создан: он появится после первой оплаты.", "No billing profile yet: it is created with your first payment."),
 })
 
+M.update({  # NAP-012: buyer currency
+"footer.currency": ("Валюта цен", "Price currency"),
+"dev.price_currencies": ("Можно задать цену в евро и в долларах: покупатель видит и платит в своей валюте. Если цены в его валюте нет — в той, что задана.", "You can price in euros and dollars: buyers see and pay in their currency, or in the one you set if theirs is missing."),
+})
+
 def nest(lang):
     out = {}
     for key, pair in M.items():

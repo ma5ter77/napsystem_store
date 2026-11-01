@@ -60,7 +60,10 @@ def start_checkout(db: Session, user: User, app_id: uuid.UUID, kind: str, locale
     app = db.get(App, app_id)
     if not app or not app.published_version_id or app.sales_status != "active":
         raise ApiError("not_for_sale", 409)
-    price = db.scalar(select(Price).where(Price.app_id == app.id, Price.active.is_(True), Price.kind == kind))
+    from . import currency as cur  # NAP-012: pay in the buyer's currency when the author set a price in it
+    chosen = cur.choose(list(db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True),
+                                                            Price.kind == kind))))
+    price = chosen[0] if chosen else None
     if not price:
         raise ApiError("not_for_sale", 409)
     if access_for(db, user.id, app.id)["has_access"]:

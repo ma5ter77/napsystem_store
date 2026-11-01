@@ -247,7 +247,8 @@
   "cover_rules": "PNG, JPEG or WebP up to 10 MB, at least 800×600 pixels. The image is centre-cropped to 4:3 and saved as 1200×900; camera data and location are removed. Avoid small text — it is unreadable on the card.",
   "cover_frozen": "The cover of a version in moderation or published cannot change — create a new version to replace it.",
   "cover_saved": "Cover saved.",
-  "cover_removed": "The generated cover will be used."
+  "cover_removed": "The generated cover will be used.",
+  "price_currencies": "You can price in euros and dollars: buyers see and pay in their currency, or in the one you set if theirs is missing."
  },
  "mod": {
   "done_approve": "Version approved.",
@@ -321,7 +322,8 @@
   "disclaimer": "NAP Store verifies technical signal parameters. It is not a medical service: neither the frequencies in a file nor a session guarantee any brain state or therapeutic result.",
   "methods": "The converter is our own two-carrier generator. Published approaches of The Monroe Institute and the Center for Neuroacoustic Research served as methodological references; there is no licence, partnership or access to proprietary algorithms.",
   "version": "NAP Store {version} · spec v{spec}",
-  "legal": "Legal documents"
+  "legal": "Legal documents",
+  "currency": "Price currency"
  },
  "coverage": {
   "done": "implemented",

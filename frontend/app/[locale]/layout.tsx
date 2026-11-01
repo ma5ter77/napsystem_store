@@ -4,6 +4,8 @@ import { Suspense } from "react";
 import "../globals.css";
 import { Header } from "@/components/Header";
 import { Providers } from "@/components/Providers";
+import { CurrencySwitch } from "@/components/CurrencySwitch";
+import { cookies } from "next/headers";
 import { isLocale, translator } from "@/lib/i18n";
 import { alternates, serverApi, serverTranslator } from "@/lib/server";
 import Link from "next/link";
@@ -24,6 +26,8 @@ export default async function LocaleLayout({ children, params }: { children: Rea
   if (!isLocale(locale)) notFound();
   const t = (await serverTranslator(locale));
   const rel = await serverApi<any>("/version", locale);
+  const jar = await cookies();
+  const cur = ((c) => (c === "USD" || c === "EUR" ? c : locale === "en" ? "USD" : "EUR"))(jar.get("nap_currency")?.value);
   return (
     <html lang={locale}>
       <body>
