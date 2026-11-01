@@ -521,7 +521,8 @@
   "parcel": "Parcel {n}",
   "source": "source",
   "label_not_shipped": "Label created — the parcel has not shipped yet.",
-  "packing_list": "Packing list (PDF)"
+  "packing_list": "Packing list (PDF)",
+  "tax": "Tax (calculated at checkout)"
  },
  "address": {
   "invalid_field": "Check this field",
@@ -1448,5 +1449,12 @@
  },
  "vat": {
   "note": "Prices exclude VAT; VAT is added where required by the law of the buyer's country."
+ },
+ "billing": {
+  "portal": "Cards and invoices",
+  "portal_hint": "Saved cards, invoices and renewals are managed in the payment provider's secure portal."
+ },
+ "errors": {
+  "no_billing_account": "No billing profile yet: it is created with your first payment."
  }
 }

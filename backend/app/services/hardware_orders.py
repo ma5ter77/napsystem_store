@@ -331,12 +331,21 @@ def start_payment(db: Session, o: HardwareOrder, user: User) -> dict:
     provider = get_payment_provider()
     s = get_settings()
     n = db.scalar(select(func.count()).select_from(PaymentAttempt).where(PaymentAttempt.order_id == o.id)) or 0
+    f = (o.address or {}).get("fields") or {}
+    ship_to = {"name": f.get("name"), "line1": f.get("line1"), "line2": f.get("line2"), "city": f.get("city"),
+               "state": f.get("region"), "postal_code": f.get("postal_code"), "country": (o.address or {}).get("country")}
+    lines = [{"name": f"NAP Store order {o.number}", "amount_minor": o.goods_minor + o.fees_minor, "kind": "goods"}]
+    if o.shipping_minor:
+        lines.append({"name": "Shipping", "amount_minor": o.shipping_minor, "kind": "shipping"})
     try:
+        from .billing import ensure_customer
+        customer_ref = ensure_customer(db, provider, user, shipping=ship_to)  # NAP-020: tax by delivery address
         cs = provider.create_checkout(
             context="hardware", order_id=str(o.id), amount_minor=total, currency=o.currency,
             description=f"NAP Store order {o.number}", mode="payment", interval=None, subscription_id=None,
             success_url=f"{s.public_base_url}/{o.locale}/orders/{o.id}", cancel_url=f"{s.public_base_url}/{o.locale}/orders/{o.id}",
-            idempotency_key=f"hardware:{o.id}:{o.total_minor}:{n}", customer_email=user.email)
+            idempotency_key=f"hardware:{o.id}:{o.total_minor}:{n}", customer_email=user.email, lines=lines,
+            customer_ref=customer_ref)
     except ProviderUnavailable as e:
         raise ApiError("payment_provider_unavailable", 503, reason=str(e))
     att = db.scalar(select(PaymentAttempt).where(PaymentAttempt.provider_ref == cs.provider_ref))
@@ -349,16 +358,18 @@ def start_payment(db: Session, o: HardwareOrder, user: User) -> dict:
     return {"order_id": str(o.id), "checkout_url": cs.url, "test_mode": cs.test_mode}
 
 
-def confirm_payment(db: Session, att: PaymentAttempt) -> None:
+def confirm_payment(db: Session, att: PaymentAttempt, tax_minor: int = 0) -> None:
     o = db.get(HardwareOrder, att.order_id, with_for_update=True)
     if o.payment_status == "paid":
         return
     if att.amount_minor != o.total_minor:
         o.exception_reason = "amount_mismatch"
     o.payment_status, o.paid_at = "paid", utcnow()
+    o.tax_minor = tax_minor  # NAP-020: sales tax / VAT computed by the provider; held for the tax authority
     seller = db.get(Seller, o.seller_id)
     money.post(db, f"hw_sale:{o.id}", "hardware_sale", o.currency, [
-        (f"cash:{att.provider}", att.amount_minor), (f"hardware:{seller.id}:goods", -o.goods_minor),
+        (f"cash:{att.provider}", att.amount_minor + tax_minor), ("tax:payable", -tax_minor),
+        (f"hardware:{seller.id}:goods", -o.goods_minor),
         (f"hardware:{seller.id}:shipping", -(o.shipping_minor or 0)), (f"hardware:{seller.id}:fees", -o.fees_minor),
         (f"hardware:{seller.id}:unreconciled", -(att.amount_minor - (o.total_minor or 0)))],
         memo=f"hardware order {o.number} ({seller.kind}); separate hardware settlement policy")
