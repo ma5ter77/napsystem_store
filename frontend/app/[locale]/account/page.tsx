@@ -10,14 +10,39 @@ import { date } from "@/lib/i18n";
 
 const TABS = ["purchases", "subscriptions", "devices", "history", "privacy", "notifications", "addresses"] as const;
 
+function RefundCell({ o, onDone }: { o: any; onDone: () => void }) {  // NAP-024
+  const { t } = useApp();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [sent, setSent] = useState(false);
+  const act = useAction();
+  const rq = o.refund_request;
+  return <div className="stack">
+    {rq && <div><StatusBadge ns="refund_status" value={rq.status} />{rq.note && <div className="hint">{t("refund.answer")}: {rq.note}</div>}</div>}
+    {sent && <p className="hint" role="status">{t("refund.sent")}</p>}
+    {o.can_request_refund && !open && <div><button type="button" className="btn ghost small" onClick={() => { setOpen(true); setSent(false); }}>{t("refund.request")}</button></div>}
+    {open && <form className="stack" onSubmit={async (e) => {
+      e.preventDefault();
+      if (await act.run(() => api(`/purchases/${o.id}/refund-request`, { body: { reason } }))) { setOpen(false); setReason(""); setSent(true); onDone(); }
+    }}>
+      <label className="field">{t("refund.reason")}
+        <textarea value={reason} onChange={(e) => setReason(e.target.value)} minLength={10} maxLength={1000} required rows={3} /></label>
+      <p className="hint">{t("refund.reason_hint")}</p>
+      <ErrorBox error={act.error} />
+      <div className="row"><button className="btn small" disabled={act.pending || reason.trim().length < 10}>{t("refund.send")}</button>
+        <button type="button" className="btn ghost small" onClick={() => setOpen(false)}>{t("refund.cancel")}</button></div>
+    </form>}
+  </div>;
+}
+
 function Purchases() {
   const { t, locale } = useApp();
   const { data, error, loading, reload } = useLoad<any>("/purchases");
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} onRetry={reload} />;
   if (!data.items.length) return <Empty action={<a className="btn" href={`/${locale}/apps`}>{t("home.cta_apps")}</a>}>{t("account.no_purchases")}</Empty>;
-  return <div className="scroll-x"><table><thead><tr><th>{t("account.app")}</th><th>{t("account.kind")}</th><th>{t("account.amount")}</th><th>{t("account.status")}</th><th>{t("account.date")}</th></tr></thead>
-    <tbody>{data.items.map((o: any) => <tr key={o.id}><td>{o.app_slug}</td><td>{t(`kinds.${o.kind}`)}</td><td><Price minor={o.amount_minor} currency={o.currency} />{o.refunded_minor > 0 && <div className="hint">{t("account.refunded")}: <Price minor={o.refunded_minor} currency={o.currency} /></div>}</td><td><StatusBadge ns="digital_status" value={o.status} /></td><td>{date(o.created_at, locale)}</td></tr>)}</tbody></table></div>;
+  return <div className="scroll-x"><table><thead><tr><th>{t("account.app")}</th><th>{t("account.kind")}</th><th>{t("account.amount")}</th><th>{t("account.status")}</th><th>{t("account.date")}</th><th>{t("admin.tab_refunds")}</th></tr></thead>
+    <tbody>{data.items.map((o: any) => <tr key={o.id} data-testid={`purchase-${o.id}`}><td>{o.app_slug}</td><td>{t(`kinds.${o.kind}`)}</td><td><Price minor={o.amount_minor} currency={o.currency} />{o.refunded_minor > 0 && <div className="hint">{t("account.refunded")}: <Price minor={o.refunded_minor} currency={o.currency} /></div>}</td><td><StatusBadge ns="digital_status" value={o.status} /></td><td>{date(o.created_at, locale)}</td><td><RefundCell o={o} onDone={reload} /></td></tr>)}</tbody></table></div>;
 }
 
 function Subs() {

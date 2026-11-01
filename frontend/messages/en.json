@@ -84,7 +84,19 @@
   "role_for": "Role for {email}",
   "curve": "Frequency difference transition (optional)",
   "curve_short": "transition",
-  "curve_hint": "One point per line: “second = difference in Hz”, e.g. “0 = 10” and “900 = 4” — from 10 to 4 Hz over 15 minutes. Smooth between points, held after the last. The carrier stays; frequency is integrated into phase without clicks."
+  "curve_hint": "One point per line: “second = difference in Hz”, e.g. “0 = 10” and “900 = 4” — from 10 to 4 Hz over 15 minutes. Smooth between points, held after the last. The carrier stays; frequency is integrated into phase without clicks.",
+  "tab_refunds": "Refunds",
+  "refunds_empty": "No requests.",
+  "refund_filter": "Show",
+  "refund_all": "all",
+  "refund_buyer": "Buyer",
+  "refund_reason": "Buyer's reason",
+  "refund_amount": "Refund amount",
+  "refund_note": "Note for the buyer",
+  "refund_note_hint": "Required when declining.",
+  "refund_approve": "Approve and refund",
+  "refund_reject": "Decline",
+  "refund_paid": "Paid"
  },
  "dev": {
   "saved_details": "Details saved.",
@@ -1372,5 +1384,21 @@
   "show": "Show photo {n} of {total}",
   "prev": "Previous photo",
   "next": "Next photo"
+ },
+ "refund": {
+  "request": "Request a refund",
+  "reason": "Why do you want a refund?",
+  "reason_hint": "At least 10 characters. An administrator decides; the money goes back to the same payment method.",
+  "send": "Send request",
+  "cancel": "Cancel",
+  "sent": "Request sent. The decision arrives in notifications and appears here.",
+  "answer": "Answer"
+ },
+ "refund_status": {
+  "requested": "refund: under review",
+  "pending": "refund approved, waiting for the payment provider",
+  "succeeded": "refund completed",
+  "failed": "refund failed — an administrator will contact you",
+  "rejected": "refund declined"
  }
 }

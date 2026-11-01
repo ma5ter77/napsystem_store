@@ -98,7 +98,9 @@
   "cover_too_small": "The cover is too small: at least {min_width}×{min_height} pixels are needed.",
   "photo_invalid": "Photo rejected: a PNG, JPEG or WebP file without animation and with a side ratio of at most 3:1 is needed.",
   "photo_too_small": "The photo is too small: the shorter side must be at least {min_side} pixels.",
-  "photo_limit": "The product already has {max_count} photos — delete one to add another."
+  "photo_limit": "The product already has {max_count} photos — delete one to add another.",
+  "refund_request_exists": "There is already a refund request under review for this order.",
+  "refund_request_decided": "This request has already been decided."
  },
  "jobs": {
   "decode_failed": "The file could not be fully decoded.",
@@ -224,6 +226,14 @@
   "review_moderator_action": {
    "subject": "A moderator changed your review or reply",
    "body": "A moderator performed an action on your {target}: {action}. Reason: {reason}."
+  },
+  "refund_request_approved": {
+   "subject": "Refund request approved",
+   "body": "Your refund request for “{app}” was approved: {amount}. The money goes back to the same payment method; you will get another e-mail when the payment provider confirms it."
+  },
+  "refund_request_rejected": {
+   "subject": "Refund request declined",
+   "body": "Your refund request for “{app}” was declined. Reason: {note}"
   }
  },
  "plural": {
