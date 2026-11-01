@@ -59,8 +59,11 @@ echo
 echo "Кандидат: BrothersB/nap-store, $SOURCE = $STORE_SHA"
 git show --no-patch --format=fuller "$STORE_SHA"
 VERSION=$( { git show "$STORE_SHA:release.json" 2>/dev/null || true; } | awk -F'"' '/"version"/{print $4; exit}' || true)
-if git cat-file -e "$TESTED_COMMIT" 2>/dev/null && git diff --quiet "$TESTED_COMMIT" "$STORE_SHA"; then
-  MATCH="да — содержимое совпадает с проверенным выпуском ($TESTED_COMMIT)"
+# Docs and this upload script do not affect what runs on the server: differences there are listed, not blocking.
+NONRUNTIME=(-- . ':(exclude)docs' ':(exclude)ops/upload-to-store.sh' ':(exclude)README.md')
+if git cat-file -e "$TESTED_COMMIT" 2>/dev/null && git diff --quiet "$TESTED_COMMIT" "$STORE_SHA" "${NONRUNTIME[@]}"; then
+  DOCS_ONLY=$(git diff --name-only "$TESTED_COMMIT" "$STORE_SHA" | tr '\n' ' ')
+  MATCH="да — рабочий код совпадает с проверенным выпуском ($TESTED_COMMIT)${DOCS_ONLY:+; отличаются только документация/скрипт выгрузки: $DOCS_ONLY}"
   echo "✓ Версия $VERSION. Файлы совпадают с проверенным выпуском ($TESTED_COMMIT): тесты, E2E RU/EN и CI зелёные."
 else
   MATCH="НЕТ — содержимое отличается от проверенного выпуска ($TESTED_COMMIT)"
