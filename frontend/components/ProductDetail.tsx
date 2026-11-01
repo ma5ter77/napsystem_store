@@ -5,7 +5,7 @@ import { ProductGallery } from "@/components/ProductGallery";
 import { availabilityText, CompatBadge } from "@/components/cards";
 import { AddToCart } from "@/components/AddToCart";
 import { BomBuilder } from "@/components/BomBuilder";
-import { langName, Locale, money, num1, translator } from "@/lib/i18n";
+import { displayTitle, langName, Locale, money, num1, translator } from "@/lib/i18n";
 import { ReviewsSection, Stars } from "@/components/Reviews";
 import { serverApi, serverTranslator } from "@/lib/server";
 import { ServerError } from "@/components/State";
@@ -23,7 +23,7 @@ export async function ProductDetail({ locale, slug, app }: { locale: Locale; slu
   return (
     <>
     <Breadcrumbs label={t("crumbs.label")} items={[{ href: `/${locale}`, label: t("crumbs.home") },
-      { href: `/${locale}/${base}`, label: t(`nav.${base}`) }, { label: p.title }]} />
+      { href: `/${locale}/${base}`, label: t(`nav.${base}`) }, { label: displayTitle(p.title) }]} />
     <div className="section two">
       <div className="stack">
         {p.photos?.length ? <ProductGallery photos={p.photos} title={p.title} />
@@ -31,12 +31,13 @@ export async function ProductDetail({ locale, slug, app }: { locale: Locale; slu
         {p.is_demo && <div className="notice test">{t("hw.demo_data")}</div>}
       </div>
       <div className="stack">
-        <h1 lang={p.lang ?? undefined}>{p.title}</h1>
+        <h1 lang={p.lang ?? undefined}>{displayTitle(p.title)}</h1>
+        {p.is_demo && <span className="badge gray" style={{ alignSelf: "flex-start" }}>{t("common.demo")}</span>}
         {p.rating?.average != null && <a href="#reviews-h" className="row hint"><Stars value={p.rating.average} label={t("rev.card", { avg: num1(p.rating.average, locale), count: p.rating.count })} /> {num1(p.rating.average, locale)} · {t("rev.ratings_n", { count: p.rating.count })}</a>}
         {p.fallback && p.lang && <span className="badge gray">{t("common.original_lang", { lang: langName(p.lang, locale) })}</span>}
         <p lang={p.lang ?? undefined}>{p.description}</p>
         {p.skus.map((s: any) => (
-          <div key={s.id} className="panel flat stack">
+          <div key={s.id} className="panel flat stack buy-panel">
             <div className="spread">
               <div><strong>{money(s.price_minor, s.currency, locale)}</strong> <span className="muted">SKU {s.code}</span></div>
               <span>{availabilityText(s.availability, t)}</span>
@@ -48,12 +49,18 @@ export async function ProductDetail({ locale, slug, app }: { locale: Locale; slu
           </div>
         ))}
         <p className="hint">{t("vat.note")}</p>
+        <h2 className="sub">{t("hw.about")}</h2>
         <dl className="kv">
           <dt>{t("hw.seller")}</dt><dd>{p.seller.name}{p.seller.kind === "operator" ? ` (${t("hw.operator_sale")})` : ""}</dd>
           <dt>{t("hw.brand_model")}</dt><dd>{p.brand} / {p.model}</dd>
           <dt>{t("hw.in_box")}</dt><dd>{(p.in_box ?? []).join(", ") || "—"}</dd>
           <dt>{t("hw.warranty")}</dt><dd>{t("hw.months", { count: p.warranty_months })}</dd>
           <dt>{t("hw.assembly")}</dt><dd>{p.assembly_included ? t("common.yes") : t("common.no")}</dd>
+          {Object.entries(p.specs ?? {}).map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{Array.isArray(v) ? v.join(", ") : String(v)}</dd></Fragment>)}
+        </dl>
+        <details className="more">
+          <summary>{t("hw.delivery_returns")}</summary>
+          <dl className="kv">
           <dt>{t("hw.ships_from")}</dt><dd>{p.ship_from_country}</dd>
           <dt>{t("hw.destinations")}</dt><dd>{p.destinations?.length ? p.destinations.join(", ") : t("hw.by_rate")}</dd>
           <dt>{t("hw.prep")}</dt><dd>{t("hw.days", { count: p.prep_days + (p.made_to_order ? p.lead_time_days : 0) })}</dd>
@@ -61,8 +68,8 @@ export async function ProductDetail({ locale, slug, app }: { locale: Locale; slu
           <dt>{t("hw.freight")}</dt><dd>{p.freight_mode === "custom_quote" ? t("hw.custom_quote") : t("hw.parcel")}</dd>
           <dt>{t("hw.returns")}</dt><dd>{p.return_terms}</dd>
           <dt>{t("hw.delivery_terms")}</dt><dd>{p.delivery_terms}</dd>
-          {Object.entries(p.specs ?? {}).map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{Array.isArray(v) ? v.join(", ") : String(v)}</dd></Fragment>)}
-        </dl>
+          </dl>
+        </details>
         <p className="hint">{t("hw.compat_note")}</p>
       </div>
       {p.bom && p.kind === "kit_component" && <div style={{ gridColumn: "1 / -1" }}><BomBuilder slug={p.slug} app={app} /></div>}

@@ -372,7 +372,8 @@
   "yes": "yes",
   "no": "no",
   "save": "Save",
-  "change": "Change"
+  "change": "Change",
+  "demo": "Demo"
  },
  "catalog": {
   "title": "Apps",
@@ -392,7 +393,8 @@
   "sort": "Sort",
   "sort_default": "default",
   "sort_rating": "by rating",
-  "sort_new": "newest"
+  "sort_new": "newest",
+  "lead": "Meditations, audiobooks and courses with a binaural layer. Every track is measured for frequencies, levels and peaks."
  },
  "app": {
   "sessions": "{count, plural, one {# session} other {# sessions}}",
@@ -438,11 +440,11 @@
  },
  "devices": {
   "title": "Devices",
-  "lead": "Chairs, headphones, vibroacoustics, controllers, sensors and connection parts. Compatibility is shown with its verification status."
+  "lead": "Chairs, headphones and everything for binaural sound. Compatibility is verified or honestly labelled."
  },
  "kits": {
   "title": "Kits",
-  "lead": "Boxed kits and kits built from components. Mark what you already own and we'll add only what is missing.",
+  "lead": "Ready kits for your apps: we show what's missing and add it in one click.",
   "for_app": "Equipment for “{app}”",
   "requires": "The app needs",
   "license_note": "Buying equipment does not include an app licence — it is purchased separately.",
@@ -497,7 +499,9 @@
   "parcel": "parcel at carrier rate",
   "returns": "Returns",
   "delivery_terms": "Delivery terms",
-  "compat_note": "“Verified” — confirmed by the platform in the stated configuration. “Claimed” — per the supplier. Stereo speakers do not prove left/right ear separation."
+  "compat_note": "“Verified” — confirmed by the platform in the stated configuration. “Claimed” — per the supplier. Stereo speakers do not prove left/right ear separation.",
+  "about": "About this product",
+  "delivery_returns": "Delivery, returns and terms"
  },
  "orders": {
   "title": "Hardware orders",
@@ -932,7 +936,8 @@
   "mod_publish_reply": "Publish reply",
   "mod_hide_reply": "Hide reply",
   "card": "Rated {avg} out of 5, {count} ratings",
-  "edited_by_moderator": "edited by a moderator"
+  "edited_by_moderator": "edited by a moderator",
+  "no_ratings_yet": "No ratings yet. Buy and be the first to rate — it helps others choose."
  },
  "caps": {
   "stereo_output": "stereo output",

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PageHead } from "@/components/nav";
 import Link from "next/link";
 import { ProductCard } from "@/components/cards";
 import { isLocale, Locale, translator } from "@/lib/i18n";
@@ -43,7 +44,7 @@ export default async function Kits({ params, searchParams }: { params: Promise<{
   const r = await serverApi<any>("/hardware/products?kind=kits", locale);
   return (
     <div className="section">
-      <h1>{t("kits.title")}</h1>
+      <PageHead title={t("kits.title")} lead={t("kits.lead")} />
       <p className="muted">{t("kits.lead")}</p>
       {!r.ok ? <ServerError t={t} locale={locale} status={r.status} /> :
         <div className="grid">{r.data.items.map((p: any) => <ProductCard key={p.id} p={p} locale={locale} t={t} />)}</div>}

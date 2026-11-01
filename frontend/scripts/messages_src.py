@@ -721,6 +721,15 @@ M.update({  # NAP-090/091/092: design v2 — wayfinding, statuses
 "orders.open": ("Открыть заказ", "Open order"),
 })
 
+M.update({  # NAP-093/095: design v2 stage 2
+"common.demo": ("Демо", "Demo"),
+"hw.about": ("О товаре", "About this product"), "hw.delivery_returns": ("Доставка, возврат и условия поставки", "Delivery, returns and terms"),
+"rev.no_ratings_yet": ("Оценок пока нет. Купите и оцените первым — это поможет другим выбрать.", "No ratings yet. Buy and be the first to rate — it helps others choose."),
+"catalog.lead": ("Медитации, аудиокниги и курсы с бинауральным слоем. У каждого трека измерены частоты, уровни и пики.", "Meditations, audiobooks and courses with a binaural layer. Every track is measured for frequencies, levels and peaks."),
+"devices.lead": ("Кресла, наушники и всё, что нужно для бинаурального звука. Совместимость проверена или честно помечена.", "Chairs, headphones and everything for binaural sound. Compatibility is verified or honestly labelled."),
+"kits.lead": ("Готовые наборы под приложения: покажем, чего не хватает, и докупим недостающее одной кнопкой.", "Ready kits for your apps: we show what's missing and add it in one click."),
+})
+
 M.update({  # NAP-012/020: Stripe for the US and world markets
 "billing.portal": ("Карты и счета", "Cards and invoices"),
 "billing.portal_hint": ("Сохранённые карты, счета и продление подписок — в защищённом кабинете платёжной системы.", "Saved cards, invoices and renewals are managed in the payment provider's secure portal."),
