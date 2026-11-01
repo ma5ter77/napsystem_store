@@ -187,6 +187,12 @@ async function run(L) {
     const img = await d.request.get(`${BASE}${card.cover_url}`);
     if (img.status() !== 200 || img.headers()["content-type"] !== "image/webp") throw new Error("cover not served: " + img.status());
   });
+  await step("catalog covers: neighbours never share a tone (NAP-040)", async () => {
+    await d.goto(`${BASE}/${L}/apps`);
+    await d.locator(".grid .card svg[data-tone]").first().waitFor();
+    const tones = await d.$$eval(".grid .card svg[data-tone]", (els) => els.map((e) => e.getAttribute("data-tone")));
+    tones.forEach((x, i) => { for (let k = Math.max(0, i - 4); k < i; k++) if (tones[k] === x) throw new Error(`cards ${k} and ${i} share tone ${x}`); });
+  });
   const buyer = await register(browser, L, t, false);
   const b = buyer.p;
   CUR = b;

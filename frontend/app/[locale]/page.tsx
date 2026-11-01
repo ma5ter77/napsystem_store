@@ -1,3 +1,4 @@
+import { spreadTones } from "@/components/Art";
 import Link from "next/link";
 import { BeatCover } from "@/components/Art";
 import { AppCard, ProductCard } from "@/components/cards";
@@ -31,7 +32,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
       <section className="section">
         <div className="spread"><h2>{t("home.apps")}</h2><Link href={`/${locale}/apps`}>{t("common.all")}</Link></div>
         {apps.ok ? (
-          <div className="grid">{apps.data.items.map((a: any) => <AppCard key={a.id} a={a} locale={locale} t={t} />)}</div>
+          <div className="grid">{((tones) => apps.data.items.map((a: any, i: number) => <AppCard key={a.id} a={a} locale={locale} t={t} tone={tones[i]} />))(spreadTones(apps.data.items.map((a: any) => a.cover_hue)))}</div>
         ) : <ServerError t={t} locale={locale} status={apps.status} />}
       </section>
       <section className="section">

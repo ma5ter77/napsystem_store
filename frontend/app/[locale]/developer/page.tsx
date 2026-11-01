@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import { AppCover } from "@/components/Art";
+import { AppCover, spreadTones } from "@/components/Art";
 import { useApp } from "@/components/Providers";
 import { DeveloperReviews } from "@/components/Reviews";
 import { Empty, ErrorBox, errorFields, Loading, Price, RequireAuth, StatusBadge, useAction, useDraft, useLoad } from "@/components/ui";
@@ -60,13 +60,13 @@ function Apps() {
       {showNew && <NewApp onCreated={(id) => router.push(`/${locale}/developer/apps/${id}`)} />}
       {!data.items.length ? <Empty>{t("dev.no_apps")}</Empty> : (
         <div className="grid">
-          {data.items.map((a: any) => (
+          {((tones) => data.items.map((a: any, i: number) => (
             <Link key={a.id} className="card" href={`/${locale}/developer/apps/${a.id}`}>
-              <div className="art"><AppCover a={a} /></div>
+              <div className="art"><AppCover a={a} tone={tones[i]} /></div>
               <h3>{a.title}</h3>
               <div className="meta">{a.slug} · v{a.latest_version?.label} <StatusBadge ns="version_state" value={a.latest_version?.state} /></div>
             </Link>
-          ))}
+          )))(spreadTones(data.items.map((a: any) => a.cover_hue)))}
         </div>
       )}
     </div>
