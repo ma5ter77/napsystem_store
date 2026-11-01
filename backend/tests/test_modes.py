@@ -43,7 +43,7 @@ def test_block_size_does_not_change_output():
         parts.append(r.process(x[i:i + n]))
         i += n
     parts.append(r.process(x[i:]))
-    assert np.allclose(np.concatenate(parts), one, atol=1e-12)
+    assert np.allclose(np.concatenate(parts), one, atol=1e-9)  # FFT rounding only; 24-bit LSB is 1.2e-7
 
 
 @pytest.mark.parametrize("beat", [0.5, 4.0, 10.0, 40.0])
