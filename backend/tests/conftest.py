@@ -1,8 +1,12 @@
+import atexit
 import os
+import shutil
 import tempfile
 import uuid
 
 _tmp = tempfile.mkdtemp(prefix="nap-test-")
+# each run converts real audio (~340 MB of files): remove this run's folder at exit so runs do not fill the disk
+atexit.register(shutil.rmtree, _tmp, ignore_errors=True)
 os.environ.setdefault("NAP_DATABASE_URL", "postgresql+psycopg://nap:nap@localhost:5432/nap_test")
 os.environ["NAP_ENV"] = "test"
 os.environ["NAP_RUN_JOBS_INLINE"] = "true"

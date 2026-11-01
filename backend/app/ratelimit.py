@@ -24,6 +24,7 @@ DEFAULTS: dict[str, tuple[int, int]] = {
     "review_write": (30, 3600),   # save/delete review, reply
     "review_report": (20, 3600),
     "conversion": (60, 3600),
+    "app_view": (120, 3600),      # NAP-027: app page views reported by the browser
 }
 EXEMPT_PATHS = ("/api/v1/health", "/api/v1/ready", "/api/v1/metrics", "/api/v1/version")
 

@@ -245,8 +245,6 @@ M = {
 "fin.pending": ("Ожидает (удержание)", "Pending (hold)"), "fin.available": ("Доступно", "Available"), "fin.negative": ("отрицательный баланс — учтётся в будущих выплатах", "negative balance — offset against future payouts"),
 "fin.in_transit": ("В пути", "In transit"), "fin.paid": ("Выплачено", "Paid out"), "fin.payouts": ("Выплаты", "Payouts"),
 "an.orders": ("{count, plural, one {# оплаченный заказ} few {# оплаченных заказа} many {# оплаченных заказов} other {# оплаченного заказа}}", "{count, plural, one {# paid order} other {# paid orders}}"),
-"an.suppressed": ("Данные скрыты: в группе меньше {n} человек.", "Hidden: the group has fewer than {n} people."),
-"an.usage": ("Пользователей: {users}, сеансов: {sessions}, завершено: {rate}%", "Users: {users}, sessions: {sessions}, completed: {rate}%"),
 "an.privacy": ("Только агрегаты; отдельные люди не раскрываются.", "Aggregates only; individuals are never exposed."),
 "keys.server_only": ("Ключи — для вашего сервера. Не встраивайте их в сайт или мобильное приложение: SDK откажется работать с ключом в браузере.", "Keys are for your server. Never embed them in a website or mobile app: the SDK refuses to run with a key in a browser."),
 "keys.name": ("Название", "Name"), "keys.scopes": ("Права", "Scopes"), "keys.create": ("Создать ключ", "Create key"),
@@ -559,6 +557,27 @@ M.update({
 "ce.new_category": ("Новая категория", "New category"), "ce.add": ("Добавить", "Add"),
 })
 
+
+M.update({  # NAP-027: developer analytics
+"an.funnel": ("Воронка", "Funnel"), "an.period": ("Период", "Period"),
+"an.days": ("{n} дней", "{n} days"),
+"an.step_views": ("Просмотры страницы", "Page views"), "an.step_access": ("Получили доступ", "Got access"),
+"an.step_started": ("Начали сеанс", "Started a session"), "an.step_completed": ("Завершили сеанс", "Completed a session"),
+"an.hidden": ("скрыто (< {n})", "hidden (< {n})"), "an.unavailable": ("нет данных", "no data"),
+"an.weekly": ("Сеансы по неделям", "Sessions by week"),
+"an.started_sessions": ("начато", "started"), "an.completed_sessions": ("завершено", "completed"),
+"an.week_tip": ("начато {started}, завершено {completed}, просмотров {views}", "started {started}, completed {completed}, views {views}"),
+"an.week_of": ("Неделя с {date}", "Week of {date}"), "an.hover_hint": ("Наведите на столбец, чтобы увидеть числа.", "Hover a bar to see the numbers."),
+"an.as_table": ("Показать таблицей", "Show as a table"), "an.week": ("Неделя", "Week"),
+"an.retention": ("Возвращаемость", "Retention"),
+"an.retention_hint": ("Слушатели сгруппированы по неделе первого сеанса. В ячейке — доля тех, кто начал сеанс через 1–4 недели.", "Listeners grouped by the week of their first session; each cell is the share who started a session 1–4 weeks later."),
+"an.no_sessions": ("За последние 12 недель сеансов не было.", "No sessions in the last 12 weeks."),
+"an.no_cohorts": ("Пока нет сеансов за последние 8 недель.", "No sessions in the last 8 weeks yet."),
+"an.cohort": ("Неделя первого сеанса", "First-session week"), "an.cohort_size": ("Слушателей", "Listeners"),
+"an.week_n": ("+{n} нед.", "+{n} wk"),
+"an.views_note": ("Просмотры — уникальные посетители страницы приложения (приблизительно, ±1%); идентификаторы не хранятся.", "Views are unique visitors of the app page (approximate, ±1%); no identifiers are stored."),
+"an.choose_app": ("Приложение", "App"),
+})
 
 def nest(lang):
     out = {}

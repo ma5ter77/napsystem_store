@@ -4,6 +4,7 @@ import os
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from .. import ratelimit
@@ -104,6 +105,22 @@ def app_detail(slug: str, request: Request, p=P, db=DB):
     if not app or not app.published_version_id or app.deleted_at:  # deleted by a moderator: gone from the store
         raise ApiError("not_found", 404, entity="app")
     return app_card(db, app, locale_of(request), detail=True, user_id=p.id)
+
+
+class ViewIn(BaseModel):
+    visitor: str = Field(min_length=8, max_length=64)
+
+
+@router.post("/catalog/apps/{slug}/view", status_code=204)
+def app_view(slug: str, body: ViewIn, request: Request, p=P, db=DB):
+    """NAP-027: the app page reports one view (browser only, so bots without JS are not counted)."""
+    ratelimit.check(request, "app_view", user_id=p.id)
+    app = db.scalar(select(App).where(App.slug == slug))
+    if not app or not app.published_version_id or app.deleted_at:
+        raise ApiError("not_found", 404, entity="app")
+    from ..services.analytics import record_view
+    record_view(app.id, f"u:{p.id}" if p.id else f"a:{body.visitor}")
+    return Response(status_code=204)
 
 
 @router.get("/catalog/apps/{slug}/preview")

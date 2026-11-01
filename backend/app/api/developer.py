@@ -382,6 +382,19 @@ def finance(p=P, db=DB):
                          "mock": x.mock, "created_at": x.created_at.isoformat()} for x in payouts]}
 
 
+@router.get("/analytics/apps/{app_id}")
+def app_analytics(app_id: str, days: int = 30, p=P, db=DB):
+    """NAP-027: funnel, weekly trend and retention for one app (aggregates only, small groups hidden)."""
+    from ..services import analytics as an
+    u = dev(p, "analytics:read")
+    a = db.get(App, as_uuid(app_id, "app"))
+    if not a or a.developer_id != u.id:
+        raise ApiError("not_found", 404, entity="app")
+    if days not in an.PERIODS:
+        raise ApiError("validation_failed", 422, details={"fields": ["days"]})
+    return {"app_id": str(a.id), "slug": a.slug} | an.app_report(db, a, days)
+
+
 @router.get("/analytics")
 def analytics(p=P, db=DB):
     u = dev(p, "analytics:read")

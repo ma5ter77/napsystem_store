@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { BeatCover } from "@/components/Art";
+import { AppAnalytics } from "@/components/DevAnalytics";
 import { useApp } from "@/components/Providers";
 import { DeveloperReviews } from "@/components/Reviews";
 import { Empty, ErrorBox, errorFields, Loading, Price, RequireAuth, StatusBadge, useAction, useDraft, useLoad } from "@/components/ui";
@@ -108,13 +109,19 @@ function Finance() {
 function Analytics() {
   const { t } = useApp();
   const { data, error, loading } = useLoad<any>("/developer/analytics");
+  const [app, setApp] = useState<string>("");
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} />;
-  return <div className="stack">{data.items.map((a: any) => (
-    <div key={a.app_id} className="panel flat"><strong>{a.slug}</strong> · {t("an.orders", { count: a.paid_orders })}
-      <div className="hint">{a.usage.suppressed ? t("an.suppressed", { n: a.usage.min_group }) :
-        t("an.usage", { users: a.usage.users, sessions: a.usage.sessions, rate: Math.round((a.usage.completion_rate ?? 0) * 100) })}</div></div>))}
-    <p className="hint">{t("an.privacy")}</p></div>;
+  if (!data.items.length) return <Empty>{t("dev.no_apps")}</Empty>;
+  const cur = data.items.find((a: any) => a.app_id === app) ?? data.items[0];
+  return <div className="stack">
+    <label className="field">{t("an.choose_app")}
+      <select value={cur.app_id} onChange={(e) => setApp(e.target.value)}>
+        {data.items.map((a: any) => <option key={a.app_id} value={a.app_id}>{a.slug} · {t("an.orders", { count: a.paid_orders })}</option>)}
+      </select></label>
+    <AppAnalytics key={cur.app_id} appId={cur.app_id} />
+    <p className="hint">{t("an.privacy")} {t("an.views_note")}</p>
+  </div>;
 }
 
 function Keys() {
