@@ -77,6 +77,9 @@ def create_app() -> FastAPI:
         request.state.request_id = rid
         loc = request.headers.get("x-locale") or request.cookies.get("nap_locale")
         request.state.locale = loc if loc in ("ru", "en") else negotiate(request.headers.get("accept-language"))
+        from .services import currency as _cur  # NAP-012: buyer currency for catalog prices and checkout
+        request.state.currency = _cur.resolve(request.cookies.get("nap_currency"), request.headers.get("accept-language"))
+        cur_token = _cur.buyer_currency_var.set(request.state.currency)
         t0 = time.perf_counter()
         try:
             if request.url.path.startswith("/api/v1/") and not request.url.path.startswith(ratelimit.EXEMPT_PATHS):
@@ -106,6 +109,7 @@ def create_app() -> FastAPI:
                                                               "status": response.status_code,
                                                               "duration_ms": round(dur, 1)})
         request_id_var.reset(token)
+        _cur.buyer_currency_var.reset(cur_token)
         return response
 
     @app.get("/api/v1/health", tags=["ops"])

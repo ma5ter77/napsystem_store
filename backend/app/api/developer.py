@@ -387,6 +387,43 @@ def finance(p=P, db=DB):
                          "mock": x.mock, "created_at": x.created_at.isoformat()} for x in payouts]}
 
 
+class ConnectIn(BaseModel):
+    country: str | None = Field(default=None, pattern=r"^[A-Za-z]{2}$")
+
+
+@router.post("/payouts/connect")
+def payouts_connect(body: ConnectIn, request: Request, p=P, db=DB):
+    """NAP-011: start or continue payout onboarding with the payment provider (Stripe Connect Express)."""
+    u = dev(p, "analytics:read")
+    user = db.merge(u)
+    from ..adapters.payments import ProviderUnavailable, get_payment_provider
+    base = f"{get_settings().public_base_url}/{locale_of(request)}/developer?tab=finance"
+    try:
+        acct, url = get_payment_provider().connect_onboarding(
+            user_id=str(user.id), email=user.email, country=body.country, existing=user.payout_account,
+            refresh_url=base + "&connect=retry", return_url=base + "&connect=done")
+    except ProviderUnavailable as e:
+        raise ApiError("payment_provider_unavailable", 503, reason=str(e))
+    if user.payout_account != acct:
+        user.payout_account = acct
+        audit(db, user.id, "payout_account.linked", "user", user.id, {"provider": get_payment_provider().name})
+        db.commit()
+    return {"url": url}
+
+
+@router.get("/payouts/account")
+def payouts_account(p=P, db=DB):
+    u = dev(p, "analytics:read")
+    if not u.payout_account:
+        return {"connected": False}
+    from ..adapters.payments import ProviderUnavailable, get_payment_provider
+    try:
+        st = get_payment_provider().connect_status(u.payout_account)
+    except ProviderUnavailable as e:
+        raise ApiError("payment_provider_unavailable", 503, reason=str(e))
+    return {"connected": True, **st}
+
+
 @router.get("/analytics/apps/{app_id}")
 def app_analytics(app_id: str, days: int = 30, p=P, db=DB):
     """NAP-027: funnel, weekly trend and retention for one app (aggregates only, small groups hidden)."""

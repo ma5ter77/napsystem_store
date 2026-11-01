@@ -331,14 +331,15 @@ function PriceTab({ app, reload, done }: { app: any; reload: () => void; done: (
       e.preventDefault();
       if (await act.run(() => api(`/developer/apps/${app.id}/price`, { method: "PUT", body: { kind, amount_minor: Math.round(amount * 100), currency, interval: kind === "subscription" ? interval : null } }))) { const before = app.versions[0]?.state; const fresh = await api<any>(`/developer/apps/${app.id}`).catch(() => null); reload(); done(before === "approved" && fresh?.versions?.[0]?.state === "published" ? t("dev.saved_price_published") : t("dev.saved_price")); }
     }}>
-      {cur && <p>{t("dev.current_price")}: <Price minor={cur.amount_minor} currency={cur.currency} /> ({t(`kinds.${cur.kind}`)}{cur.interval ? `, ${t(`interval.${cur.interval}`)}` : ""})</p>}
+      {cur && <p>{t("dev.current_price")}: {app.prices.map((p: any, i: number) => <span key={p.currency + p.kind}>{i > 0 && " · "}<Price minor={p.amount_minor} currency={p.currency} /> ({t(`kinds.${p.kind}`)}{p.interval ? `, ${t(`interval.${p.interval}`)}` : ""})</span>)}</p>}
       <div className="form wide">
         <label className="field">{t("dev.price_kind")}<select value={kind} onChange={(e) => setKind(e.target.value)}><option value="one_time">{t("kinds.one_time")}</option><option value="subscription">{t("kinds.subscription")}</option><option value="free">{t("app.free")}</option></select></label>
         {kind !== "free" && <label className="field">{t("account.amount")}<input type="number" step="0.01" min="0.5" value={amount} onChange={(e) => setAmount(Number(e.target.value))} /></label>}
-        {kind !== "free" && <label className="field">{t("dev.currency")}<select value={currency} onChange={(e) => setCurrency(e.target.value)}><option>EUR</option><option>USD</option></select></label>}
+        {kind !== "free" && <label className="field">{t("dev.currency")}<select value={currency} onChange={(e) => { setCurrency(e.target.value); const same = app.prices.find((p: any) => p.currency === e.target.value && p.kind === kind); if (same) setAmount(same.amount_minor / 100); }}><option>EUR</option><option>USD</option></select></label>}
         {kind === "subscription" && <label className="field">{t("dev.interval")}<select value={interval} onChange={(e) => setInterval(e.target.value)}><option value="month">{t("interval.month")}</option><option value="year">{t("interval.year")}</option></select></label>}
       </div>
       <p className="hint">{t("dev.price_note")}</p>
+      <p className="hint">{t("dev.price_currencies")}</p>
       <ErrorBox error={act.error} />
       <div><button className="btn">{t("common.save")}</button></div>
     </form>

@@ -73,6 +73,8 @@ class Settings(BaseSettings):
     reviews_allow_reset_on_version: bool = False  # App Store-like reset; off by decision of 31.10.2026
 
     # billing
+    # NAP-012: currencies authors may price in; buyers see their own when the author set it
+    currencies: list[str] = ["EUR", "USD"]
     payment_provider: Literal["mock", "stripe"] = "mock"
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
