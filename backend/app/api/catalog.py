@@ -23,12 +23,34 @@ def price_view(p: Price) -> dict:
             "interval": p.interval}
 
 
-def app_card(db, app: App, locale: str, detail: bool = False, user_id=None, rating: dict | None = None) -> dict:
-    v = db.get(AppVersion, app.published_version_id) if app.published_version_id else None
-    tr = get_translations(db, "app", [app.id]).get(app.id)
+def preload_cards(db, apps: list[App]) -> dict:
+    """NAP-050: everything the catalog cards need in a handful of queries instead of ~6 per app."""
+    from sqlalchemy.orm import selectinload
+    ids = [a.id for a in apps]
+    vids = [a.published_version_id for a in apps if a.published_version_id]
+    versions = {v.id: v for v in db.scalars(select(AppVersion).where(AppVersion.id.in_(vids))
+                                            .options(selectinload(AppVersion.sessions)))} if vids else {}
+    prices: dict = {}
+    for pr in db.scalars(select(Price).where(Price.app_id.in_(ids), Price.active.is_(True))) if ids else []:
+        prices.setdefault(pr.app_id, []).append(pr)
+    return {"versions": versions, "translations": get_translations(db, "app", ids),
+            "categories": {c.id: c for c in db.scalars(select(Category).where(Category.kind == "app"))},
+            "prices": prices}
+
+
+def app_card(db, app: App, locale: str, detail: bool = False, user_id=None, rating: dict | None = None,
+             pre: dict | None = None) -> dict:
+    if pre is not None:
+        v = pre["versions"].get(app.published_version_id) if app.published_version_id else None
+        tr = pre["translations"].get(app.id)
+        cat = pre["categories"].get(app.category_id) if app.category_id else None
+        prices = [price_view(p) for p in pre["prices"].get(app.id, [])]
+    else:
+        v = db.get(AppVersion, app.published_version_id) if app.published_version_id else None
+        tr = get_translations(db, "app", [app.id]).get(app.id)
+        cat = db.get(Category, app.category_id) if app.category_id else None
+        prices = [price_view(p) for p in db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True)))]
     loc = localized(tr, locale)
-    cat = db.get(Category, app.category_id) if app.category_id else None
-    prices = [price_view(p) for p in db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True)))]
     out = {"id": str(app.id), "slug": app.slug, "author": app.author_name, "cover_hue": app.cover_hue,
            "title": loc.get("title"), "subtitle": loc.get("subtitle"), "lang": loc["lang"],
            "translation_status": loc["translation_status"], "fallback": loc["fallback"],
@@ -75,7 +97,8 @@ def catalog(request: Request, q: str | None = None, category: str | None = None,
     apps = list(db.scalars(select(App).where(App.published_version_id.isnot(None), App.sales_status == "active")
                            .order_by(App.created_at)))
     ratings = reviews.summaries(db, [a.id for a in apps])
-    cards = [app_card(db, a, loc, rating=ratings[a.id]) for a in apps]
+    pre = preload_cards(db, apps)
+    cards = [app_card(db, a, loc, rating=ratings[a.id], pre=pre) for a in apps]
     if min_rating:  # only apps whose average is shown (enough ratings) and high enough
         cards = [c for c in cards if c["rating"]["average"] is not None and c["rating"]["average"] >= min_rating]
     if sort == "rating":
@@ -91,7 +114,7 @@ def catalog(request: Request, q: str | None = None, category: str | None = None,
         cards = [c for c in cards if c["content_language"] == content_language]
     if q:
         ql = q.lower().strip()
-        trs = get_translations(db, "app", [a.id for a in apps])
+        trs = pre["translations"]
         hay = {str(a.id): " ".join([a.slug, a.author_name] + [" ".join(str(x) for x in t.data.values())
                                                              for t in trs.get(a.id, {}).values()
                                                              if t.status == "published"]).lower() for a in apps}
