@@ -14,6 +14,8 @@ def receive(stream, root):
     if len(header) > 1024 or not header.endswith(b'\n'):
         raise ValueError('invalid header')
     meta = json.loads(header)
+    if not isinstance(meta, dict) or set(meta) != {'sha', 'sha256', 'size'}:
+        raise ValueError('unexpected metadata fields')
     sha, digest, size = meta['sha'], meta['sha256'], meta['size']
     if not isinstance(sha, str) or not re.fullmatch('[0-9a-f]{40}', sha):
         raise ValueError('invalid commit')

@@ -10,7 +10,7 @@ module.exports = async ({github, context, core}) => {
     if (cmp.merge_base_commit.sha !== base.commit.sha) { core.info(`PR ${pr.number}: update branch from master first`); continue; }
     const files = await github.paginate(github.rest.pulls.listFiles, {...repo,pull_number:pr.number,per_page:100});
     const required = ['ci.yml'];
-    if (files.some(f => /^(ops\/cohost\/|docker-compose.yml$|backend\/Dockerfile$|frontend\/Dockerfile$|backend\/migrations\/|.github\/workflows\/release-acceptance.yml$)/.test(f.filename))) required.push('release-acceptance.yml');
+    if (files.some(f => [f.filename, f.previous_filename || ''].some(name => /^(ops\/cohost\/|docker-compose.yml$|backend\/Dockerfile$|frontend\/Dockerfile$|backend\/migrations\/|\.github\/workflows\/release-acceptance.yml$)/.test(name)))) required.push('release-acceptance.yml');
     let passed = true;
     for (const workflow_id of required) {
       const {data} = await github.rest.actions.listWorkflowRuns({...repo,workflow_id,event:'pull_request',head_sha:pr.head.sha,per_page:100});

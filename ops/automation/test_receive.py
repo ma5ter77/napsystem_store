@@ -21,7 +21,7 @@ class ReceiverTests(unittest.TestCase):
             self.assertEqual((Path(result['directory'])/('store-'+'a'*40+'.tar.gz')).read_bytes(),data)
     def test_valid(self): self.send()
     def test_refusals(self):
-        for patch in [{'sha':'../escape'},{'sha256':'0'*64},{'size':0},{'size':True},{'size':64*1024*1024+1},{'size':100}]:
+        for patch in [{'sha':'../escape'},{'sha256':'0'*64},{'size':0},{'size':True},{'size':64*1024*1024+1},{'size':100},{'directory':'/fake'},{'status':'INSTALLED'}]:
             with self.subTest(patch=patch),self.assertRaises(ValueError): self.send(patch)
     def test_trailing(self):
         with self.assertRaises(ValueError): self.send(suffix=b'x')
