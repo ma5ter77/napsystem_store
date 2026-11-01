@@ -217,9 +217,9 @@ class Server:
         raise Stop("readiness failed: " + last)
 
     def activate(self, rel):
-        self.compose(rel, "up", "-d", "--pull", "never", "--remove-orphans", "--wait", "--wait-timeout", "180",
+        self.compose(rel, "up", "-d", "--pull", "missing", "--remove-orphans", "--wait", "--wait-timeout", "180",
                      "postgres", "redis", timeout=300)
-        self.compose(rel, "up", "-d", "--pull", "never", "--remove-orphans", timeout=600)
+        self.compose(rel, "up", "-d", "--pull", "missing", "--remove-orphans", timeout=600)
         self.ready(rel)
 
     def prune(self, st):
@@ -251,7 +251,7 @@ class Server:
         self.audit(rel)
         backup = self.predeploy_backup(cur, p["sha"]) if cur else None
         try:
-            self.compose(rel, "up", "-d", "--pull", "never", "--wait", "--wait-timeout", "180",
+            self.compose(rel, "up", "-d", "--pull", "missing", "--wait", "--wait-timeout", "180",
                          "postgres", "redis", timeout=300)
             self.compose(rel, "--profile", "tools", "run", "--rm", "--no-deps", "migrate", timeout=1200)
             self.activate(rel)
