@@ -1,5 +1,5 @@
 import "server-only";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { Locale, translator } from "@/lib/i18n";
 
 const BACKEND = process.env.BACKEND_URL || "http://127.0.0.1:8000";
@@ -8,9 +8,10 @@ const BACKEND = process.env.BACKEND_URL || "http://127.0.0.1:8000";
 export async function serverApi<T = any>(path: string, locale: string): Promise<{ ok: true; data: T } | { ok: false; status: number; error: any }> {
   const jar = await cookies();
   const cookieHeader = jar.getAll().map((c) => `${c.name}=${c.value}`).join("; ");
+  const acceptLanguage = (await headers()).get("accept-language") ?? "";  // NAP-012: browser region → currency
   try {
     const res = await fetch(`${BACKEND}/api/v1${path}`, {
-      headers: { "x-locale": locale, cookie: cookieHeader }, cache: "no-store",
+      headers: { "x-locale": locale, cookie: cookieHeader, "accept-language": acceptLanguage }, cache: "no-store",
     });
     const json = await res.json();
     if (!res.ok) return { ok: false, status: res.status, error: json.error };

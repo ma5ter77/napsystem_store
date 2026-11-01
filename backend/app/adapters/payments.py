@@ -75,6 +75,11 @@ class PaymentProvider(Protocol):
 
     def portal_url(self, customer_ref: str, return_url: str) -> str: ...
 
+    def connect_onboarding(self, *, user_id: str, email: str, country: str | None, existing: str | None,
+                           refresh_url: str, return_url: str) -> tuple[str, str]: ...
+
+    def connect_status(self, account_ref: str) -> dict: ...
+
     def verify_webhook(self, raw_body: bytes, headers: dict[str, str]) -> dict: ...
 
     def event_id(self, event: dict) -> str: ...
@@ -119,6 +124,13 @@ class MockPaymentProvider:
 
     def portal_url(self, customer_ref, return_url):
         raise ProviderUnavailable("portal_not_available_in_mock")
+
+    def connect_onboarding(self, *, user_id, email, country, existing, refresh_url, return_url):
+        # test mode: the account is "connected" at once and the author comes straight back
+        return existing or ("mock_acct_" + hashlib.sha256(user_id.encode()).hexdigest()[:16]), return_url
+
+    def connect_status(self, account_ref):
+        return {"details_submitted": True, "payouts_enabled": True, "requirements_due": [], "test_mode": True}
 
     def cancel_subscription(self, provider_subscription_ref, subscription_id):
         return None  # auto-renew stops; access stays until paid_until
@@ -219,6 +231,27 @@ class StripeProvider:
     def portal_url(self, customer_ref, return_url):
         ps = self._client().v1.billing_portal.sessions.create(params={"customer": customer_ref, "return_url": return_url})
         return ps.url
+
+    def connect_onboarding(self, *, user_id, email, country, existing, refresh_url, return_url):
+        """NAP-011: Stripe Connect Express — Stripe collects identity, tax and bank details from the author."""
+        c = self._client()
+        acct = existing
+        if not acct:
+            params: dict[str, Any] = {"type": "express", "email": email, "metadata": {"nap_user_id": user_id},
+                                      "capabilities": {"transfers": {"requested": True}}}
+            if country:
+                params["country"] = country.upper()
+            acct = c.v1.accounts.create(params=params, options={"idempotency_key": f"connect:{user_id}"}).id
+        link = c.v1.account_links.create(params={"account": acct, "refresh_url": refresh_url, "return_url": return_url,
+                                                 "type": "account_onboarding"})
+        return acct, link.url
+
+    def connect_status(self, account_ref):
+        a = self._client().v1.accounts.retrieve(account_ref)
+        g = lambda o, k: (o.get(k) if isinstance(o, dict) else getattr(o, k, None))  # noqa: E731
+        req = g(a, "requirements") or {}
+        return {"details_submitted": bool(g(a, "details_submitted")), "payouts_enabled": bool(g(a, "payouts_enabled")),
+                "requirements_due": list(g(req, "currently_due") or []), "test_mode": self.test_mode}
 
     def create_checkout(self, *, context, order_id, amount_minor, currency, description, mode, interval,
                         subscription_id, success_url, cancel_url, idempotency_key, customer_email, lines=None,

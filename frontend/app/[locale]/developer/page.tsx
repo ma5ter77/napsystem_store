@@ -74,6 +74,32 @@ function Apps() {
   );
 }
 
+function PayoutAccount() {  // NAP-011: payouts go to the author's own Stripe account (Connect Express)
+  const { t } = useApp();
+  const { data, error, reload } = useLoad<any>("/developer/payouts/account");
+  const act = useAction();
+  if (error) return <ErrorBox error={error} onRetry={reload} />;
+  if (!data) return null;
+  const go = async () => {
+    const r = await act.run(() => api<any>("/developer/payouts/connect", { body: {} }));
+    if (r?.url) window.location.assign(r.url);
+  };
+  const ready = data.connected && data.payouts_enabled;
+  return (
+    <div className="panel flat spread">
+      <div>
+        <strong>{t("payouts.title")}</strong>{" "}
+        {ready ? <span className="badge ok">{t("payouts.ready")}</span>
+          : data.connected ? <span className="badge warn">{t("payouts.incomplete")}</span>
+          : <span className="badge gray">{t("payouts.not_connected")}</span>}
+        <p className="hint" style={{ margin: "6px 0 0" }}>{ready ? t("payouts.ready_hint") : t("payouts.hint")}</p>
+      </div>
+      {!ready && <button className="btn small" disabled={act.pending} onClick={go}>{data.connected ? t("payouts.continue") : t("payouts.connect")}</button>}
+      <ErrorBox error={act.error} />
+    </div>
+  );
+}
+
 function Finance() {
   const { t, locale } = useApp();
   const { data, error, loading, reload } = useLoad<any>("/developer/finance");
@@ -81,6 +107,7 @@ function Finance() {
   if (error) return <ErrorBox error={error} onRetry={reload} />;
   return (
     <div className="stack">
+      <PayoutAccount />
       <p className="hint">{t("dev.split_note", { pct: data.commission_bps / 100, days: data.hold_days })}</p>
       {!data.summary.length ? <Empty>{t("dev.no_sales")}</Empty> : data.summary.map((s: any) => (
         <div key={s.currency} className="panel stack">
