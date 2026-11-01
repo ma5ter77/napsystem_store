@@ -4,7 +4,7 @@ module.exports = async ({github, context, core}) => {
   const prs = await github.paginate(github.rest.pulls.list, {...repo, state:'open', base:'master', per_page:100});
   for (const item of prs) {
     const {data: pr} = await github.rest.pulls.get({...repo, pull_number:item.number});
-    if (pr.user.login !== 'ma5ter77' || pr.draft || pr.head.repo?.full_name !== 'BrothersB/nap-store') continue;
+    if (pr.user.login !== 'ma5ter77' || pr.draft || pr.head.repo?.full_name !== 'ma5ter77/napsystem_store') continue;
     const {data: base} = await github.rest.repos.getBranch({...repo, branch:'master'});
     const {data: cmp} = await github.rest.repos.compareCommitsWithBasehead({...repo, basehead:`${base.commit.sha}...${pr.head.sha}`});
     if (cmp.merge_base_commit.sha !== base.commit.sha) { core.info(`PR ${pr.number}: update branch from master first`); continue; }

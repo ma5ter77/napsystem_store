@@ -75,7 +75,7 @@ python3 -m py_compile "$OPT/napdeploy.py.new"
 install -m 755 -o root -g root "$OPT/napdeploy.py.new" "$OPT/napdeploy.py"; rm -f "$OPT/napdeploy.py.new"
 rm -rf "$OPT/__pycache__"
 cat > "$OPT/config.json" <<JSON
-{"root": "$ROOT", "registry": "ghcr.io", "image_prefix": "ghcr.io/brothersb/nap-store-", "keep": 5, "ready_seconds": 180}
+{"root": "$ROOT", "registry": "ghcr.io", "image_prefix": "ghcr.io/ma5ter77/nap-store-", "keep": 5, "ready_seconds": 180}
 JSON
 chmod 644 "$OPT/config.json"
 
@@ -133,7 +133,7 @@ HOSTKEY=$(cut -d' ' -f1,2 /etc/ssh/ssh_host_ed25519_key.pub)
 cat <<EOF
 
 ================================================================================
- READY. Put these into GitHub: github.com/BrothersB/nap-store -> Settings
+ READY. Put these into GitHub: github.com/ma5ter77/napsystem_store -> Settings
    -> Secrets and variables -> Actions
 --------------------------------------------------------------------------------
  Variables tab (not secret, may also be sent to Claude):

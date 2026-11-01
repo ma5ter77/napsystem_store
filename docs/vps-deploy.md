@@ -24,7 +24,7 @@
    пользователь `napdeploy`, `/srv/nap-store`, файл настроек `shared/.env` со **сгенерированными на сервере**
    паролями (никуда не передаются), ключ выкладки, отключение входа по паролю (если у root есть ключ).
    Повторный запуск безопасен: .env, данные и ключ сохраняются.
-3. **GitHub** → BrothersB/nap-store → Settings → Secrets and variables → Actions (значения печатает установщик):
+3. **GitHub** → ma5ter77/napsystem_store → Settings → Secrets and variables → Actions (значения печатает установщик):
    - Variables: `STORE_DEPLOY_HOST` (IP), `STORE_DEPLOY_HOST_KEY` (`ssh-ed25519 AAAA…`). Это не секреты.
    - Secrets: `STORE_DEPLOY_SSH_KEY` — приватный ключ выкладки. **Только в GitHub, никому не пересылать.**
 4. **DNS (REG.RU):** A-запись `store` → IP нового сервера. Сертификат Let's Encrypt Caddy получит сам.
@@ -51,7 +51,7 @@ Claude запускает эти же действия через GitHub API и 
 - Ключ выкладки в `authorized_keys` ограничен: `command="… napdeploy.py gate",restrict` — только
   deploy / rollback / restart / status / logs / backup; без shell, проброса портов и агента.
 - Ключ сервера закреплён (`STORE_DEPLOY_HOST_KEY`): подмена сервера останавливает выкладку.
-- Образы принимаются только из `ghcr.io/brothersb/nap-store-*` и только по digest; токен для скачивания —
+- Образы принимаются только из `ghcr.io/ma5ter77/nap-store-*` и только по digest; токен для скачивания —
   временный GITHUB_TOKEN задания, на диске сервера не сохраняется.
 - napdeploy.py проверяет compose: запрещены privileged, cap_add, devices, host network/pid/ipc, монтирование
   вне каталога выпуска и backups, публикация портов кроме Caddy. Файлы набора выпуска — по списку.
@@ -81,5 +81,5 @@ web 512M, redis 192M, caddy 128M, backup 256M, плюс swap 2 ГБ. На сер
 - Резервные копии вне сервера (S3-хранилище) — нужен ключ хранилища.
 - Внешний мониторинг: UptimeRobot (бесплатно), проверка `https://store.napsystem.com/api/v1/ready` раз в
   5 минут, уведомления в Telegram.
-- Старая доставка архивов на сервер платформы (deliver-source.yml) становится не нужна — отключить по
-  решению BrothersB после первого успешного запуска на новом сервере.
+- Старая доставка архивов на сервер платформы (deliver-source.yml) в этом репозитории удалена; копия
+  проекта у BrothersB/nap-store остаётся как архив.

@@ -57,7 +57,7 @@ def need(ok, msg):
 
 
 def load_config():
-    cfg = {"root": "/srv/nap-store", "registry": "ghcr.io", "image_prefix": "ghcr.io/brothersb/nap-store-",
+    cfg = {"root": "/srv/nap-store", "registry": "ghcr.io", "image_prefix": "ghcr.io/ma5ter77/nap-store-",
            "keep": 5, "ready_seconds": 180}
     if CONFIG_PATH.exists():
         cfg.update(json.loads(CONFIG_PATH.read_text()))
