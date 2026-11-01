@@ -74,7 +74,7 @@ class Settings(BaseSettings):
 
     # billing
     # NAP-012: currencies authors may price in; buyers see their own when the author set it
-    currencies: list[str] = ["EUR", "USD", "RUB"]
+    currencies: list[str] = ["EUR", "USD"]  # add "RUB" (and YooKassa keys) to sell to buyers in Russia
     payment_provider: Literal["mock", "stripe"] = "mock"
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None

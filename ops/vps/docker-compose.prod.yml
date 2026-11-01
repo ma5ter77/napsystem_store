@@ -36,6 +36,7 @@ x-backend-env: &backend-env
   NAP_SMTP_SECURITY: ${NAP_SMTP_SECURITY:-starttls}
   NAP_BUILD: ${NAP_BUILD:?written by the deployer}
   NAP_API_WORKERS: ${NAP_API_WORKERS:-2}
+  NAP_CURRENCIES: '${NAP_CURRENCIES:-["EUR","USD"]}'
   NAP_SEED_DEMO: ${NAP_SEED_DEMO:-1}
 
 x-logging: &logging
@@ -109,7 +110,7 @@ services:
   web:
     image: ${IMAGE_WEB:?written by the deployer}
     restart: unless-stopped
-    environment: { BACKEND_URL: "http://api:8000", PUBLIC_BASE_URL: "https://${STORE_DOMAIN:-store.napsystem.com}" }
+    environment: { BACKEND_URL: "http://api:8000", PUBLIC_BASE_URL: "https://${STORE_DOMAIN:-store.napsystem.com}", NAP_CURRENCIES: '${NAP_CURRENCIES:-["EUR","USD"]}' }
     depends_on: { api: { condition: service_healthy } }
     mem_limit: 512m
     logging: *logging

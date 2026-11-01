@@ -130,7 +130,8 @@ def test_roubles_route_to_yookassa_when_configured(monkeypatch):
     assert provider_for_currency("EUR").name == "mock"
 
 
-def test_rub_purchase_end_to_end_in_demo():
+def test_rub_purchase_end_to_end_in_demo(monkeypatch):
+    monkeypatch.setattr(get_settings(), "currencies", ["EUR", "USD", "RUB"])  # RUB is opt-in
     dev = Client().register(developer=True)
     mod = Client().login("moderator@nap.demo")
     pub = make_published_app(dev, mod, amount=1000)
