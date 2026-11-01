@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import uuid
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
@@ -112,13 +113,13 @@ def catalog(request: Request, q: str | None = None, category: str | None = None,
         cards = [c for c in cards if any(p["kind"] == price for p in c["prices"])]
     if content_language:
         cards = [c for c in cards if c["content_language"] == content_language]
-    if q:
-        ql = q.lower().strip()
-        trs = pre["translations"]
-        hay = {str(a.id): " ".join([a.slug, a.author_name] + [" ".join(str(x) for x in t.data.values())
-                                                             for t in trs.get(a.id, {}).values()
-                                                             if t.status == "published"]).lower() for a in apps}
-        cards = [c for c in cards if ql in hay[c["id"]]]
+    if q:  # NAP-028: full-text search with RU/EN morphology; without an explicit sort the best matches go first
+        from ..services.search import rank_apps
+        ranks = rank_apps(db, [a.id for a in apps], q)
+        if ranks is not None:
+            cards = [c for c in cards if uuid.UUID(c["id"]) in ranks]
+            if not sort:
+                cards.sort(key=lambda c: -ranks[uuid.UUID(c["id"])])
     return page(cards[offset:offset + limit], len(cards), limit, offset)
 
 
