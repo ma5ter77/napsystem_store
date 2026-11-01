@@ -1,0 +1,65 @@
+# NAP-088: temporary public preview of any branch with demo data, before the rented server exists.
+# Runs the full Docker stack on a GitHub runner and opens a Cloudflare quick tunnel (random https://….trycloudflare.com).
+# The link is posted as a comment in the issue "Предпросмотр" (GitHub e-mails it) and in the run log.
+# Demo data and demo accounts only; the stand is destroyed when the time is up. Costs runner minutes.
+name: preview
+on:
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: "How long to keep it open (max 120)"
+        default: "60"
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: preview-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  preview:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - name: tunnel
+        id: tunnel
+        run: |
+          curl -fsSL -o cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+          chmod +x cloudflared
+          nohup ./cloudflared tunnel --no-autoupdate --url http://localhost:3000 > tunnel.log 2>&1 &
+          for _ in $(seq 1 60); do URL=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' tunnel.log | head -1); [ -n "$URL" ] && break; sleep 2; done
+          [ -n "$URL" ] || { cat tunnel.log; exit 1; }
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+      - name: stack (demo data)
+        env:
+          NAP_PUBLIC_BASE_URL: ${{ steps.tunnel.outputs.url }}
+          NAP_BUILD: ${{ github.sha }}
+          NAP_SECRET_KEY: preview-${{ github.run_id }}-${{ github.run_attempt }}-not-for-production
+          NAP_EMAIL_BACKEND: file
+        run: |
+          docker compose up -d --build
+          for _ in $(seq 1 90); do curl -sf localhost:3000/ru >/dev/null && curl -sf localhost:8000/api/v1/ready >/dev/null && break; sleep 5; done
+          curl -sf localhost:3000/ru >/dev/null || { docker compose ps; docker compose logs --tail 100 api web; exit 1; }
+      - name: post the link
+        uses: actions/github-script@v7
+        env:
+          URL: ${{ steps.tunnel.outputs.url }}
+          MINUTES: ${{ inputs.minutes }}
+        with:
+          script: |
+            const minutes = Math.min(parseInt(process.env.MINUTES, 10) || 60, 120);
+            const title = 'Предпросмотр';
+            const {data: issues} = await github.rest.issues.listForRepo({...context.repo, state: 'open', per_page: 100});
+            let issue = issues.find(i => i.title === title && !i.pull_request);
+            if (!issue) issue = (await github.rest.issues.create({...context.repo, title,
+              body: 'Ссылки на временные стенды с демо-данными (workflow preview). Каждая ссылка живёт ограниченное время.'})).data;
+            const until = new Date(Date.now() + minutes * 60000).toISOString().slice(11, 16);
+            await github.rest.issues.createComment({...context.repo, issue_number: issue.number, body:
+              `**${process.env.URL}/ru** — ветка \`${context.ref.replace('refs/heads/', '')}\`, коммит ${context.sha.slice(0, 7)}, открыт до ${until} UTC (${minutes} мин).\n\n` +
+              'Демо-входы: покупатель `user@nap.demo`, продавец `seller@nap.demo`, администратор `admin@nap.demo`, пароль у всех `demo-password-1`. Только тестовые данные.'});
+            core.notice(`Preview: ${process.env.URL}/ru`);
+            core.exportVariable('PREVIEW_MINUTES', String(minutes));
+      - name: keep open
+        run: sleep $(( PREVIEW_MINUTES * 60 ))
+      - if: always()
+        run: docker compose down -v || true
