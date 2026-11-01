@@ -12,14 +12,14 @@
   "cart_empty": "The cart is empty.",
   "comment_required": "A comment is required to reject.",
   "consent_required": "Consent to store measurements is required.",
-  "contact_support_to_cancel": "A paid order can be cancelled by the seller or support.",
+  "contact_support_to_cancel": "Only the seller or support can cancel a paid order.",
   "conversion_not_completed": "The conversion has not finished yet.",
   "csrf_failed": "Your session is stale. Reload the page and try again.",
   "custom_quote_required": "This order needs a custom shipping quote.",
   "destination_not_served": "Some items are not delivered to the selected country.",
   "device_busy": "Another session is already running on this device.",
   "device_protocol_unavailable": "The NAP SYSTEM chair protocol is not available yet: use the simulator or headphones.",
-  "draft_exists": "A draft or a version under review already exists.",
+  "draft_exists": "A draft or a version in moderation already exists.",
   "eeg_not_supported": "EEG data is not accepted in this release.",
   "email_taken": "This e-mail is already registered.",
   "empty_file": "The file is empty.",
@@ -29,7 +29,7 @@
   "idempotency_conflict": "This idempotency key was already used for a different request.",
   "idempotency_key_required": "An Idempotency-Key header is required.",
   "incompatible_device": "The device is not compatible with this app.",
-  "integrity_failed": "Files, manifest or profile changed after submission for review.",
+  "integrity_failed": "Files, manifest or profile changed after submission for moderation.",
   "internal_error": "Internal error. We have been notified — please retry later.",
   "invalid_api_key": "Invalid or revoked API key.",
   "invalid_credentials": "Wrong e-mail or password.",
@@ -77,7 +77,7 @@
   "upload_size_mismatch": "The uploaded size does not match the declared size.",
   "review_login_required": "Sign in to rate the app.",
   "review_own_app": "You cannot rate your own app.",
-  "review_no_access": "You can rate apps in your library: install or buy it first.",
+  "review_no_access": "You can rate an app once it is in your library: install or buy it first.",
   "review_no_completed_session": "Paid apps can be rated after at least one completed session.",
   "review_rate_limited": "Too many reviews in 24 hours. Try again tomorrow.",
   "review_own_vote": "You cannot mark your own review as helpful.",
@@ -86,8 +86,8 @@
   "upload_offset_mismatch": "A file chunk arrived out of order. The upload resumes from byte {offset}.",
   "validation_failed": "Please check the entered data.",
   "version_conflict": "The session state changed. Refresh and try again.",
-  "version_frozen": "This version was submitted for review — create a new version to make changes.",
-  "product_locked": "A published product card cannot be edited: withdraw it from sale, change it and send it to moderation again. Prices, variant switches and stock can be changed right away.",
+  "version_frozen": "This version was sent to moderation — create a new version to make changes.",
+  "product_locked": "A published product listing cannot be edited: withdraw it from sale, change it and send it to moderation again. Prices, variant switches and stock can be changed right away.",
   "product_incomplete": "The product is not ready for moderation yet — complete the items in the “Ready for moderation” list.",
   "sku_taken": "This SKU already exists in the catalog.",
   "reason_required": "Give a reason — the owner receives it in a notification.",
@@ -141,7 +141,7 @@
   },
   "version_approved": {
    "subject": "Version {version} of “{app}” approved",
-   "body": "The moderator approved version {version} of “{app}”. To put it in the store, open the app in the developer cabinet: set a price (if missing) and press “Publish” — or turn on “Publish right after approval”. Comment: {comment}"
+   "body": "The moderator approved version {version} of “{app}”. To put it in the store, open the app in the developer dashboard: set a price (if missing) and press “Publish” — or turn on “Publish right after approval”. Comment: {comment}"
   },
   "version_rejected": {
    "subject": "Version {version} rejected",
@@ -189,7 +189,7 @@
   },
   "return_inspected": {
    "subject": "Return for order {order} inspected",
-   "body": "Inspection finished. The money refund is processed separately."
+   "body": "Inspection finished. The refund is processed separately."
   },
   "return_closed": {
    "subject": "Return for order {order} closed",
@@ -209,7 +209,7 @@
   },
   "product_rejected": {
    "subject": "Product {product} rejected",
-   "body": "The moderator rejected {product}. Comment: {comment}. Fix the card in the supplier cabinet and send it again."
+   "body": "The moderator rejected {product}. Comment: {comment}. Fix the listing in the supplier dashboard and send it again."
   },
   "version_published_auto": {
    "subject": "App “{app}” is published",
@@ -217,11 +217,11 @@
   },
   "product_moderator_action": {
    "subject": "Moderator: product {product} — {action}",
-   "body": "A moderator performed an action on product {product}: {action}. Reason: {reason}. Details are in the supplier cabinet, Products tab."
+   "body": "A moderator performed an action on product {product}: {action}. Reason: {reason}. Details are in the supplier dashboard, Products tab."
   },
   "app_moderator_action": {
    "subject": "Moderator: app “{app}” — {action}",
-   "body": "A moderator performed an action on the app “{app}”: {action}. Reason: {reason}. Details are in the developer cabinet."
+   "body": "A moderator performed an action on the app “{app}”: {action}. Reason: {reason}. Details are in the developer dashboard."
   },
   "review_moderator_action": {
    "subject": "A moderator changed your review or reply",

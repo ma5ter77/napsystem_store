@@ -45,8 +45,8 @@ def plural_category(locale: str, n: int | float) -> str:
     return "one" if n == 1 else "other"
 
 
-_PLURAL = re.compile(r"\{(\w+), plural,((?:\s*\w+\s*\{[^{}]*\})+)\s*\}")
-_FORM = re.compile(r"(\w+)\s*\{([^{}]*)\}")
+_PLURAL = re.compile(r"\{(\w+), plural,((?:\s*=?\w+\s*\{[^{}]*\})+)\s*\}")
+_FORM = re.compile(r"(=?\w+)\s*\{([^{}]*)\}")  # "=1 {...}" — an exact number wins over the plural category
 
 
 def format_message(template: str, locale: str, params: dict | None = None) -> str:
@@ -57,7 +57,7 @@ def format_message(template: str, locale: str, params: dict | None = None) -> st
         n = params.get(name, 0)
         forms = dict(_FORM.findall(m.group(2)))
         cat = plural_category(locale, n)
-        text = forms.get(cat) or forms.get("other") or ""
+        text = forms.get(f"={n}") or forms.get(cat) or forms.get("other") or ""
         return text.replace("#", str(n))
 
     out = _PLURAL.sub(_pl, template)
