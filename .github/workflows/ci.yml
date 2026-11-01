@@ -5,7 +5,7 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    branches: [master, main]
   pull_request:
 
 concurrency:
@@ -21,6 +21,15 @@ env:
   PLAYWRIGHT_VERSION: "1.63.0"
 
 jobs:
+  release-safety:
+    runs-on: ubuntu-24.04
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 ops/release.py --check
+      - run: python3 ops/cohost/test_release_control.py
+      - run: bash -n ops/cohost/deploy-cohost.sh ops/cohost/rollback-cohost.sh
+
   backend:
     runs-on: ubuntu-24.04
     services:
@@ -154,7 +163,7 @@ jobs:
 
   ci-ok:
     runs-on: ubuntu-24.04
-    needs: [backend, frontend, e2e, docker]
+    needs: [backend, frontend, e2e, docker, release-safety]
     if: always()
     steps:
-      - run: test "${{ needs.backend.result }}${{ needs.frontend.result }}${{ needs.e2e.result }}${{ needs.docker.result }}" = "successsuccesssuccesssuccess"
+      - run: test "${{ needs.backend.result }}${{ needs.frontend.result }}${{ needs.e2e.result }}${{ needs.docker.result }}${{ needs.release-safety.result }}" = "successsuccesssuccesssuccesssuccess"
