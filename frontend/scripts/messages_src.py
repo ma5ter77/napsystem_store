@@ -721,6 +721,13 @@ M.update({  # NAP-090/091/092: design v2 — wayfinding, statuses
 "orders.open": ("Открыть заказ", "Open order"),
 })
 
+M.update({  # NAP-012/020: Stripe for the US and world markets
+"billing.portal": ("Карты и счета", "Cards and invoices"),
+"billing.portal_hint": ("Сохранённые карты, счета и продление подписок — в защищённом кабинете платёжной системы.", "Saved cards, invoices and renewals are managed in the payment provider's secure portal."),
+"orders.tax": ("Налог (рассчитан при оплате)", "Tax (calculated at checkout)"),
+"errors.no_billing_account": ("Платёжный профиль ещё не создан: он появится после первой оплаты.", "No billing profile yet: it is created with your first payment."),
+})
+
 def nest(lang):
     out = {}
     for key, pair in M.items():

@@ -26,6 +26,7 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(String(120))
     locale: Mapped[str] = mapped_column(String(5), default="ru")
     payout_account: Mapped[str | None] = mapped_column(String(64))  # e.g. Stripe Connect account id
+    payment_customer_ref: Mapped[str | None] = mapped_column(String(64))  # NAP-012: e.g. Stripe customer id
     created_at: Mapped[datetime] = created_at()
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     roles: Mapped[list["RoleGrant"]] = relationship(back_populates="user", lazy="selectin",

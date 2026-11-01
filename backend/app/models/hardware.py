@@ -227,6 +227,7 @@ class HardwareOrder(Base):
     goods_minor: Mapped[int] = mapped_column(BigInteger, default=0)
     shipping_minor: Mapped[int | None] = mapped_column(BigInteger)  # NULL = unknown, never 0 by default
     fees_minor: Mapped[int] = mapped_column(BigInteger, default=0)
+    tax_minor: Mapped[int] = mapped_column(BigInteger, default=0)  # NAP-020: computed by the provider at payment
     total_minor: Mapped[int | None] = mapped_column(BigInteger)
     refunded_minor: Mapped[int] = mapped_column(BigInteger, default=0)
     composition_hash: Mapped[str] = mapped_column(String(64))
@@ -240,7 +241,8 @@ class HardwareOrder(Base):
                       CheckConstraint(_in("fulfillment_status", FULFILLMENT_STATUSES), name="fstatus"),
                       CheckConstraint(_in("payment_status", PAYMENT_STATUSES), name="pstatus"),
                       CheckConstraint("refunded_minor >= 0 AND (total_minor IS NULL OR refunded_minor <= total_minor)",
-                                      name="refund_bound"))
+                                      name="refund_bound"),
+                      CheckConstraint("tax_minor >= 0", name="tax"))
 
 
 class HardwareOrderItem(Base):

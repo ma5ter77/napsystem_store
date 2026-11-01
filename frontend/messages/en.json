@@ -538,7 +538,8 @@
   "label_not_shipped": "Label created — the parcel has not shipped yet.",
   "packing_list": "Packing list (PDF)",
   "lead": "Status, delivery and returns for every order.",
-  "open": "Open order"
+  "open": "Open order",
+  "tax": "Tax (calculated at checkout)"
  },
  "address": {
   "invalid_field": "Check this field",
@@ -1498,5 +1499,12 @@
    "cancelled": "the order was cancelled. Any payment will be returned to the same method.",
    "closed": "the order is closed. Its history stays here."
   }
+ },
+ "billing": {
+  "portal": "Cards and invoices",
+  "portal_hint": "Saved cards, invoices and renewals are managed in the payment provider's secure portal."
+ },
+ "errors": {
+  "no_billing_account": "No billing profile yet: it is created with your first payment."
  }
 }
