@@ -38,22 +38,25 @@ function Profiles() {
   const { t } = useApp();
   const { data, reload } = useLoad<any>("/admin/profiles");
   const [f, setF] = useState({ slug: "alpha-demo-v1", name_ru: "", name_en: "", carrier_center_hz: 255, beat_hz: 10, source_gain_db: -6, tone_gain_dbfs: -30, fade_in_seconds: 0.5, fade_out_seconds: 0.5 });
+  const [curve, setCurve] = useState("");  // NAP-021: "t_seconds = beat_hz" per line
   const act = useAction();
   return (
     <div className="stack">
       <p className="hint">{t("admin.profiles_hint")}</p>
       <table><thead><tr><th>slug</th><th>v</th><th>{t("account.status")}</th><th>params</th><th></th></tr></thead>
         <tbody>{data?.items.map((p: any) => <tr key={p.id}><td>{p.slug}</td><td>{p.version}</td><td><StatusBadge ns="profile_status" value={p.status} /></td>
-          <td className="hint">{Object.entries(p.params).map(([k, v]) => `${k}=${v}`).join(", ")}</td>
+          <td className="hint">{Object.entries(p.params).map(([k, v]) => k === "beat_curve" ? `${t("admin.curve_short")}: ${(v as number[][]).map(([ts, b]) => `${ts} s → ${b} Hz`).join(", ")}` : `${k}=${v}`).join(", ")}</td>
           <td>{p.status === "active" && <button className="btn ghost small" onClick={async () => { if (await act.run(() => api(`/admin/profiles/${p.id}/retire`, { method: "POST" }))) reload(); }}>{t("admin.retire")}</button>}</td></tr>)}</tbody></table>
       <form className="panel stack" onSubmit={async (e) => {
         e.preventDefault();
         const { slug, name_ru, name_en, ...params } = f;
-        if (await act.run(() => api("/admin/profiles", { body: { slug, names: { ru: name_ru || slug, en: name_en || slug }, params } }))) reload();
+        const beat_curve = curve.split("\n").map((l) => l.split("=").map((x) => Number(x.trim().replace(",", ".")))).filter((p) => p.length === 2 && p.every((x) => Number.isFinite(x)));
+        if (await act.run(() => api("/admin/profiles", { body: { slug, names: { ru: name_ru || slug, en: name_en || slug }, params: beat_curve.length ? { ...params, beat_curve } : params } }))) reload();
       }}>
         <h3>{t("admin.new_profile_version")}</h3>
         <div className="form wide">{Object.entries(f).map(([k, v]) => (
           <label key={k} className="field">{k}<input value={v} type={typeof v === "number" ? "number" : "text"} step="any" onChange={(e) => setF({ ...f, [k]: typeof v === "number" ? Number(e.target.value) : e.target.value })} /></label>))}</div>
+        <label className="field">{t("admin.curve")}<textarea rows={4} value={curve} onChange={(e) => setCurve(e.target.value)} placeholder={"0 = 10\n900 = 4"} /><span className="hint">{t("admin.curve_hint")}</span></label>
         <div><button className="btn">{t("admin.create_version")}</button></div>
       </form>
       <ErrorBox error={act.error} />

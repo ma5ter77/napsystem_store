@@ -145,6 +145,7 @@ function JobCard({ job, onChange }: { job: any; onChange: () => void }) {
           </div>
           <dl className="kv">
             <dt>{t("qa.carriers")}</dt><dd>{typeof qa.layer === "object" ? `${qa.layer.left_hz} / ${qa.layer.right_hz} Hz, Δ ${qa.layer.beat_hz} Hz` : t(`qa.${qa.layer}`)}</dd>
+            {typeof qa.layer === "object" && qa.layer.curve && <><dt>{t("qa.curve")}</dt><dd>{t("qa.curve_value", { points: qa.layer.curve.points.length, err: String(qa.layer.curve.max_error_hz ?? "—") })}</dd></>}
             {typeof qa.layer === "object" && <><dt>{t("qa.separation")}</dt><dd>{String(qa.layer.opposite_suppression_db.left)} / {String(qa.layer.opposite_suppression_db.right)} dB</dd></>}
             <dt>{t("qa.lufs")}</dt><dd>{String(qa.levels.source_integrated_lufs)} → {String(qa.levels.output_integrated_lufs)} LUFS</dd>
             <dt>{t("qa.tp")}</dt><dd>{String(qa.levels.true_peak_master_dbtp)} dBTP ({t("qa.ceiling", { c: qa.levels.true_peak_ceiling_dbtp, tol: qa.levels.true_peak_tolerance_db })})</dd>
