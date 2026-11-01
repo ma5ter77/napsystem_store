@@ -1,120 +1,71 @@
-# Публикация магазина на store.napsystem.com (NAP-085)
+# store.napsystem.com — репозиторий, адрес и будущий выпуск (NAP-085)
 
-Решение владельца от 31.10.2026: магазин работает на поддомене **store.napsystem.com**. Основная платформа (napsystem.ru / napsystem.com, nginx + PHP + MariaDB в `/var/www/nap-trainer`) не меняется.
+Основание — инструкция владельца «NAP SYSTEM — разделение платформы и Store» от 31.10.2026. Она заменяет прежний план «один репозиторий + адрес /store».
 
-## Как это устроено
+| | Платформа | Магазин (этот проект) |
+|---|---|---|
+| Репозиторий | BrothersB/nap-trainer (владелец BrothersB) | **BrothersB/nap-store** (приватный, владелец BrothersB, разработчик ma5ter77) |
+| Адрес | napsystem.ru (документы); napsystem.com — подтвердить | **https://store.napsystem.com**, приложение в корне `/` |
+| Стек | PHP 8.3 + MariaDB + nginx | FastAPI + PostgreSQL 16 + Redis + Celery + Next.js 15, Docker Compose |
 
-```
-браузер ── HTTPS ──► nginx сервера (существующий)
-                      └─ server_name store.napsystem.com ──► 127.0.0.1:3100 (контейнер web, Next.js)
-                                                              └─► api (FastAPI) ─► PostgreSQL, Redis, воркеры
-                                                                  (внутренние сети Docker, наружу не открыты)
-```
+> Целевой адрес — это не подтверждение DNS, TLS или работающего сайта. Production, DNS, nginx, службы, базы данных и SSH-доступы на этом этапе **не меняются**. Всё в `ops/cohost/` — неактивный пример. Первая установка на сервер, DNS, TLS и первый выпуск требуют отдельного разрешения владельца.
 
-- Магазин запускается в Docker Compose (проект `nap-store`) в `/srv/nap-store`. У него своя база PostgreSQL, к базе платформы он не подключается.
-- Наружу ничего не открыто. Сайт слушает только `127.0.0.1:3100`, сертификат и HTTPS обслуживает nginx.
-- Для nginx добавляется **один новый файл** сайта. Default server, корневой `location /` и сайты платформы не трогаются.
-- Каждый выпуск — это конкретный commit SHA в своей папке `releases/<sha>`, `current` указывает на рабочий. Данные лежат в томах Docker и переживают выпуски и откаты.
+## 1. Перенос кода в BrothersB/nap-store
 
-Требования к серверу: Ubuntu 22.04/24.04, Docker Engine 24+ с плагином compose 2.24+, свободно ≥ 3 ГБ RAM (с конвертером) и ≥ 20 ГБ диска.
+Исходный Git магазина уже есть — это вариант A инструкции: история переносится как есть, без переписывания и без squash.
 
-## Что делает владелец (один раз)
-
-### 1. Доступ к репозиторию
-
-Код магазина переносится в общий репозиторий **BrothersB/nap-trainer** (папка `apps/store`, ветка `codex/store-development`, Pull Request в основную ветку).
-
-Владелец репозитория открывает GitHub → BrothersB/nap-trainer → Settings → Collaborators → Add people и добавляет учётную запись **ma5ter77** с ролью **Write**. Именно она подключена к сессии Claude. Если работа идёт от имени другой учётной записи, нужно назвать её. После этого Claude запросит доступ к репозиторию, и останется подтвердить запрос.
-
-Если репозиторий принадлежит организации BrothersB, то вместо этого администратор организации может установить GitHub-приложение Claude для репозитория nap-trainer.
-
-### 2. DNS
-
-В панели, где управляется DNS домена napsystem.com, добавить запись:
-
-| Тип | Имя | Значение | TTL |
-|---|---|---|---|
-| A | `store` | IP сервера (по сохранённым данным 217.114.3.160 — подтвердить) | 300 |
-
-Если DNS идёт через CDN (Cloudflare и т. п.), запись создаётся там же. Пока выпускается сертификат, режим лучше поставить «DNS only».
-
-Проверка: `nslookup store.napsystem.com` (или `Resolve-DnsName store.napsystem.com` в PowerShell) возвращает IP сервера.
-
-### 3. SSH-доступ
-
-На своём компьютере (пароль ключа вводится локально, существующие ключи не трогать):
-
-```
-ssh-keygen -t ed25519 -f ~/.ssh/nap_store_ed25519 -C "nap-store"
-```
-
-Содержимое **публичного** файла `nap_store_ed25519.pub` надо дописать в `~/.ssh/authorized_keys` пользователя на сервере, не заменяя файл. Это делается через консоль хостинга или уже доверенную сессию. Приватный ключ, пароли и `.env` в чат и Telegram не отправляются.
-
-Отпечаток сервера сверяется в консоли хостинга: `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub -E sha256`. Затем при первом входе:
-
-```
-ssh -i ~/.ssh/nap_store_ed25519 -o IdentitiesOnly=yes root@217.114.3.160
-```
-
-### 4. Секреты магазина
-
-На сервере (после шага «Подготовка» ниже):
-
-```
-mkdir -p /srv/nap-store/shared && cd /srv/nap-store/shared
-# шаблон: .env.example из выпуска + ops/cohost/env.cohost.example
-nano .env      # NAP_SECRET_KEY и POSTGRES_PASSWORD — `openssl rand -hex 32`, SMTP — когда будет ящик
-chmod 600 .env
-```
-
-## Порядок выпуска
-
-1. **Проверка сервера, только чтение:** `whoami; hostname; cat /etc/os-release; df -h; free -m; systemctl is-active nginx; ss -ltn; docker --version; ls /etc/nginx/sites-enabled`. Убедиться, что сайта store.napsystem.com ещё нет и порт 3100 свободен (иначе выбрать другой `STORE_WEB_PORT` и поправить файл nginx).
-2. **План → «да» владельца.** В плане: SHA, результаты тестов, порт, затрагиваемые файлы (только новые: `/srv/nap-store/**`, `/etc/nginx/sites-available/store.napsystem.com`, ссылка в `sites-enabled`, сертификат), порядок проверки и отката.
-3. **Подготовка (после «да»):** установить Docker, если его нет: `curl -fsSL https://get.docker.com | sh`. Это ставит только Docker, PHP/MariaDB/nginx не меняются.
-4. **Выкладка ровно согласованного коммита** (не `git pull` в рабочей папке):
-   ```
-   # на своём компьютере или в CI
-   git archive --format=tar.gz -o store-<sha>.tar.gz <sha> apps/store
-   scp -i ~/.ssh/nap_store_ed25519 store-<sha>.tar.gz root@217.114.3.160:/srv/nap-store/
-   # на сервере
-   bash /srv/nap-store/releases/<sha>/apps/store/ops/cohost/deploy-cohost.sh /srv/nap-store/store-<sha>.tar.gz <sha>
-   ```
-   При первом выпуске скрипт ещё не лежит на сервере: распакуйте архив во временную папку и запустите `ops/cohost/deploy-cohost.sh` оттуда.
-5. **nginx:**
-   ```
-   cp /srv/nap-store/current/ops/cohost/store.napsystem.com.nginx.conf /etc/nginx/sites-available/store.napsystem.com
-   ln -s /etc/nginx/sites-available/store.napsystem.com /etc/nginx/sites-enabled/
-   nginx -t && systemctl reload nginx
-   certbot --nginx -d store.napsystem.com
-   ```
-   `nginx -t` обязателен перед reload. При ошибке ничего не перезагружать, а удалить ссылку.
-6. **Проверка:**
-   - https://store.napsystem.com/ru и /en открываются;
-   - прямое открытие и обновление вложенных страниц (`/ru/apps`, `/ru/devices/...`);
-   - вход и регистрация;
-   - загрузка и конвертация трека;
-   - тестовая покупка;
-   - письмо уведомления;
-   - `/api/v1/ready` на `127.0.0.1:3100` отвечает `ready: true`;
-   - сайты платформы на napsystem.ru и napsystem.com работают как раньше.
-7. **Запись о выпуске:** скопировать `docs/deployments/TEMPLATE.md` в `docs/deployments/<дата>-<sha>.md`, заполнить без секретов, закоммитить в общий репозиторий.
-
-## Откат
-
-- **Код:** `bash /srv/nap-store/current/ops/cohost/rollback-cohost.sh` возвращает предыдущий выпуск. Данные сохраняются.
-- **База,** если новый выпуск успел применить миграцию, с которой старый код не работает: восстановить последний бэкап из `/srv/nap-store/shared/backups/` по `docs/operations.md` (раздел «Резервное копирование и восстановление»).
-- **Полностью убрать магазин с поддомена:**
+- Источник: репозиторий магазина в рабочей среде Claude. Ветка `master`, 15 коммитов, теги `v0.1.0`…`v0.7.1`, автор всех коммитов — NAP Store. Копия на Mac (`~/Projects/nap-store`) содержит ту же историю до `v0.6.1`, а вложенная папка `nap-trainer/` в ней — это клон платформы. Он **не переносится**.
+- Резерв: `git bundle` всей истории (`--all`, проверен `git bundle verify`) со списком refs и SHA-256 лежит вне рабочих деревьев на Mac, в `~/Projects/_nap-store-backup-20261031/`. Bundle не содержит `.env` и данных Docker — они остаются только локально.
+- Проверка всей истории: секретов (ключи Stripe/EasyPost/AWS/GitHub, приватные ключи, токены), файлов `.env`, дампов, PDF, архивов и LFS-объектов нет. Крупнейший файл — `backend/uv.lock`, 251 КБ. В одном старом коммите лежит служебный файл планировщика `backend/celerybeat-schedule-wal` на 140 КБ, без секретов; в текущем дереве его нет.
+- Публикуются явно перечисленные refs, после показа владельцу, в пустой репозиторий:
   ```
-  rm /etc/nginx/sites-enabled/store.napsystem.com && nginx -t && systemctl reload nginx
-  cd /srv/nap-store/current && docker compose -p nap-store down   # тома с данными остаются
+  git ls-remote https://github.com/BrothersB/nap-store.git          # должен быть пуст
+  git remote add store-origin https://github.com/BrothersB/nap-store.git   # имя проверено, не занято
+  git push --dry-run store-origin refs/heads/master:refs/heads/master
+  git push store-origin refs/heads/master:refs/heads/master
+  git push store-origin refs/heads/codex/store-napsystem-com:refs/heads/codex/store-napsystem-com
+  for t in v0.1.0 v0.1.1 v0.2.0 v0.2.1 v0.2.2 v0.2.3 v0.3.0 v0.4.0 v0.5.0 v0.6.0 v0.6.1 v0.7.0 v0.7.1; do
+    git push store-origin refs/tags/$t:refs/tags/$t; done
   ```
+  Default branch — `master`, как в исходном репозитории. Переименование в `main` возможно только по согласованию.
+- После push: сверить локальные и remote SHA (`git ls-remote store-origin`), сделать чистое контрольное клонирование в отдельный каталог, сравнить историю и хеши файлов, прогнать проверки.
 
-## Что не делать
+## 2. Адаптация к store.napsystem.com (ветка `codex/store-napsystem-com`)
 
-- Не копировать магазин в `/var/www/nap-trainer/public/store`.
-- Не подключать магазин к базе платформы.
-- Не импортировать `database/schema.sql`.
-- Не менять default server и корневой `location /` основного сайта.
-- Не хранить токен GitHub в адресе remote.
-- Не запускать `git pull` в рабочей папке выпуска.
+- Базовый адрес задаётся окружением, в коде не зашит: `NAP_PUBLIC_BASE_URL=https://store.napsystem.com` (ссылки в письмах, возвраты оплаты) и `PUBLIC_BASE_URL` (canonical, hreflang, sitemap). Приложение работает в корне `/`, вложенные маршруты и ассеты абсолютные от корня.
+- Cookies host-only: `Domain` не задаётся, на `.napsystem.com` не расширяются. Cookies сессии и CSRF — `Secure`, `HttpOnly` у сессии, `SameSite=Lax`.
+- CORS не используется: браузер обращается к API через тот же адрес (Next.js проксирует `/api/v1` на внутренний API). Wildcard-origin с cookies нет.
+- Оплаты — только тестовый режим (`NAP_PAYMENT_PROVIDER=mock`, или Stripe с тестовыми ключами). Кабинеты провайдеров не меняются, приватных ключей в браузерном коде нет.
+- Неактивный пример выпуска для сервера, где уже работает nginx платформы, — `ops/cohost/`:
+  - `docker-compose.cohost.yml` — магазин слушает только `127.0.0.1:${STORE_WEB_PORT}`, по умолчанию 3100. API и базы остаются во внутренних сетях Docker, у магазина своя PostgreSQL;
+  - `store.napsystem.com.nginx.conf` — отдельный файл сайта. Default server и сайты платформы не трогаются. Порт и раскладку nginx ещё нужно проверить на сервере, они не считаются известными;
+  - `deploy-cohost.sh` / `rollback-cohost.sh` — выкладка ровно одного проверенного коммита в `releases/<sha>` от отдельного пользователя, не от общего root, с журналом выпусков и откатом;
+  - `env.cohost.example` — имена переменных без значений.
+
+## 3. Интеграция с платформой
+
+Вынесена в отдельный план, `docs/integration-platform.md`. До его согласования магазин не подключается к базе платформы, не копирует её пользователей и не делает общий вход.
+
+## 4. Будущий выпуск — только после разрешения владельца
+
+Порядок, когда будет разрешение:
+1. Проверка сервера, только чтение: ОС, диск, память, `nginx`, занятые порты, наличие Docker, раскладка сайтов nginx.
+2. План: SHA, результаты проверок, порт, затрагиваемые файлы (только новые), откат.
+3. После «да» владельца:
+   - отдельный пользователь для выпусков;
+   - Docker, если его нет;
+   - `.env` на сервере заполняет владелец;
+   - выкладка `git archive` проверенного SHA через `deploy-cohost.sh`;
+   - отдельный сайт nginx с `nginx -t` до reload;
+   - сертификат для store.napsystem.com;
+   - DNS-запись `store` → IP сервера (владелец, в панели DNS).
+4. Проверки:
+   - HTTPS, `/ru` и `/en`;
+   - прямое открытие и обновление вложенных страниц;
+   - вход, загрузка и конвертация, тестовая оплата, письма;
+   - сайты платформы работают как раньше.
+5. Запись о выпуске (`docs/deployments/TEMPLATE.md`) — в репозиторий, без секретов.
+
+Откат: `rollback-cohost.sh` для кода; для схемы БД — бэкап до выпуска (`docs/operations.md`); полностью — убрать ссылку сайта nginx, `nginx -t`, reload, `docker compose -p nap-store down` (тома с данными остаются).
+
+Запрещено: копировать магазин в каталоги платформы, `git pull` в live-каталоге, перенос всего дерева через scp, подключение к БД платформы, общий root для повседневных выпусков, force push, `--mirror`/`--all` без проверки.

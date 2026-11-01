@@ -5,12 +5,12 @@
 | Поле | Значение |
 |---|---|
 | Адрес | https://store.napsystem.com |
-| Репозиторий / ветка | BrothersB/nap-trainer / codex/store-development (или основная после merge) |
+| Репозиторий / ветка | BrothersB/nap-store / master (после merge проверенной ветки) |
 | Commit SHA | |
 | Версия магазина (release.json) | |
 | Время выпуска (UTC) | |
 | Кто выпустил | |
-| Папка выпуска | /srv/nap-store/releases/<sha>/apps/store |
+| Папка выпуска | /srv/nap-store/releases/<sha> |
 | Предыдущий выпуск | |
 | Порт | 127.0.0.1:3100 |
 | Изменённые файлы сервера | /etc/nginx/sites-available/store.napsystem.com (+ ссылка в sites-enabled), сертификат store.napsystem.com |
