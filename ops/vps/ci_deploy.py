@@ -9,6 +9,7 @@ an unknown or changed server key stops the job. The SSH key on the server is for
 import base64
 import json
 import os
+import re
 import pathlib
 import subprocess
 import sys
@@ -24,11 +25,23 @@ def summary(text):
             f.write(text + "\n")
 
 
+def check_settings(env) -> None:
+    """Normalise and validate the connection settings in place. Values pasted into GitHub settings often carry
+    spaces or line breaks around them; a wrong value stops here with a message saying which setting to fix."""
+    env["HOST"] = env.get("HOST", "").strip()
+    env["HOST_KEY"] = " ".join(env.get("HOST_KEY", "").split())
+    for k in ("SSH_KEY", "HOST", "HOST_KEY"):
+        if not env.get(k, "").strip():
+            sys.exit(f"{k} is not configured (see docs/vps-deploy.md)")
+    if not re.fullmatch(r"[A-Za-z0-9.:-]{1,253}", env["HOST"]):
+        sys.exit("STORE_DEPLOY_HOST must be an IP address or host name (no spaces)")
+    if not re.fullmatch(r"ssh-ed25519 [A-Za-z0-9+/=]{60,80}", env["HOST_KEY"]):
+        sys.exit("STORE_DEPLOY_HOST_KEY must be the server's 'ssh-ed25519 AAAA...' line printed by the installer")
+
+
 def main(argv):
     op = argv[:1] or ["status"]
-    for k in ("SSH_KEY", "HOST", "HOST_KEY"):
-        if not os.environ.get(k):
-            sys.exit(f"{k} is not configured (see docs/vps-deploy.md)")
+    check_settings(os.environ)
     stdin = b""
     if op == ["deploy"]:
         sha = os.environ["SHA"]

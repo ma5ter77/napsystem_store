@@ -97,5 +97,30 @@ class Inputs(unittest.TestCase):
         self.assertIsNone(json.loads(r.stdout)["current"])
 
 
+class CiDeploySettings(unittest.TestCase):
+    """GitHub settings pasted with spaces or line breaks still connect; wrong values stop with a clear message."""
+    KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDlWUgGc+G94DWpIVGzJFauhXa0a4XGyW2LYZfI9SAVC"
+
+    def setUp(self):
+        import ci_deploy
+        self.check = ci_deploy.check_settings
+
+    def test_whitespace_is_trimmed(self):
+        env = {"SSH_KEY": "k", "HOST": "   2.31.171.3 \n", "HOST_KEY": "  " + self.KEY.replace(" ", "\n  ") + "\n"}
+        self.check(env)
+        self.assertEqual(env["HOST"], "2.31.171.3")
+        self.assertEqual(env["HOST_KEY"], self.KEY)
+
+    def test_swapped_values_are_rejected(self):
+        with self.assertRaises(SystemExit) as e:
+            self.check({"SSH_KEY": "k", "HOST": self.KEY, "HOST_KEY": "2.31.171.3"})
+        self.assertIn("STORE_DEPLOY_HOST", str(e.exception))
+
+    def test_missing_value(self):
+        with self.assertRaises(SystemExit) as e:
+            self.check({"SSH_KEY": "k", "HOST": "2.31.171.3", "HOST_KEY": "   "})
+        self.assertIn("HOST_KEY is not configured", str(e.exception))
+
+
 if __name__ == "__main__":
     unittest.main()
