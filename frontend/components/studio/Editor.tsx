@@ -374,32 +374,47 @@ function GeneratorFields({ gen, fs, onChange }: { gen: State["generators"][numbe
       {num("amplitude_dbfs", t("studio.amplitude"), "dBFS", t("studio.amplitude_hint"))}
       <Field label={t("studio.ramp")} hint={t("studio.frames_n", { n: p.ramp_frames ?? 0 })}>
         <NumberInput value={+((p.ramp_frames ?? 0) / fs).toFixed(6)} suffix="s" onCommit={(v) => onChange({ ramp_frames: Math.max(0, Math.round(v * fs)) })} /></Field>
-      {gen.type === "binaural" && <Automation gen={gen} fs={fs} onChange={onChange} />}
+      {gen.type === "binaural" && <Automation gen={gen} fs={fs} onChange={onChange} field="delta_automation" />}
+      {gen.type === "binaural" && <Automation gen={gen} fs={fs} onChange={onChange} field="carrier_automation" />}
     </div>
   );
 }
 
-/** Two-point linear automation of the beat frequency (Δ) — a ramp from one value to another (spec §4.1). */
-function Automation({ gen, fs, onChange }: { gen: State["generators"][number]; fs: number; onChange: (p: Record<string, any>) => void }) {
+/** Two-point linear automation (spec §4.1): a ramp of the beat (Δ) or of the carrier from one value to another.
+ * The renderer integrates the frequency exactly, so the ramp is phase-continuous. */
+type AutoField = "delta_automation" | "carrier_automation";
+const AUTO: Record<AutoField, { base: "delta_hz" | "carrier_hz"; label: string; min: number; max: number; end: (v: number) => number }> = {
+  delta_automation: { base: "delta_hz", label: "studio.delta_ramp", min: 0.0001, max: 100, end: (v) => Math.max(0.5, v / 2) },
+  carrier_automation: { base: "carrier_hz", label: "studio.carrier_ramp", min: 20, max: 1500, end: (v) => Math.min(1500, v + 50) },
+};
+
+function Automation({ gen, fs, onChange, field = "delta_automation" }: { gen: State["generators"][number]; fs: number;
+  onChange: (p: Record<string, any>) => void; field?: AutoField }) {
   const { t } = useApp();
-  const pts: { frame: number; value: number }[] = gen.params.delta_automation ?? [];
+  const cfg = AUTO[field];
+  const pts: { frame: number; value: number }[] = gen.params[field] ?? [];
   const on = pts.length >= 2;
+  const set = (a: { frame: number; value: number }, b: { frame: number; value: number }) => onChange({ [field]: [a, b] });
+  const order = on && pts[1].frame <= pts[0].frame;
+  const range = on && pts.some((p) => !(p.value >= cfg.min && p.value <= cfg.max));
   return (
     <fieldset className={`studio-auto${on ? "" : " off"}`}>
       <legend><label className="studio-check"><input type="checkbox" checked={on}
-        onChange={(e) => onChange({ delta_automation: e.target.checked ? [{ frame: 0, value: gen.params.delta_hz }, { frame: 300 * fs, value: Math.max(0.5, gen.params.delta_hz / 2) }] : [] })} />
-        {t("studio.delta_ramp")}</label></legend>
+        onChange={(e) => onChange({ [field]: e.target.checked ? [{ frame: 0, value: gen.params[cfg.base] }, { frame: 300 * fs, value: cfg.end(gen.params[cfg.base]) }] : [] })} />
+        {t(cfg.label)}</label></legend>
       {on && <>
         <Field label={t("studio.ramp_from")} hint={t("studio.frames_n", { n: pts[0].frame })}>
           <span className="studio-pair">
-            <NumberInput value={+(pts[0].frame / fs).toFixed(3)} suffix="s" onCommit={(v) => onChange({ delta_automation: [{ ...pts[0], frame: Math.max(0, Math.round(v * fs)) }, pts[1]] })} />
-            <NumberInput value={pts[0].value} suffix="Hz" onCommit={(v) => onChange({ delta_automation: [{ ...pts[0], value: v }, pts[1]] })} />
+            <NumberInput value={+(pts[0].frame / fs).toFixed(3)} suffix="s" onCommit={(v) => set({ ...pts[0], frame: Math.max(0, Math.round(v * fs)) }, pts[1])} />
+            <NumberInput value={pts[0].value} suffix="Hz" onCommit={(v) => set({ ...pts[0], value: v }, pts[1])} />
           </span></Field>
         <Field label={t("studio.ramp_to")} hint={t("studio.frames_n", { n: pts[1].frame })}>
           <span className="studio-pair">
-            <NumberInput value={+(pts[1].frame / fs).toFixed(3)} suffix="s" onCommit={(v) => onChange({ delta_automation: [pts[0], { ...pts[1], frame: Math.max(1, Math.round(v * fs)) }] })} />
-            <NumberInput value={pts[1].value} suffix="Hz" onCommit={(v) => onChange({ delta_automation: [pts[0], { ...pts[1], value: v }] })} />
+            <NumberInput value={+(pts[1].frame / fs).toFixed(3)} suffix="s" onCommit={(v) => set(pts[0], { ...pts[1], frame: Math.max(1, Math.round(v * fs)) })} />
+            <NumberInput value={pts[1].value} suffix="Hz" onCommit={(v) => set(pts[0], { ...pts[1], value: v })} />
           </span></Field>
+        {order && <p className="notice warn">{t("studio.ramp_order")}</p>}
+        {range && <p className="notice warn">{t("studio.ramp_range", { min: cfg.min, max: cfg.max })}</p>}
       </>}
     </fieldset>
   );
