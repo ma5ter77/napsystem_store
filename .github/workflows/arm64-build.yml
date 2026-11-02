@@ -1,0 +1,64 @@
+# NAP-097: the store server is Arm (Hetzner CAX, Ampere). deliver-vps builds amd64 + arm64 only after merge, so
+# any pull request that can change the images builds them for arm64 here (QEMU, no push) and smoke-tests them:
+# Python imports of the native modules, ffmpeg and pg_dump in the backend image, the Next.js server in web.
+name: arm64-build
+on:
+  pull_request:
+    paths:
+      - backend/Dockerfile
+      - backend/pyproject.toml
+      - backend/uv.lock
+      - frontend/Dockerfile
+      - frontend/package.json
+      - frontend/package-lock.json
+      - .github/workflows/deliver-vps.yml
+      - .github/workflows/arm64-build.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: arm64-build-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  arm64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: docker/setup-qemu-action@v3
+        with: { platforms: arm64 }
+      - uses: docker/setup-buildx-action@v3
+      - name: backend image (arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          platforms: linux/arm64
+          load: true
+          tags: nap-backend:arm64
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend-arm64-check,mode=max
+      - name: web image (arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          platforms: linux/arm64
+          load: true
+          build-args: BACKEND_URL=http://api:8000
+          tags: nap-web:arm64
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web-arm64-check,mode=max
+      - name: smoke test under arm64
+        run: |
+          set -e
+          docker run --rm --platform linux/arm64 nap-backend:arm64 uname -m | grep -qx aarch64
+          docker run --rm --platform linux/arm64 -e NAP_SECRET_KEY=ci-arm64-smoke nap-backend:arm64 \
+            python -c "import numpy, soxr, psycopg, sqlalchemy; import app.main, app.audio.render, app.worker; print('backend imports ok')"
+          docker run --rm --platform linux/arm64 --entrypoint ffmpeg nap-backend:arm64 -hide_banner -version | head -1
+          docker run --rm --platform linux/arm64 --entrypoint pg_dump nap-backend:arm64 --version
+          docker run --rm --platform linux/arm64 --entrypoint node nap-web:arm64 -e "console.log(process.arch)" | grep -qx arm64
+          docker run -d --name web --platform linux/arm64 -p 3999:3000 nap-web:arm64
+          for i in $(seq 1 60); do curl -s -o /dev/null -w '%{http_code}' localhost:3999/ru | grep -qE '^[2-5][0-9][0-9]$' && break; sleep 3; done
+          code=$(curl -s -o /dev/null -w '%{http_code}' localhost:3999/ru); echo "web /ru -> $code (no API behind it; any HTTP answer proves the server runs)"
+          docker logs web | tail -5
+          [ "$code" != "000" ]
