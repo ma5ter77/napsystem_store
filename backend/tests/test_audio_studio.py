@@ -530,3 +530,29 @@ def test_router_api_versions_and_access(tmp_path):
     assert p1["key"] not in [x["key"] for x in ok(dev.get("/audio/routing-profiles"))["items"]]
     assert dev.post(f"/audio/projects/{pr['id']}/renders", {"profile": p1["key"]}).status_code == 422
     assert ok(dev.get(f"/audio/render-jobs/{j1['id']}"))["state"] == "completed"   # history survives the archive
+
+
+def test_carrier_ramp_saved_through_api_is_rendered(tmp_path):
+    """Carrier automation from the inspector: 200 → 300 Hz over 1 s, beat stays 8 Hz, phase-continuous."""
+    dev = Client().register(developer=True)
+    pr = ok(dev.post("/audio/projects", {"title": "Ramp", "bus_count": 2}), 201)
+    st = pr["state"]
+    st["generators"] = [{"id": "g1", "type": "binaural", "params": {
+        "carrier_hz": 200, "delta_hz": 8, "amplitude_dbfs": -12,
+        "carrier_automation": [{"frame": 0, "value": 200}, {"frame": FS, "value": 300}]}}]
+    st["tracks"][0]["clips"] = [{"id": "c1", "generator_id": "g1", "generator_output": "left", "start_frame": 0, "duration_frames": 3 * FS}]
+    st["tracks"][1]["clips"] = [{"id": "c2", "generator_id": "g1", "generator_output": "right", "start_frame": 0, "duration_frames": 3 * FS}]
+    bad = {**st, "generators": [{**st["generators"][0], "params": {**st["generators"][0]["params"],
+           "carrier_automation": [{"frame": FS, "value": 200}, {"frame": 0, "value": 300}]}}]}
+    assert dev.patch(f"/audio/projects/{pr['id']}", {"base_revision": pr["revision"], "state": bad}).status_code == 422
+    ok(dev.patch(f"/audio/projects/{pr['id']}", {"base_revision": pr["revision"], "state": st}))
+    job = _wait(dev, ok(dev.post(f"/audio/projects/{pr['id']}/renders", {"profile": "HEADPHONES_2_0"}), 201)["id"])
+    assert job["state"] == "completed"
+    body = dev.c.get(ok(dev.get(f"/audio/render-jobs/{job['id']}/download"))["url"]).content
+    x, _ = read_pcm_bytes(tmp_path, body)
+    x = x / float(1 << 23)
+    fl, _ = measure_tone(x[int(1.5 * FS):, 0], FS, 296)       # after the ramp: 300 - 4
+    fr, _ = measure_tone(x[int(1.5 * FS):, 1], FS, 304)
+    assert abs(fl - 296) < 0.01 and abs(fr - 304) < 0.01
+    amp = 10 ** (-12 / 20)
+    assert np.max(np.abs(np.diff(x[:, 0]))) <= 2 * np.pi * 305 * amp / FS * 1.02   # no clicks across the ramp
