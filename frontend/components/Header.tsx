@@ -10,7 +10,15 @@ import { BagIcon, MenuIcon, PersonIcon } from "./icons";
 import { useApp } from "./Providers";
 
 export function Header() {
-  const { locale, t, me, cartCount, refreshMe } = useApp();
+  const app = useApp();
+  const { locale, t, refreshMe } = app;
+  // The header sits in a Suspense boundary and hydrates a moment after the page. If /me or the cart answered in
+  // that moment, the first client render would differ from the server HTML (hydration error). So the header
+  // shows the signed-in state and the cart count only once it has hydrated itself.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
+  const me = hydrated ? app.me : undefined;
+  const cartCount = hydrated ? app.cartCount : 0;
   const path = usePathname() || `/${locale}`;
   const search = useSearchParams();
   const router = useRouter();

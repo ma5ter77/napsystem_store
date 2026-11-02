@@ -166,12 +166,19 @@ class RenderResult:
 
 
 def render(state_dict: dict, *, fs: int, bits: int, profile_key: str, sources: dict[str, Source], out_path: str,
-           start: int = 0, frames: int | None = None, progress=lambda f: None, check=lambda: None) -> RenderResult:
+           start: int = 0, frames: int | None = None, progress=lambda f: None, check=lambda: None,
+           profile: dict | None = None) -> RenderResult:
+    """`profile` (a custom routing profile, see schema.RoutingSpec) overrides the built-in PROFILES[profile_key]."""
     state = ProjectState.model_validate(state_dict)
-    profile = PROFILES[profile_key]
+    profile = profile or PROFILES[profile_key]
     mask = channel_mask(profile)
     out_ch = len(profile["channels"])
-    total = state.duration_frames() if frames is None else frames
+    opts = profile.get("options") or [{} for _ in range(out_ch)]
+    mutes = [bool(o.get("mute")) for o in opts]
+    inverts = [bool(o.get("invert")) for o in opts]
+    delays = [int(round(float(o.get("delay_ms") or 0.0) * fs / 1000.0)) for o in opts]
+    max_delay = max(delays, default=0)
+    total = state.duration_frames() + max_delay if frames is None else frames   # a full export keeps delayed tails
     if total <= 0:
         raise RenderError("empty_project", "add at least one clip")
     gens = {g.id: (g.type, g.parsed()) for g in state.generators}
@@ -187,6 +194,74 @@ def render(state_dict: dict, *, fs: int, bits: int, profile_key: str, sources: d
     peak = np.zeros(out_ch)
     over = np.zeros(out_ch, dtype=np.int64)
     first_over: dict[int, int] = {}
+    def mix(b0: int, n: int) -> np.ndarray:
+        """Bus mix of project frames [b0, b0+n) through the matrix (no per-channel options yet)."""
+        buses: dict[str, np.ndarray] = {}
+        for t in tracks:
+            for c in t.clips:
+                if c.mute:
+                    continue
+                s0, s1 = max(b0, c.start_frame), min(b0 + n, c.start_frame + c.duration_frames)
+                if s1 <= s0:
+                    continue
+                rel = s0 - c.start_frame       # clip-relative first frame
+                m = s1 - s0
+                if c.asset_id:
+                    x = sources[c.asset_id].read(c.source_channel, c.source_offset_frame + rel, m)
+                else:
+                    gtype, gp = gens[c.generator_id]
+                    if gtype == "binaural":
+                        left, right = binaural(gp, fs, rel, m, c.duration_frames)
+                        x = left if c.generator_output in ("left", "mono") else right
+                    else:
+                        x = isochronic(gp, fs, rel, m, c.duration_frames)
+                if c.gain_db != 0.0:
+                    x = x * (10.0 ** (c.gain_db / 20.0))
+                if c.fade_in_frames or c.fade_out_frames:
+                    k = np.arange(rel, rel + m, dtype=np.float64)
+                    env = np.ones(m)
+                    if c.fade_in_frames:
+                        a = k < c.fade_in_frames
+                        env[a] = np.sin(0.5 * math.pi * k[a] / c.fade_in_frames) ** 2
+                    if c.fade_out_frames:
+                        last = c.duration_frames - 1
+                        b = k > last - c.fade_out_frames
+                        env[b] = np.minimum(env[b], np.sin(0.5 * math.pi * (last - k[b]) / c.fade_out_frames) ** 2)
+                    x = x * env
+                buf = buses.setdefault(t.bus, np.zeros(n))
+                buf[s0 - b0:s1 - b0] += x
+        y = np.zeros((n, out_ch))
+        for i, row in enumerate(profile["matrix"]):
+            for bus, g in row.items():
+                if bus in buses:
+                    y[:, i] += buses[bus] if g == 1.0 else g * buses[bus]
+        if not np.all(np.isfinite(y)):
+            raise RenderError("non_finite", "numerical error in the mix")
+        return y
+
+    tails = [np.zeros(d) for d in delays]
+
+    def post(y: np.ndarray) -> np.ndarray:
+        """Per-channel options after the matrix: mute, polarity, delay. Delay lines carry across blocks."""
+        n = len(y)
+        for i in range(out_ch):
+            if mutes[i]:
+                y[:, i] = 0.0
+            elif inverts[i]:
+                y[:, i] = -y[:, i]
+            d = delays[i]
+            if d:
+                z = np.concatenate([tails[i], y[:, i]])
+                y[:, i], tails[i] = z[:n], z[n:]
+        return y
+
+    pre = min(max_delay, start)        # preview windows: feed the delay lines with the frames before the window
+    p0 = start - pre
+    while p0 < start:
+        m = min(BLOCK, start - p0)
+        post(mix(p0, m))
+        p0 += m
+
     sha = hashlib.sha256()
     done = 0
     with open(out_path, "wb") as fh:
@@ -198,47 +273,7 @@ def render(state_dict: dict, *, fs: int, bits: int, profile_key: str, sources: d
             check()
             n = min(BLOCK, total - done)
             b0 = start + done
-            buses: dict[str, np.ndarray] = {}
-            for t in tracks:
-                for c in t.clips:
-                    if c.mute:
-                        continue
-                    s0, s1 = max(b0, c.start_frame), min(b0 + n, c.start_frame + c.duration_frames)
-                    if s1 <= s0:
-                        continue
-                    rel = s0 - c.start_frame       # clip-relative first frame
-                    m = s1 - s0
-                    if c.asset_id:
-                        x = sources[c.asset_id].read(c.source_channel, c.source_offset_frame + rel, m)
-                    else:
-                        gtype, gp = gens[c.generator_id]
-                        if gtype == "binaural":
-                            left, right = binaural(gp, fs, rel, m, c.duration_frames)
-                            x = left if c.generator_output in ("left", "mono") else right
-                        else:
-                            x = isochronic(gp, fs, rel, m, c.duration_frames)
-                    if c.gain_db != 0.0:
-                        x = x * (10.0 ** (c.gain_db / 20.0))
-                    if c.fade_in_frames or c.fade_out_frames:
-                        k = np.arange(rel, rel + m, dtype=np.float64)
-                        env = np.ones(m)
-                        if c.fade_in_frames:
-                            a = k < c.fade_in_frames
-                            env[a] = np.sin(0.5 * math.pi * k[a] / c.fade_in_frames) ** 2
-                        if c.fade_out_frames:
-                            last = c.duration_frames - 1
-                            b = k > last - c.fade_out_frames
-                            env[b] = np.minimum(env[b], np.sin(0.5 * math.pi * (last - k[b]) / c.fade_out_frames) ** 2)
-                        x = x * env
-                    buf = buses.setdefault(t.bus, np.zeros(n))
-                    buf[s0 - b0:s1 - b0] += x
-            y = np.zeros((n, out_ch))
-            for i, row in enumerate(profile["matrix"]):
-                for bus, g in row.items():
-                    if bus in buses:
-                        y[:, i] += buses[bus] if g == 1.0 else g * buses[bus]
-            if not np.all(np.isfinite(y)):
-                raise RenderError("non_finite", "numerical error in the mix")
+            y = post(mix(b0, n))
             data, _ = quantize(y, bits, True)
             if bits == 32:
                 back = np.frombuffer(data, dtype="<f4").reshape(n, out_ch).astype(np.float64)
@@ -283,6 +318,10 @@ def render(state_dict: dict, *, fs: int, bits: int, profile_key: str, sources: d
         "start_frame": start,
         "duration_seconds": round(total / fs, 6), "sha256": sha.hexdigest(), "channels": channels,
         "on_clip": state.output.on_clip, "hard_clipped_samples": int(over.sum()),
+        "routing": {"profile_name": profile.get("name"), "custom": bool(profile.get("custom")),
+                    "matrix": profile["matrix"],
+                    "channel_options": [{"channel": c, "mute": mutes[i], "invert": inverts[i],
+                                         "delay_frames": delays[i]} for i, c in enumerate(profile["channels"])]},
         "processing": {"implicit": "none — no normalisation, EQ, limiter or dither",
                        "src": {k: s.meta.get("src") for k, s in sources.items() if s.meta.get("src")}},
     }

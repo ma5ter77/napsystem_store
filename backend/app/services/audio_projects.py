@@ -13,11 +13,11 @@ from datetime import timedelta
 
 import numpy as np
 from pydantic import ValidationError
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from ..audio.render import RenderError, decode_source, encode_flac, render, verify, verify_flac
-from ..audio.schema import BUS_SETS, PROFILES, ProjectState, state_hash
+from ..audio.schema import BUS_SETS, PROFILES, ProjectState, RoutingSpec, state_hash
 from ..config import get_settings
 from ..db import session_scope, utcnow
 from ..errors import ApiError
@@ -50,7 +50,85 @@ def ensure_profiles(db: Session) -> list[RoutingProfile]:
 
 def profile_view(p: RoutingProfile) -> dict:
     return {"key": p.key, "version": p.version, "name": p.name, "layout": p.layout, "channels": p.channels,
-            "matrix": p.matrix, "note": p.note, "builtin": p.builtin}
+            "matrix": p.matrix, "options": p.options or [], "note": p.note, "builtin": p.builtin,
+            "custom": not p.builtin, "created_at": p.created_at.isoformat() if p.created_at else None}
+
+
+def list_profiles(db: Session, owner_id: uuid.UUID) -> list[RoutingProfile]:
+    """Built-in profiles plus the author's own, latest version of each, archived ones left out."""
+    ensure_profiles(db)
+    out = []
+    for p in db.scalars(select(RoutingProfile).where(
+            (RoutingProfile.builtin.is_(True)) | (RoutingProfile.owner_id == owner_id))
+            .order_by(RoutingProfile.builtin.desc(), RoutingProfile.key, RoutingProfile.version.desc())):
+        if out and out[-1].key == p.key:
+            continue
+        out.append(p)
+    return [p for p in out if not p.archived]
+
+
+def resolve_profile(db: Session, owner_id: uuid.UUID, key: str, version: int | None = None) -> RoutingProfile:
+    ensure_profiles(db)
+    q = select(RoutingProfile).where(RoutingProfile.key == key,
+                                     (RoutingProfile.builtin.is_(True)) | (RoutingProfile.owner_id == owner_id))
+    if version is not None:
+        q = q.where(RoutingProfile.version == version)
+    p = db.scalars(q.order_by(RoutingProfile.version.desc())).first()
+    if not p or (version is None and p.archived):
+        raise ApiError("validation_failed", 422, details={"field": "profile"})
+    return p
+
+
+def profile_dict(p: RoutingProfile) -> dict | None:
+    """Render input for a custom profile; None for built-ins (the renderer uses its exact built-in table)."""
+    if p.builtin:
+        return None
+    return {"name": p.name, "layout": p.layout, "channels": list(p.channels), "matrix": p.matrix,
+            "options": p.options or [], "note": p.note, "custom": True}
+
+
+def _spec(data: dict) -> "RoutingSpec":
+    try:
+        return RoutingSpec.model_validate(data)
+    except ValidationError as e:
+        raise ApiError("invalid_profile", 422, errors=[{"path": ".".join(str(x) for x in err["loc"]),
+                                                       "message": err["msg"]} for err in e.errors()[:20]])
+
+
+def create_profile(db: Session, owner_id: uuid.UUID, data: dict) -> RoutingProfile:
+    spec = _spec(data).as_profile()
+    if db.scalar(select(func.count()).select_from(RoutingProfile).where(RoutingProfile.owner_id == owner_id,
+                                                                         RoutingProfile.version == 1)) >= 50:
+        raise ApiError("too_many_profiles", 409)
+    p = RoutingProfile(key=f"u-{uuid.uuid4().hex[:12]}", version=1, name=spec["name"], layout=spec["layout"],
+                       channels=spec["channels"], matrix=spec["matrix"], options=spec["options"], note=spec["note"],
+                       builtin=False, owner_id=owner_id)
+    db.add(p)
+    db.flush()
+    audit(db, owner_id, "studio.profile_created", "routing_profile", p.id, {"key": p.key})
+    return p
+
+
+def update_profile(db: Session, owner_id: uuid.UUID, key: str, data: dict) -> RoutingProfile:
+    cur = resolve_profile(db, owner_id, key)
+    if cur.builtin:
+        raise ApiError("builtin_profile", 409)
+    spec = _spec(data).as_profile()
+    p = RoutingProfile(key=key, version=cur.version + 1, name=spec["name"], layout=spec["layout"],
+                       channels=spec["channels"], matrix=spec["matrix"], options=spec["options"], note=spec["note"],
+                       builtin=False, owner_id=owner_id)
+    db.add(p)
+    db.flush()
+    audit(db, owner_id, "studio.profile_updated", "routing_profile", p.id, {"key": key, "version": p.version})
+    return p
+
+
+def archive_profile(db: Session, owner_id: uuid.UUID, key: str) -> None:
+    cur = resolve_profile(db, owner_id, key)
+    if cur.builtin:
+        raise ApiError("builtin_profile", 409)
+    cur.archived = True        # versions stay: past renders keep pointing at them
+    audit(db, owner_id, "studio.profile_archived", "routing_profile", cur.id, {"key": key})
 
 
 # ------------------------------------------------------------------ studio sources (immutable)
@@ -253,9 +331,7 @@ def start_render(db: Session, pr: AudioProject, actor_id: uuid.UUID, profile_key
         ex = db.scalar(select(RenderJob).where(RenderJob.owner_id == actor_id, RenderJob.idempotency_key == idem))
         if ex:
             return ex
-    profiles = {p.key: p for p in ensure_profiles(db) if p.builtin}
-    if profile_key not in profiles:
-        raise ApiError("validation_failed", 422, details={"field": "profile"})
+    prof = resolve_profile(db, actor_id, profile_key)
     if fmt not in EXPORT_FORMATS:
         raise ApiError("validation_failed", 422, details={"field": "format"})
     if fmt == "flac" and pr.bit_depth not in (16, 24):
@@ -265,7 +341,7 @@ def start_render(db: Session, pr: AudioProject, actor_id: uuid.UUID, profile_key
         raise ApiError("empty_project", 422)
     rev = snapshot(db, pr, actor_id, note=f"render {profile_key}")
     job = RenderJob(owner_id=actor_id, project_id=pr.id, revision_id=rev.id, profile_key=profile_key,
-                    profile_version=profiles[profile_key].version, idempotency_key=idem, format=fmt,
+                    profile_version=prof.version, idempotency_key=idem, format=fmt,
                     max_attempts=get_settings().job_max_attempts)
     db.add(job)
     db.flush()
@@ -277,7 +353,10 @@ def start_render(db: Session, pr: AudioProject, actor_id: uuid.UUID, profile_key
 def job_view(db: Session, j: RenderJob) -> dict:
     art = db.scalar(select(RenderArtifact).where(RenderArtifact.render_job_id == j.id))
     rev = db.get(AudioProjectRevision, j.revision_id)
+    prof = db.scalar(select(RoutingProfile).where(RoutingProfile.key == j.profile_key,
+                                                  RoutingProfile.version == j.profile_version))
     out = {"id": str(j.id), "project_id": str(j.project_id), "revision": rev.number if rev else None,
+           "profile_name": prof.name if prof else j.profile_key,
            "profile": j.profile_key, "profile_version": j.profile_version, "format": j.format, "state": j.state,
            "progress": round(j.progress, 3), "attempt": j.attempt, "error_code": j.error_code,
            "error_detail": j.error_detail, "logs": j.logs[-20:], "created_at": j.created_at.isoformat(),
@@ -340,6 +419,7 @@ def run_render(job_id) -> str:
         job = db.get(RenderJob, job_id)
         rev = db.get(AudioProjectRevision, job.revision_id)
         state, fs, bits, profile, fmt = rev.state, rev.sample_rate, rev.bit_depth, job.profile_key, job.format
+        custom = profile_dict(resolve_profile(db, job.owner_id, job.profile_key, job.profile_version))
         ids = ProjectState.model_validate(state).asset_ids()
         keys = {i: db.get(Asset, uuid.UUID(i)).storage_key for i in ids}
         owner, attempt = job.owner_id, job.attempt
@@ -376,7 +456,8 @@ def run_render(job_id) -> str:
             if f - last[0] >= 0.05 or f >= 1:
                 last[0] = f
                 set_state("rendering", round(f * 0.9, 3))
-        res = render(state, fs=fs, bits=bits, profile_key=profile, sources=sources, out_path=out, progress=progress)
+        res = render(state, fs=fs, bits=bits, profile_key=profile, sources=sources, out_path=out, progress=progress,
+                     profile=custom)
         set_state("verifying", 0.92, "independent check of the written file")
         ver = verify(out, res)
         if not ver["passed"]:
@@ -437,8 +518,7 @@ def _fail(job_id: uuid.UUID, code: str, detail: dict, final: bool) -> str:
 
 def preview(db: Session, pr: AudioProject, actor_id: uuid.UUID, start: int, frames: int, profile_key: str) -> bytes:
     """Server-rendered window with exactly the export code path (spec §2.4)."""
-    if profile_key not in PROFILES:
-        raise ApiError("validation_failed", 422, details={"field": "profile"})
+    custom = profile_dict(resolve_profile(db, actor_id, profile_key))
     frames = max(1, min(frames, PREVIEW_MAX_SECONDS * pr.sample_rate))
     st = validate_state(db, actor_id, pr.state)
     s = get_settings()
@@ -455,7 +535,7 @@ def preview(db: Session, pr: AudioProject, actor_id: uuid.UUID, start: int, fram
         out = os.path.join(d, "preview.wav")
         try:
             render(pr.state, fs=pr.sample_rate, bits=pr.bit_depth, profile_key=profile_key, sources=sources,
-                   out_path=out, start=start, frames=frames)
+                   out_path=out, start=start, frames=frames, profile=custom)
         except RenderError as e:
             raise ApiError(e.code if e.code in ("clipping", "empty_project", "too_large_for_wav") else "render_failed",
                            422, details={"message": e.detail, **e.data})

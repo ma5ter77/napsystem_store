@@ -8,9 +8,11 @@ import { ErrorBox, StatusBadge, useAction } from "@/components/ui";
 import { api, uid } from "@/lib/api";
 import { date } from "@/lib/i18n";
 import type { State } from "./model";
+import { toDb } from "./Router";
 
 export type Profile = { key: string; version: number; name: string; layout: string; channels: string[];
-  matrix: Record<string, number>[]; note: string; builtin: boolean };
+  matrix: Record<string, number>[]; note: string; builtin: boolean; custom?: boolean;
+  options?: { mute?: boolean; invert?: boolean; delay_ms?: number }[] };
 
 const KNOWN_ERRORS = new Set(["clipping", "empty_project", "missing_source", "non_finite", "verify_failed", "verification_failed",
   "canceled", "too_many_channels", "decode_failed", "too_large_for_wav", "render_error", "lease_expired", "flac_needs_integer", "encode_failed"]);
@@ -49,12 +51,13 @@ export function RenderPanel({ project, profiles, state, unsaved, onClipChange }:
         <div className="stack">
           <label className="field">{t("studio.profile")}
             <select value={profile} onChange={(e) => setProfile(e.target.value)}>
-              {profiles.map((x) => <option key={x.key} value={x.key}>{x.name} — {x.layout}</option>)}</select></label>
+              {profiles.map((x) => <option key={x.key} value={x.key}>{x.name} — {x.layout}{x.custom ? ` · ${t("studio.router_own_v", { n: x.version })}` : ""}</option>)}</select></label>
           {p && <>
             <ol className="studio-channels" aria-label={t("studio.channel_order")}>
               {p.channels.map((ch, i) => (
-                <li key={ch}><strong>{ch}</strong><span className="muted">{Object.entries(p.matrix[i]).map(([bus, g]) =>
-                  `${t(`studio.bus.${bus}`)}${g !== 1 ? ` × ${g}` : ""}`).join(" + ") || t("studio.silent")}</span></li>
+                <li key={ch}><strong>{ch}</strong><span className="muted">{p.options?.[i]?.mute ? t("studio.router_muted") : (Object.entries(p.matrix[i]).map(([bus, g]) =>
+                  `${t(`studio.bus.${bus}`)}${g !== 1 ? ` ${toDb(g)} dB` : ""}`).join(" + ") || t("studio.silent"))}
+                  {p.options?.[i]?.invert ? " · Ø" : ""}{p.options?.[i]?.delay_ms ? ` · +${p.options[i].delay_ms} ms` : ""}</span></li>
               ))}
             </ol>
             <p className="hint">{p.note}</p>
@@ -91,7 +94,7 @@ function Job({ j, locale, onChange }: { j: any; locale: "ru" | "en"; onChange: (
   return (
     <article className="studio-job">
       <div className="spread">
-        <span><strong>{j.profile}</strong> <span className="muted">· {t("studio.snapshot_n", { n: j.revision })} · {date(j.created_at, locale, true)}</span></span>
+        <span><strong>{j.profile_name ?? j.profile}</strong>{j.profile?.startsWith("u-") ? <span className="muted"> · {t("studio.router_version", { n: j.profile_version })}</span> : null} <span className="muted">· {t("studio.snapshot_n", { n: j.revision })} · {date(j.created_at, locale, true)}</span></span>
         <StatusBadge ns="render_state" value={j.state} />
       </div>
       {ACTIVE.has(j.state) && <>

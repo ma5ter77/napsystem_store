@@ -107,7 +107,10 @@
     "invalid_project": "The project has errors — fix the marked fields.",
     "not_ready": "The source is still being processed — try again in a minute.",
     "revision_conflict": "The project was changed in another tab or device. Load the latest version.",
-    "flac_needs_integer": "FLAC stores 16- or 24-bit integer samples and this project is 32-bit float — export to WAV."
+    "flac_needs_integer": "FLAC stores 16- or 24-bit integer samples and this project is 32-bit float — export to WAV.",
+    "invalid_profile": "The routing profile has errors — check the marked fields.",
+    "too_many_profiles": "Limit reached: 50 custom profiles. Archive the ones you no longer use.",
+    "builtin_profile": "Built-in profiles cannot be changed — create your own based on one."
   },
   "jobs": {
     "decode_failed": "The file could not be fully decoded.",

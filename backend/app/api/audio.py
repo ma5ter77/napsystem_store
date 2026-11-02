@@ -184,10 +184,34 @@ def download_render(job_id: str, p=P, db=DB):
 
 @router.get("/routing-profiles")
 def routing_profiles(p=P, db=DB):
-    author(p)
-    out = [svc.profile_view(x) for x in svc.ensure_profiles(db)]
+    u = author(p)
+    out = [svc.profile_view(x) for x in svc.list_profiles(db, u.id)]
     db.commit()
     return {"items": out}
+
+
+@router.post("/routing-profiles", status_code=201)
+def create_routing_profile(body: dict, p=P, db=DB):
+    u = author(p)
+    prof = svc.create_profile(db, u.id, body)
+    db.commit()
+    return svc.profile_view(prof)
+
+
+@router.put("/routing-profiles/{key}")
+def update_routing_profile(key: str, body: dict, p=P, db=DB):
+    u = author(p)
+    prof = svc.update_profile(db, u.id, key, body)
+    db.commit()
+    return svc.profile_view(prof)
+
+
+@router.delete("/routing-profiles/{key}", status_code=204)
+def archive_routing_profile(key: str, p=P, db=DB):
+    u = author(p)
+    svc.archive_profile(db, u.id, key)
+    db.commit()
+    return Response(status_code=204)
 
 
 class PreviewIn(BaseModel):
