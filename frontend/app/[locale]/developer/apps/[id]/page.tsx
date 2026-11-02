@@ -1,5 +1,7 @@
 "use client";
 
+import { StatusTimeline } from "@/components/StatusTimeline";
+import { conversionSteps, versionSteps } from "@/lib/steps";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useEffect, useRef, useState } from "react";
@@ -130,6 +132,7 @@ function JobCard({ job, onChange }: { job: any; onChange: () => void }) {
         <div><strong>{job.source.name}</strong> <span className="hint">· {job.profile.slug} v{job.profile.version} · {date(job.created_at, locale, true)}</span></div>
         <StatusBadge ns="job_state" value={job.state} />
       </div>
+      <StatusTimeline value={conversionSteps(job)} ns="conversion" label={t("steps.conversion_progress")} />
       {running && <>
         <div className="progress" aria-label={t(`job_state.${job.state}`)}><i style={{ width: `${Math.round(job.stage_progress * 100)}%` }} /></div>
         <div className="row"><span className="hint">{t(`job_state.${job.state}`)} {Math.round(job.stage_progress * 100)}% · {t("dev.attempt", { n: job.attempt, max: job.max_attempts })}</span>
@@ -448,6 +451,7 @@ function Editor() {
         <div><Link href={`/${locale}/developer`}>{t("dev.title")}</Link><h1>{v.metadata?.[locale]?.title ?? v.metadata?.ru?.title ?? v.metadata?.en?.title ?? app.slug}</h1></div>
         <div className="row"><StatusBadge ns="version_state" value={v.state} />{app.published_version_id && <Link href={`/${locale}/apps/${app.slug}`}>{t("dev.open_in_store")}</Link>}</div>
       </div>
+      <StatusTimeline value={versionSteps(v, v.auto_release)} ns="version" label={t("steps.version_progress")} showNext={false} />
       <NextStep v={v} app={app} ready={ready} checks={checks} decision={lastDecision} goTab={goTab} />
       <div className="tabs" role="tablist">{TABS.map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => goTab(x)}>{t(`dev.tab_${x}`)}</button>)}</div>
       {flash && <div className="notice ok" role="status">{flash}</div>}

@@ -1505,6 +1505,51 @@
    "exception": "there's a delivery problem. The supplier will contact you; details are on the order page.",
    "cancelled": "the order was cancelled. Any payment will be returned to the same method.",
    "closed": "the order is closed. Its history stays here."
+  },
+  "conversion_progress": "Conversion progress",
+  "conversion": {
+   "validating": "File check",
+   "decoding": "Decoding",
+   "rendering": "Rendering",
+   "quality_check": "Quality check",
+   "packaging": "Packaging"
+  },
+  "conversion_next": {
+   "queued": "the file is queued and starts as soon as a worker is free. You can close this page.",
+   "running": "converting. You can close this page; the result is kept and appears here.",
+   "completed": "listen to the result and add it to the session program on the Program tab.",
+   "failed": "conversion stopped at the marked step. The reason is below; fix the file and press Retry from scratch, or upload a new one.",
+   "canceled": "conversion was cancelled. Start it again with Retry from scratch."
+  },
+  "version_progress": "Path of the version to the store",
+  "version": {
+   "draft": "Preparation",
+   "submitted": "Moderation",
+   "approved": "Approved",
+   "published": "In the store"
+  },
+  "version_next": {
+   "draft": "fill in the details, program and price, then send it to moderation.",
+   "submitted": "a moderator will review the version. Publish it once approved.",
+   "submitted_auto": "a moderator will review it; once approved it goes live by itself.",
+   "approved": "publish the version and it goes live in the store.",
+   "published": "the version is live. Create a new version to change it.",
+   "rejected": "the moderator returned it with a comment. Fix it and send it again.",
+   "withdrawn": "the version was withdrawn from moderation. Rework it and send it again.",
+   "archived": "a newer version replaced it."
+  },
+  "refund_progress": "Refund progress",
+  "refund": {
+   "requested": "Request sent",
+   "approved": "Decision",
+   "refunded": "Money returned"
+  },
+  "refund_next": {
+   "requested": "an administrator will review the request. The decision arrives in notifications and appears here.",
+   "pending": "the refund is approved, waiting for the payment provider. The money returns to the same payment method; how fast it arrives depends on the bank.",
+   "succeeded": "the money has been returned. A full refund ends access to the app from this purchase.",
+   "failed": "the payment provider did not process the refund. An administrator will contact you — nothing to do on your side.",
+   "rejected": "the refund was declined; the reason is in the answer below."
   }
  },
  "billing": {

@@ -9,7 +9,7 @@
     "check-i18n": "node scripts/check-i18n.mjs",
     "typecheck": "tsc --noEmit",
     "check-patterns": "node scripts/check-patterns.mjs",
-    "test-studio": "node --experimental-strip-types --test scripts/test-studio-model.mjs"
+    "test-studio": "node --experimental-strip-types --test scripts/test-studio-model.mjs scripts/test-steps.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "5.3.0",

@@ -146,6 +146,7 @@ def _fail(job_id: uuid.UUID, worker: str, code: str, detail: str, retryable: boo
             job.error_code = code
             job.error_detail = detail[:2000]
             return "queued"
+        job.failed_stage = job.state if job.state not in ("queued",) else None   # the stage it was in
         job.state = "failed"
         job.error_code = code
         job.error_detail = detail[:2000]
@@ -275,6 +276,7 @@ def recover_expired_leases() -> list[str]:
                 j.state, j.lease_owner = "queued", None
                 j.error_code = "worker_lost"
             else:
+                j.failed_stage = j.state if j.state != "queued" else None
                 j.state, j.error_code, j.finished_at, j.lease_owner = "failed", "worker_lost", utcnow(), None
             out.append(str(j.id))
     return out

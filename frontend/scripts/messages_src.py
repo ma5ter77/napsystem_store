@@ -880,6 +880,37 @@ M.update({  # NAP-100: Audio Studio (spec v2.1 M1)
 "render_state.completed": ("готово", "completed"), "render_state.failed": ("ошибка", "failed"), "render_state.canceled": ("отменён", "canceled"),
 })
 
+M.update({  # NAP-092: status timelines for conversion, app versions and refunds
+"steps.conversion_progress": ("Ход конвертации", "Conversion progress"),
+"steps.conversion.validating": ("Проверка файла", "File check"), "steps.conversion.decoding": ("Декодирование", "Decoding"),
+"steps.conversion.rendering": ("Рендеринг", "Rendering"), "steps.conversion.quality_check": ("Контроль качества", "Quality check"),
+"steps.conversion.packaging": ("Упаковка", "Packaging"),
+"steps.conversion_next.queued": ("файл в очереди, конвертация начнётся, как только освободится обработчик. Страницу можно закрыть.", "the file is queued and starts as soon as a worker is free. You can close this page."),
+"steps.conversion_next.running": ("идёт конвертация. Страницу можно закрыть — результат сохранится и появится здесь.", "converting. You can close this page; the result is kept and appears here."),
+"steps.conversion_next.completed": ("прослушайте результат и добавьте его в программу сеанса во вкладке «Программа».", "listen to the result and add it to the session program on the Program tab."),
+"steps.conversion_next.failed": ("конвертация остановилась на отмеченном шаге. Причина — ниже; исправьте файл и нажмите «Повторить с начала» или загрузите новый.", "conversion stopped at the marked step. The reason is below; fix the file and press Retry from scratch, or upload a new one."),
+"steps.conversion_next.canceled": ("конвертация отменена. Её можно запустить снова кнопкой «Повторить с начала».", "conversion was cancelled. Start it again with Retry from scratch."),
+"steps.version_progress": ("Путь версии в магазин", "Path of the version to the store"),
+"steps.version.draft": ("Подготовка", "Preparation"), "steps.version.submitted": ("Модерация", "Moderation"),
+"steps.version.approved": ("Одобрена", "Approved"), "steps.version.published": ("В магазине", "In the store"),
+"steps.version_next.draft": ("заполните описание, программу и цену, затем отправьте на модерацию.", "fill in the details, program and price, then send it to moderation."),
+"steps.version_next.submitted": ("модератор проверит версию. После одобрения опубликуйте её.", "a moderator will review the version. Publish it once approved."),
+"steps.version_next.submitted_auto": ("модератор проверит версию; после одобрения она появится в магазине сама.", "a moderator will review it; once approved it goes live by itself."),
+"steps.version_next.approved": ("опубликуйте версию — она появится в магазине.", "publish the version and it goes live in the store."),
+"steps.version_next.published": ("версия в магазине. Для изменений создайте новую версию.", "the version is live. Create a new version to change it."),
+"steps.version_next.rejected": ("модератор вернул версию с комментарием. Исправьте и отправьте снова.", "the moderator returned it with a comment. Fix it and send it again."),
+"steps.version_next.withdrawn": ("версия отозвана с модерации. Её можно доработать и отправить снова.", "the version was withdrawn from moderation. Rework it and send it again."),
+"steps.version_next.archived": ("версию заменила более новая.", "a newer version replaced it."),
+"steps.refund_progress": ("Ход возврата", "Refund progress"),
+"steps.refund.requested": ("Запрос отправлен", "Request sent"), "steps.refund.approved": ("Решение", "Decision"),
+"steps.refund.refunded": ("Деньги возвращены", "Money returned"),
+"steps.refund_next.requested": ("администратор рассмотрит запрос. Решение придёт в уведомлениях и появится здесь.", "an administrator will review the request. The decision arrives in notifications and appears here."),
+"steps.refund_next.pending": ("возврат одобрен, ждём платёжную систему. Деньги вернутся тем же способом оплаты; срок зачисления зависит от банка.", "the refund is approved, waiting for the payment provider. The money returns to the same payment method; how fast it arrives depends on the bank."),
+"steps.refund_next.succeeded": ("деньги возвращены. При полном возврате доступ к приложению по этой покупке закрывается.", "the money has been returned. A full refund ends access to the app from this purchase."),
+"steps.refund_next.failed": ("платёжная система не провела возврат. Администратор свяжется с вами — ничего делать не нужно.", "the payment provider did not process the refund. An administrator will contact you — nothing to do on your side."),
+"steps.refund_next.rejected": ("в возврате отказано, причина — в ответе ниже.", "the refund was declined; the reason is in the answer below."),
+})
+
 def nest(lang):
     out = {}
     for key, pair in M.items():

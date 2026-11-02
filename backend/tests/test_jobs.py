@@ -133,6 +133,7 @@ def test_corrupt_file_is_not_retried_automatically():
     wait_inline_jobs()
     res = ok(dev.get(f"/developer/conversions/{j['id']}"))
     assert res["state"] == "failed" and res["attempt"] == 1 and res["error_code"] in ("truncated_audio", "decode_failed")
+    assert res["failed_stage"] in ("validating", "decoding")       # NAP-092: the timeline shows where it stopped
 
 
 def test_broker_down_job_stays_queued_and_is_redispatched(monkeypatch):
