@@ -6,7 +6,7 @@
 
 ```
 ветка → PR → CI (тесты, e2e, Docker, vps-acceptance) → автопринятие в master
-      → CI master → deliver-vps: сборка образов backend/web (кэш слоёв) → GHCR по digest
+      → CI master → последний job CI вызывает deliver-vps: сборка образов backend/web amd64+arm64 (кэш слоёв) → GHCR по digest
       → SSH на сервер (ключ может запускать только napdeploy.py)
       → дамп БД → миграции → переключение → проверка готовности → при ошибке возврат предыдущего выпуска
 ```
@@ -30,7 +30,8 @@
    - Variables: `STORE_DEPLOY_HOST` (IP), `STORE_DEPLOY_HOST_KEY` (`ssh-ed25519 AAAA…`). Это не секреты.
    - Secrets: `STORE_DEPLOY_SSH_KEY` — приватный ключ выкладки. **Только в GitHub, никому не пересылать.**
 4. **DNS (REG.RU):** A-запись `store` → IP нового сервера. Сертификат Let's Encrypt Caddy получит сам.
-5. **Первый запуск:** Actions → deliver-vps → Run workflow (или любой следующий merge в master).
+5. **Первый запуск:** Actions → deliver-vps → Run workflow (или любой следующий merge в master: выкладку
+   вызывает последний job CI на master, после `ci-ok`).
 
 Необязательно: ручное подтверждение каждой выкладки — Settings → Environments → production →
 Required reviewers. Без этого выкладка полностью автоматическая.
@@ -93,6 +94,8 @@ web 512M, redis 192M, caddy 128M, backup 256M, плюс swap 2 ГБ. На сер
 Каждый merge: CI (~15 мин) + образы (amd64 и arm64; arm64 собирается в эмуляции: ~10–20 мин с кэшем,
 первая сборка до ~60 мин) + выкладка (~2–4 мин). В бесплатном лимите
 приватного репозитория (2000 мин/мес) это ~50–60 выкладок в месяц. Изменения только в docs/ тоже проходят CI.
+
+Эксплуатация и аварии — [OPERATIONS.md](../OPERATIONS.md), стоимость — [COSTS.md](../COSTS.md).
 
 ## Что дальше (не входит в NAP-087)
 
