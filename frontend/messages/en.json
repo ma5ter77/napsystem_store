@@ -1654,17 +1654,16 @@
   "tp_not_measured": "not measured at this rate",
   "src_applied": "Some sources were resampled — details in the report.",
   "download": "Download WAV",
-  "bus": {
-   "NEURO_LEFT": "Neuro L",
-   "NEURO_RIGHT": "Neuro R",
-   "VOICE_CENTER": "Voice",
-   "MUSIC_LEFT": "Music L",
-   "MUSIC_RIGHT": "Music R",
-   "LFE": "LFE",
-   "BACK_LEFT": "Back L",
-   "BACK_RIGHT": "Back R"
-  },
+  "download_flac": "Download FLAC",
+  "fmt_wav": "WAV — uncompressed (over 4 GB: RF64)",
+  "fmt_flac": "FLAC — lossless, 3–7× smaller",
+  "fmt_hint": "FLAC is checked by decoding it: the samples must match the WAV bit for bit.",
+  "fmt_flac_float": "FLAC cannot store 32-bit float — this project exports to WAV.",
+  "lossless": "Lossless",
+  "lossless_ok": "yes: the decoded FLAC matches the WAV bit for bit",
   "err": {
+   "flac_needs_integer": "FLAC does not support 32-bit float",
+   "encode_failed": "Could not encode FLAC",
    "clipping": "Overload: the mix exceeds 0 dBFS",
    "empty_project": "The project has no clips",
    "missing_source": "A source is unavailable",
@@ -1677,6 +1676,16 @@
    "too_large_for_wav": "Too long for WAV (over 4 GB)",
    "render_error": "Server error during export",
    "lease_expired": "The export worker stopped responding"
+  },
+  "bus": {
+   "NEURO_LEFT": "Neuro L",
+   "NEURO_RIGHT": "Neuro R",
+   "VOICE_CENTER": "Voice",
+   "MUSIC_LEFT": "Music L",
+   "MUSIC_RIGHT": "Music R",
+   "LFE": "LFE",
+   "BACK_LEFT": "Back L",
+   "BACK_RIGHT": "Back R"
   }
  },
  "render_state": {

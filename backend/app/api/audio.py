@@ -119,6 +119,7 @@ def create_revision(project_id: str, body: RevisionIn, p=P, db=DB):
 
 class RenderIn(BaseModel):
     profile: str
+    format: str = "wav"          # wav (RIFF, RF64 above 4 GiB) | flac (lossless, 16/24-bit)
 
 
 @router.post("/projects/{project_id}/renders", status_code=201)
@@ -126,7 +127,7 @@ def create_render(project_id: str, body: RenderIn, request: Request, p=P, db=DB,
     ratelimit.check(request, "conversion", p.id)
     u = author(p)
     pr = svc.own_project(db, u.id, project_id)
-    job = svc.start_render(db, pr, u.id, body.profile, key)
+    job = svc.start_render(db, pr, u.id, body.profile, key, body.format)
     db.commit()
     from ..worker import dispatch_render
     dispatch_render(job.id)
@@ -177,7 +178,8 @@ def download_render(job_id: str, p=P, db=DB):
     if not art:
         raise ApiError("not_ready", 409)
     a = db.get(Asset, art.asset_id)
-    return {"url": signed_url(a, f"render-{j.profile_key}-{str(j.id)[:8]}.wav"), "sha256": art.sha256}
+    return {"url": signed_url(a, f"render-{j.profile_key}-{str(j.id)[:8]}.{art.format}"), "sha256": art.sha256,
+            "format": art.format}
 
 
 @router.get("/routing-profiles")

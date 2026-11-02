@@ -13,7 +13,7 @@ export type Profile = { key: string; version: number; name: string; layout: stri
   matrix: Record<string, number>[]; note: string; builtin: boolean };
 
 const KNOWN_ERRORS = new Set(["clipping", "empty_project", "missing_source", "non_finite", "verify_failed", "verification_failed",
-  "canceled", "too_many_channels", "decode_failed", "too_large_for_wav", "render_error", "lease_expired"]);
+  "canceled", "too_many_channels", "decode_failed", "too_large_for_wav", "render_error", "lease_expired", "flac_needs_integer", "encode_failed"]);
 const ACTIVE = new Set(["queued", "decoding", "rendering", "verifying"]);
 const DEFAULT_FOR_BUSES: Record<number, string> = { 2: "HEADPHONES_2_0", 3: "NAP_ACOUSTIC_3_0", 6: "NAP_CHAIR_5_1", 8: "NAP_PRO_7_1" };
 
@@ -21,10 +21,12 @@ function bytes(n: number) {
   return n >= 1 << 30 ? `${(n / (1 << 30)).toFixed(2)} GB` : n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${Math.ceil(n / 1024)} KB`;
 }
 
-export function RenderPanel({ project, profiles, state, unsaved, onClipChange }: { project: { id: string; bus_count: number; sample_rate: number };
+export function RenderPanel({ project, profiles, state, unsaved, onClipChange }: { project: { id: string; bus_count: number; sample_rate: number; bit_depth: number };
   profiles: Profile[]; state: State; unsaved: boolean; onClipChange: (v: "fail" | "hard_clip") => void }) {
   const { t, locale } = useApp();
   const [profile, setProfile] = useState(DEFAULT_FOR_BUSES[project.bus_count] ?? "HEADPHONES_2_0");
+  const [format, setFormat] = useState<"wav" | "flac">("wav");
+  const flacOk = project.bit_depth !== 32;
   const [jobs, setJobs] = useState<any[]>([]);
   const act = useAction();
   const load = useCallback(() => api(`/audio/projects/${project.id}/renders`).then((r) => setJobs(r.items)).catch(() => {}), [project.id]);
@@ -57,6 +59,12 @@ export function RenderPanel({ project, profiles, state, unsaved, onClipChange }:
             </ol>
             <p className="hint">{p.note}</p>
           </>}
+          <fieldset className="studio-formats">
+            <legend>{t("studio.format")}</legend>
+            <label className="studio-check"><input type="radio" name="fmt" checked={format === "wav"} onChange={() => setFormat("wav")} />{t("studio.fmt_wav")}</label>
+            <label className="studio-check"><input type="radio" name="fmt" checked={format === "flac"} disabled={!flacOk} onChange={() => setFormat("flac")} />{t("studio.fmt_flac")}</label>
+            <span className="hint">{flacOk ? t("studio.fmt_hint") : t("studio.fmt_flac_float")}</span>
+          </fieldset>
           {dropped.length > 0 && <div className="notice warn">{t("studio.profile_drops", { buses: dropped.map((b) => t(`studio.bus.${b}`)).join(", ") })}</div>}
           <label className="studio-check"><input type="checkbox" checked={state.output.on_clip === "hard_clip"}
             onChange={(e) => onClipChange(e.target.checked ? "hard_clip" : "fail")} />{t("studio.allow_clip")}</label>
@@ -64,7 +72,7 @@ export function RenderPanel({ project, profiles, state, unsaved, onClipChange }:
           {unsaved && <p className="hint">{t("studio.render_waits_save")}</p>}
           <ErrorBox error={act.error} />
           <div><button className="btn" disabled={act.pending || unsaved || active}
-            onClick={() => act.run(async () => { await api(`/audio/projects/${project.id}/renders`, { body: { profile }, headers: { "Idempotency-Key": uid() } }); await load(); })}>
+            onClick={() => act.run(async () => { await api(`/audio/projects/${project.id}/renders`, { body: { profile, format: flacOk ? format : "wav" }, headers: { "Idempotency-Key": uid() } }); await load(); })}>
             {t("studio.render")}</button></div>
         </div>
         <div className="stack">
@@ -99,10 +107,11 @@ function Job({ j, locale, onChange }: { j: any; locale: "ru" | "en"; onChange: (
       </div>}
       {a && <>
         <dl className="kv">
-          <dt>{t("studio.format")}</dt><dd>WAV · {a.layout} · {a.sample_rate} Hz · {a.bit_depth === 32 ? "32-bit float" : `${a.bit_depth}-bit PCM`} · {bytes(a.size_bytes)}</dd>
+          <dt>{t("studio.format")}</dt><dd>{a.format === "flac" ? "FLAC" : a.report?.container === "RF64" ? "RF64 (WAV > 4 GB)" : "WAV"} · {a.layout} · {a.sample_rate} Hz · {a.bit_depth === 32 ? "32-bit float" : `${a.bit_depth}-bit PCM`} · {bytes(a.size_bytes)}</dd>
           <dt>{t("studio.channel_order")}</dt><dd>{a.channel_order.join(" ")}</dd>
           <dt>SHA-256</dt><dd className="studio-hash">{a.sha256}</dd>
           <dt>{t("studio.verification")}</dt><dd>{a.report?.verification?.passed ? t("studio.verified") : t("studio.not_verified")}</dd>
+          {a.format === "flac" && <><dt>{t("studio.lossless")}</dt><dd>{a.report?.flac?.samples_identical_to_wav ? t("studio.lossless_ok") : t("studio.not_verified")}</dd></>}
           {a.report?.hard_clipped_samples > 0 && <><dt>{t("studio.clipped")}</dt><dd>{a.report.hard_clipped_samples}</dd></>}
         </dl>
         <table className="studio-meter">
@@ -114,7 +123,7 @@ function Job({ j, locale, onChange }: { j: any; locale: "ru" | "en"; onChange: (
         </table>
         {a.report?.processing?.src && Object.keys(a.report.processing.src).length > 0 && <p className="hint">{t("studio.src_applied")}</p>}
         <div><button className="btn small" disabled={act.pending} onClick={() => act.run(async () => {
-          const r = await api(`/audio/render-jobs/${j.id}/download`); window.location.href = r.url; })}>{t("studio.download")}</button></div>
+          const r = await api(`/audio/render-jobs/${j.id}/download`); window.location.href = r.url; })}>{a.format === "flac" ? t("studio.download_flac") : t("studio.download")}</button></div>
       </>}
       <ErrorBox error={act.error} />
     </article>

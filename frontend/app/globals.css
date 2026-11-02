@@ -508,3 +508,5 @@ main .crumbs a:hover { text-decoration: underline; }
   .studio-head-btns { flex-direction: column; }
   .chip-btn { width: 22px; height: 20px; }
 }
+.studio-formats { border: 0; padding: 0; margin: 0; display: grid; gap: 6px; }
+.studio-formats legend { font-size: .85rem; font-weight: 500; margin-bottom: 4px; padding: 0; }

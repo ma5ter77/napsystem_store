@@ -106,7 +106,8 @@
     "empty_project": "The project has no clips — add material to the tracks.",
     "invalid_project": "The project has errors — fix the marked fields.",
     "not_ready": "The source is still being processed — try again in a minute.",
-    "revision_conflict": "The project was changed in another tab or device. Load the latest version."
+    "revision_conflict": "The project was changed in another tab or device. Load the latest version.",
+    "flac_needs_integer": "FLAC stores 16- or 24-bit integer samples and this project is 32-bit float — export to WAV."
   },
   "jobs": {
     "decode_failed": "The file could not be fully decoded.",
