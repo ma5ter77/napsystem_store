@@ -911,6 +911,24 @@ M.update({  # NAP-092: status timelines for conversion, app versions and refunds
 "steps.refund_next.rejected": ("в возврате отказано, причина — в ответе ниже.", "the refund was declined; the reason is in the answer below."),
 })
 
+M.update({  # NAP-091: what each dashboard is for, one line under its title
+"account.lead": ("Покупки, подписки, устройства, уведомления и данные аккаунта. Здесь же — запрос возврата.", "Purchases, subscriptions, devices, notifications and your data. Refund requests start here too."),
+"library.lead": ("Приложения, которые вы купили или получили. Нажмите на приложение, чтобы начать сеанс.", "Apps you bought or received. Open one to start a session."),
+"dev.lead": ("Ваши приложения, отзывы, выручка и аналитика. Новое приложение — кнопка «Новое приложение», звук для сеансов — в аудиостудии.", "Your apps, reviews, revenue and analytics. Start a new app with “New app”; build session audio in the Audio Studio."),
+"admin.lead": ("Роли пользователей, профили DSP, финансы, возвраты, заказы, журнал аудита и эксплуатация сервиса.", "User roles, DSP profiles, finance, refunds, orders, the audit log and service operations."),
+"mod.lead": ("Очередь проверки версий и товаров: откройте карточку и примите решение с комментарием. Ещё здесь каталог приложений и товаров и отзывы.", "The review queue for versions and products: open an item and decide with a comment. The app and product catalog and reviews are here too."),
+"seller.lead": ("Заказы покупателей, ваши товары, остатки на складе и отзывы.", "Customer orders, your products, stock and reviews."),
+"seller.fulfillment_lead": ("Заказы к сборке и отправке: примите, упакуйте, распечатайте этикетку и передайте перевозчику.", "Orders to pick and ship: accept, pack, print the label and hand over to the carrier."),
+})
+
+M.update({  # NAP-106: a moderator's photo change on a live card needs the reason first
+"ph.need_reason": ("Товар в продаже: сначала укажите причину изменений вверху страницы — владелец получит её в уведомлении. Выбранное фото не потеряется.", "The product is on sale: first give the reason for the change at the top of the page — the owner is notified with it. A chosen photo is kept."),
+"ph.go_reason": ("Перейти к причине", "Go to the reason"),
+"ph.held": ("Фото «{name}» выбрано и ждёт загрузки.", "Photo “{name}” is chosen and waiting to upload."),
+"ph.upload_held": ("Загрузить фото", "Upload photo"), "ph.drop_held": ("Не загружать", "Don't upload"),
+"mm.reason_needed": ("— обязательно для этого товара", "— required for this product"),
+})
+
 def nest(lang):
     out = {}
     for key, pair in M.items():

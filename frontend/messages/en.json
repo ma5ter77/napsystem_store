@@ -99,7 +99,8 @@
   "refund_note_hint": "Required when declining.",
   "refund_approve": "Approve and refund",
   "refund_reject": "Decline",
-  "refund_paid": "Paid"
+  "refund_paid": "Paid",
+  "lead": "User roles, DSP profiles, finance, refunds, orders, the audit log and service operations."
  },
  "dev": {
   "saved_details": "Details saved.",
@@ -251,7 +252,8 @@
   "cover_frozen": "The cover of a version in moderation or published cannot change — create a new version to replace it.",
   "cover_saved": "Cover saved.",
   "cover_removed": "The generated cover will be used.",
-  "price_currencies": "You can price in several currencies: buyers see and pay in theirs, or in the one you set if theirs is missing."
+  "price_currencies": "You can price in several currencies: buyers see and pay in theirs, or in the one you set if theirs is missing.",
+  "lead": "Your apps, reviews, revenue and analytics. Start a new app with “New app”; build session audio in the Audio Studio."
  },
  "mod": {
   "done_approve": "Version approved.",
@@ -282,7 +284,8 @@
   "done_published": "Version approved and published — the app is in the store.",
   "open_in_store": "Open in the store",
   "waits_for_price": "It goes live as soon as the author sets a price.",
-  "waits_for_author": "The author publishes manually — it goes live when they press “Publish”."
+  "waits_for_author": "The author publishes manually — it goes live when they press “Publish”.",
+  "lead": "The review queue for versions and products: open an item and decide with a comment. The app and product catalog and reviews are here too."
  },
  "qa": {
   "disclaimer": "Technical verification of signal parameters only. It does not verify or guarantee any brain state or therapeutic effect.",
@@ -590,7 +593,8 @@
   "title": "Library",
   "empty": "Purchased and free apps will appear here.",
   "play": "Play",
-  "no_access": "Access ended"
+  "no_access": "Access ended",
+  "lead": "Apps you bought or received. Open one to start a session."
  },
  "player": {
   "no_access": "You have no access to this app.",
@@ -682,7 +686,8 @@
   "deleted": "Records deleted: {count}",
   "no_notifications": "No notifications.",
   "tab_addresses": "Addresses",
-  "no_addresses": "No saved addresses yet. An address is saved when you enter it for a hardware order."
+  "no_addresses": "No saved addresses yet. An address is saved when you enter it for a hardware order.",
+  "lead": "Purchases, subscriptions, devices, notifications and your data. Refund requests start here too."
  },
  "fin": {
   "sales": "One-time sales",
@@ -783,7 +788,9 @@
   "refund_hint": "Paid {paid}, already refunded {refunded}. Goods and shipping are separate lines.",
   "do_refund": "Issue refund",
   "tab_reviews": "Reviews",
-  "tab_products": "Products"
+  "tab_products": "Products",
+  "lead": "Customer orders, your products, stock and reviews.",
+  "fulfillment_lead": "Orders to pick and ship: accept, pack, print the label and hand over to the carrier."
  },
  "fields": {
   "country": "Country",
@@ -1361,7 +1368,8 @@
   "edit_reply": "Edit reply",
   "cancel": "Cancel",
   "show": "Show",
-  "hide": "Hide"
+  "hide": "Hide",
+  "reason_needed": "— required for this product"
  },
  "ce": {
   "title": "Site content",
@@ -1433,7 +1441,12 @@
   "gallery": "Product photos",
   "show": "Show photo {n} of {total}",
   "prev": "Previous photo",
-  "next": "Next photo"
+  "next": "Next photo",
+  "need_reason": "The product is on sale: first give the reason for the change at the top of the page — the owner is notified with it. A chosen photo is kept.",
+  "go_reason": "Go to the reason",
+  "held": "Photo “{name}” is chosen and waiting to upload.",
+  "upload_held": "Upload photo",
+  "drop_held": "Don't upload"
  },
  "refund": {
   "request": "Request a refund",

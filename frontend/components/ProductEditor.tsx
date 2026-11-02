@@ -4,12 +4,13 @@
 // The same editor serves the supplier (/seller/products) and the moderator (/moderation/catalog/products):
 // the moderator edits any card (also a live one), gives a reason the owner will see, publishes, takes off sale,
 // deletes and restores.
+import { Breadcrumbs } from "@/components/nav";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useApp } from "@/components/Providers";
 import { ErrorBox, Loading, Price, StatusBadge, useAction, useLoad } from "@/components/ui";
-import { api, postFile } from "@/lib/api";
+import { api, ApiError, postFile } from "@/lib/api";
 import { date } from "@/lib/i18n";
 
 const TABS = ["basics", "skus", "texts", "photos", "submit"] as const;
@@ -276,14 +277,26 @@ export function AuditList({ items }: { items: any[] }) {
   );
 }
 
-function Photos({ p, onSaved, reason }: { p: any; onSaved: (x: any, m: string) => void; reason: string }) {  // NAP-047
+function Photos({ p, onSaved, reason, focusReason }: { p: any; onSaved: (x: any, m: string) => void; reason: string;
+  focusReason: () => void }) {  // NAP-047, NAP-106
   const { t } = useApp();
   const { mode, send } = useContext(PCtx);
   const base = mode === "seller" ? `/seller/products/${p.id}` : `/moderation/catalog/products/${p.id}`;
   const canEdit = mode === "moderator" ? p.status !== "deleted" : p.editable;
   const act = useAction();
+  // someone else's live card: the moderator says why first (the owner is notified); a chosen file is kept meanwhile
+  const needReason = mode === "moderator" && !!p.reason_required && !reason.trim();
+  const [held, setHeld] = useState<File | null>(null);
   const q = mode === "moderator" ? `&reason=${encodeURIComponent(reason)}` : "";
   const ids: string[] = p.photos.map((x: any) => x.id);
+  const upload = async (f: File) => {
+    const x = await act.run(() => postFile(`${base}/photos?filename=${encodeURIComponent(f.name)}${q}`, f));
+    if (x) { setHeld(null); onSaved(x, t("ph.added")); }
+    else setHeld(f);                       // keep the file: fix the problem and send it again without re-choosing
+  };
+  useEffect(() => {
+    if (act.error instanceof ApiError && act.error.code === "reason_required") focusReason();
+  }, [act.error, focusReason]);
   const move = (i: number, d: number) => {
     const next = [...ids]; [next[i], next[i + d]] = [next[i + d], next[i]];
     act.run(() => send("/" + p.id + "/photos", "PUT", { ids: next })).then((x) => x && onSaved(x, t("ph.saved_order")));
@@ -292,6 +305,9 @@ function Photos({ p, onSaved, reason }: { p: any; onSaved: (x: any, m: string) =
     <div className="stack">
       <p className="hint">{t("ph.hint")}</p>
       {!canEdit && mode === "seller" && <div className="notice">{t("ph.locked")}</div>}
+      {canEdit && needReason && (
+        <div className="notice warn" role="note">{t("ph.need_reason")}{" "}
+          <button type="button" className="btn small ghost" onClick={focusReason}>{t("ph.go_reason")}</button></div>)}
       {p.photos.length === 0 ? <p className="hint">{t("ph.none")}</p> : (
         <ol className="photo-grid" data-testid="photo-list">
           {p.photos.map((ph: any, i: number) => (
@@ -301,9 +317,9 @@ function Photos({ p, onSaved, reason }: { p: any; onSaved: (x: any, m: string) =
               <div className="row">
                 {i === 0 ? <span className="badge ok">{t("ph.main")}</span> : <span className="hint">{i + 1}</span>}
                 {canEdit && <>
-                  <button type="button" className="btn ghost small" disabled={act.pending || i === 0} onClick={() => move(i, -1)} aria-label={t("ph.left", { n: i + 1 })}>←</button>
-                  <button type="button" className="btn ghost small" disabled={act.pending || i === p.photos.length - 1} onClick={() => move(i, 1)} aria-label={t("ph.right", { n: i + 1 })}>→</button>
-                  <button type="button" className="btn ghost small" disabled={act.pending} onClick={() => act.run(() => api(`${base}/photos/${ph.id}${mode === "moderator" ? `?reason=${encodeURIComponent(reason)}` : ""}`, { method: "DELETE" })).then((x) => x && onSaved(x, t("ph.deleted")))}>{t("ph.delete")}</button>
+                  <button type="button" className="btn ghost small" disabled={act.pending || needReason || i === 0} onClick={() => move(i, -1)} aria-label={t("ph.left", { n: i + 1 })}>←</button>
+                  <button type="button" className="btn ghost small" disabled={act.pending || needReason || i === p.photos.length - 1} onClick={() => move(i, 1)} aria-label={t("ph.right", { n: i + 1 })}>→</button>
+                  <button type="button" className="btn ghost small" disabled={act.pending || needReason} onClick={() => act.run(() => api(`${base}/photos/${ph.id}${mode === "moderator" ? `?reason=${encodeURIComponent(reason)}` : ""}`, { method: "DELETE" })).then((x) => x && onSaved(x, t("ph.deleted")))}>{t("ph.delete")}</button>
                 </>}
               </div>
             </li>))}
@@ -314,11 +330,19 @@ function Photos({ p, onSaved, reason }: { p: any; onSaved: (x: any, m: string) =
             const f = e.target.files?.[0];
             e.target.value = "";
             if (!f) return;
-            const x = await act.run(() => postFile(`${base}/photos?filename=${encodeURIComponent(f.name)}${q}`, f));
-            if (x) onSaved(x, t("ph.added"));
+            if (needReason) { setHeld(f); focusReason(); return; }
+            await upload(f);
           }} />
           <span className="hint">{t("ph.rules")}</span>
         </label>)}
+      {held && (
+        <div className="notice stack" role="status">
+          <span>{t("ph.held", { name: held.name })}</span>
+          <div className="row">
+            <button type="button" className="btn small" disabled={act.pending || needReason} onClick={() => upload(held)}>{t("ph.upload_held")}</button>
+            <button type="button" className="btn small ghost" disabled={act.pending} onClick={() => setHeld(null)}>{t("ph.drop_held")}</button>
+          </div>
+        </div>)}
       {act.pending && <Loading />}
       <ErrorBox error={act.error} />
     </div>
@@ -336,6 +360,11 @@ export function ProductEditor({ mode, id }: { mode: EditorMode; id: string }) {
   const [p, setP] = useState<any>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  const reasonRef = useRef<HTMLInputElement>(null);
+  const focusReason = useCallback(() => {          // NAP-106: show the field the server asks for
+    reasonRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    reasonRef.current?.focus({ preventScroll: true });
+  }, []);
   useEffect(() => { if (p0) setP(p0); }, [p0]);
   useEffect(() => { if (!flash) return; const x = setTimeout(() => setFlash(null), 6000); return () => clearTimeout(x); }, [flash]);
   if (loading && !p) return <Loading />;
@@ -352,14 +381,16 @@ export function ProductEditor({ mode, id }: { mode: EditorMode; id: string }) {
       <div className="stack">
         <div className="spread">
           <div>
-            {mode === "seller" ? <Link href={`/${locale}/seller?tab=products`}>{t("sp.back")}</Link> : <Link href={`/${locale}/moderation?tab=products`}>{t("mm.back_products")}</Link>}
+            <Breadcrumbs label={t("crumbs.label")} items={[{ href: `/${locale}`, label: t("crumbs.home") }, mode === "seller" ? { href: `/${locale}/seller?tab=products`, label: t("seller.title") } : { href: `/${locale}/moderation?tab=products`, label: t("mod.title") }, { label: title }]} />
             <h1>{title}</h1><div className="hint">{p.slug}{mode === "moderator" && p.seller ? ` · ${t("mod.supplier")}: ${p.seller}` : ""}</div>
           </div>
           <StatusBadge ns="product_status" value={p.status} />
         </div>
         {mode === "seller" ? <NextStep p={p} goTab={goTab} /> : p.status !== "deleted" && (
           <div className="panel flat stack">
-            <label className="field">{t("mm.edit_reason")}<input value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} placeholder={t("mm.edit_reason_ph")} /></label>
+            <label className="field">{t("mm.edit_reason")}{p.reason_required && <span className="hint"> {t("mm.reason_needed")}</span>}
+              <input ref={reasonRef} id="mod-edit-reason" value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)}
+                placeholder={t("mm.edit_reason_ph")} aria-required={!!p.reason_required || undefined} /></label>
             <span className="hint">{p.status === "published" ? t("mm.live_hint") : t("mm.draft_hint")}</span>
           </div>)}
         <div className="tabs" role="tablist">{TABS.map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => goTab(x)}>{t(mode === "moderator" && x === "submit" ? "mm.tab_actions" : `sp.tab_${x}`)}</button>)}</div>
@@ -368,7 +399,7 @@ export function ProductEditor({ mode, id }: { mode: EditorMode; id: string }) {
         {tab === "skus" && <Skus p={p} onSaved={onSaved} />}
         {tab === "texts" && <div className="stack"><p className="hint">{t("sp.texts_hint")}</p>
           <div className="two">{(["ru", "en"] as const).map((l) => <TextsForm key={l + p.status} p={p} lang={l} onSaved={onSaved} />)}</div></div>}
-        {tab === "photos" && <Photos p={p} onSaved={onSaved} reason={reason} />}
+        {tab === "photos" && <Photos p={p} onSaved={onSaved} reason={reason} focusReason={focusReason} />}
         {tab === "submit" && <Submit p={p} onSaved={onSaved} goTab={goTab} />}
       </div>
     </PCtx.Provider>

@@ -1,5 +1,6 @@
 "use client";
 
+import { Breadcrumbs, PageHead } from "@/components/nav";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useState } from "react";
@@ -177,7 +178,8 @@ function Admin() {
   const tab = (useSearchParams()?.get("tab") as (typeof TABS)[number]) || "users";
   return (
     <div className="stack">
-      <h1>{t("admin.title")}</h1>
+      <Breadcrumbs label={t("crumbs.label")} items={[{ href: `/${locale}`, label: t("crumbs.home") }, { label: t("admin.title") }]} />
+      <PageHead title={t("admin.title")} lead={t("admin.lead")} />
       <div className="tabs" role="tablist">{TABS.map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => router.replace(`/${locale}/admin?tab=${x}`)}>{t(`admin.tab_${x}`)}</button>)}</div>
       {tab === "users" && <Users />}{tab === "profiles" && <Profiles />}{tab === "finance" && <Finance />}{tab === "refunds" && <Refunds />}
       {tab === "orders" && <Orders />}{tab === "audit" && <Audit />}{tab === "ops" && <Ops />}

@@ -1,5 +1,6 @@
 "use client";
 
+import { Breadcrumbs, PageHead } from "@/components/nav";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
@@ -196,7 +197,8 @@ function Developer() {
   return (
     <RequireAuth role="developer">
       <div className="stack">
-        <div className="spread"><h1>{t("dev.title")}</h1>
+        <Breadcrumbs label={t("crumbs.label")} items={[{ href: `/${locale}`, label: t("crumbs.home") }, { label: t("dev.title") }]} />
+        <div className="spread"><PageHead title={t("dev.title")} lead={t("dev.lead")} />
           <Link className="btn ghost" href={`/${locale}/developer/studio`}>{t("studio.open")}</Link></div>
         <div className="tabs" role="tablist">{TABS.map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => router.replace(`/${locale}/developer?tab=${x}`)}>{t(`dev.tab_${x}`)}</button>)}</div>
         {tab === "apps" && <Apps />}

@@ -467,6 +467,19 @@ async function run(L) {
     await m.p.getByRole("button", { name: t("dev.resume_sales") }).click();
     await m.p.getByText(t("mm.done_sales_resumed")).waitFor();
     await m.p.getByText("app.mod_sales_withdrawn").waitFor();  // change history
+    // NAP-106: a photo for someone else's live product: the file is kept until the reason is given, then uploads
+    await m.p.goto(`${BASE}/${L}/moderation?tab=products`);
+    await m.p.locator("table a", { hasText: "NAP Chair One" }).first().click();
+    await m.p.waitForURL(/moderation\/catalog\/products\//);
+    await m.p.getByRole("tab", { name: t("sp.tab_photos") }).click();
+    await m.p.getByText(t("ph.need_reason")).waitFor();
+    const before = await m.p.locator("[data-testid=photo-list] li").count();
+    await m.p.locator("input[type=file][accept^='image']").setInputFiles(png());
+    await m.p.getByText(t("ph.held", { name: "cover.png" })).waitFor();
+    await m.p.locator("#mod-edit-reason").fill("E2E: фото товара");
+    await m.p.getByRole("button", { name: t("ph.upload_held") }).click();
+    await m.p.getByText(t("ph.added")).waitFor();
+    if (await m.p.locator("[data-testid=photo-list] li").count() !== before + 1) throw new Error("photo not added");
     await m.ctx.close();
   });
   await browser.close();
@@ -475,7 +488,7 @@ async function run(L) {
 (async () => {
   const results = {};
   for (const L of (process.env.LOCALES || "ru,en").split(",")) {
-    try { await run(L); results[L] = "passed"; } catch { results[L] = "failed"; }
+    try { await run(L); results[L] = "passed"; } catch (e) { console.log(`  [${L}] ${String((e && e.message) || e).split("\n")[0]}`); results[L] = "failed"; }
   }
   console.log(JSON.stringify(results));
   process.exit(Object.values(results).every((x) => x === "passed") ? 0 : 1);

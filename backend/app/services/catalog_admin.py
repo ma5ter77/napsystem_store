@@ -104,6 +104,7 @@ def product_view(db: Session, p: Product, locale: str) -> dict:
     v["deleted_at"] = p.deleted_at.isoformat() if p.deleted_at else None
     v["deleted_reason"] = p.deleted_reason
     v["restorable"] = _restorable(p.deleted_at)
+    v["reason_required"] = reason_required(db, p)   # NAP-106: the editor asks for the reason before any change
     v["audit"] = history(db, "product", p.id)
     v["warehouses"] = [{"id": str(w.id), "name": w.name, "country": w.country}
                        for w in db.scalars(select(Warehouse).where(Warehouse.seller_id == p.seller_id))]
@@ -121,13 +122,18 @@ def create_product(db: Session, moderator: User, d: dict) -> Product:
     return p
 
 
-def edit_product(db: Session, moderator: User, p: Product, kind: str, d: dict, reason: str | None,
-                 locale: str | None = None, sku_id: uuid.UUID | None = None) -> None:
-    """kind: fields | texts | sku_add | sku_update. Editing someone else's live card needs a reason."""
+def reason_required(db: Session, p: Product) -> bool:
+    """A moderator's edit of someone else's live card must say why (the owner is notified with the reason)."""
     own = db.scalar(select(func.count()).select_from(AuditLog).where(
         AuditLog.entity_type == "product", AuditLog.entity_id == str(p.id), AuditLog.action == "product.mod_created"))
-    live = p.status == "published"
-    r = _reason(reason, required=live and not own)
+    return p.status == "published" and not own
+
+
+def edit_product(db: Session, moderator: User, p: Product, kind: str, d: dict, reason: str | None,
+                 locale: str | None = None, sku_id: uuid.UUID | None = None) -> None:
+    """kind: fields | texts | sku_add | sku_update | photo_*. Editing someone else's live card needs a reason."""
+    someone_elses_live = reason_required(db, p)
+    r = _reason(reason, required=someone_elses_live)
     if kind == "fields":
         prod.update(db, moderator, p, d, force=True)
     elif kind == "texts":
@@ -148,7 +154,7 @@ def edit_product(db: Session, moderator: User, p: Product, kind: str, d: dict, r
         raise ApiError("validation_failed", 422)
     audit(db, moderator.id, "product.mod_edited", "product", p.id,
           {"reason": r, "fields": [kind] + sorted(d.keys())[:15], **({"locale": locale} if locale else {})})
-    if live and not own:
+    if someone_elses_live:
         _notify_seller(db, p, "edited", r)
 
 

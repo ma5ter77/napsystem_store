@@ -1,6 +1,7 @@
 "use client";
 
 // NAP-022: moderator reviews a supplier product card and approves it into the catalog or returns it with a comment.
+import { Breadcrumbs, PageHead } from "@/components/nav";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Fragment, useState } from "react";
@@ -27,7 +28,7 @@ function ProductReview() {
   };
   return (
     <div className="stack">
-      <Link href={`/${locale}/moderation`}>{t("mod.title")}</Link>
+      <Breadcrumbs label={t("crumbs.label")} items={[{ href: `/${locale}`, label: t("crumbs.home") }, { href: `/${locale}/moderation`, label: t("mod.title") }, { label: `${p.brand} ${p.model}` }]} />
       <div className="spread"><div><h1>{p.brand} {p.model}</h1><div className="hint">{t("mod.supplier")}: {p.seller} · {p.category_name} · {p.slug}</div></div><StatusBadge ns="product_status" value={p.status} /></div>
       <div className="panel flat stack">
         <ul className="checklist">{p.checks.map((c: any) => (

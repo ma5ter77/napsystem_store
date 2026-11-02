@@ -22,12 +22,14 @@ def test_moderator_product_lifecycle():
         "title": "Кабель модератора", "description": "Описание", "in_box": ["Кабель"]}}))
     p = ok(mod.post(f"/moderation/catalog/products/{pid}/publish", {}))
     assert p["status"] == "published"
+    assert p["reason_required"] is False             # NAP-106: the moderator's own card needs no reason
     assert ok(anon.get(f"/hardware/products/{p['slug']}"))["title"] == "Кабель модератора"
     # the supplier sees it among own products
     assert any(x["id"] == pid for x in ok(seller.get("/seller/products"))["items"])
 
     # someone else's live card: edit needs a reason, goes live at once, owner notified
     demo = next(x for x in lst["items"] if x["status"] == "published" and x["seller_id"] == sid)
+    assert ok(mod.get(f"/moderation/catalog/products/{demo['id']}"))["reason_required"] is True   # NAP-106
     r = mod.put(f"/moderation/catalog/products/{demo['id']}/texts/ru", {"data": {"title": "Новое", "description": "D"}})
     assert r.status_code == 422 and r.json()["error"]["code"] == "reason_required"
     ok(mod.put(f"/moderation/catalog/products/{demo['id']}/texts/ru",

@@ -1,5 +1,6 @@
 "use client";
 
+import { Breadcrumbs, PageHead } from "@/components/nav";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -56,7 +57,8 @@ function Workspace() {
   const roles = me?.roles ?? [];
   return (
     <div className="stack">
-      <div className="spread"><h1>{t("mod.title")}</h1>
+      <Breadcrumbs label={t("crumbs.label")} items={[{ href: `/${locale}`, label: t("crumbs.home") }, { label: t("mod.title") }]} />
+      <div className="spread"><PageHead title={t("mod.title")} lead={t("mod.lead")} />
         {(roles.includes("content_editor") || roles.includes("admin")) && <Link className="btn ghost" href={`/${locale}/content`}>{t("nav.content")}</Link>}</div>
       <div className="tabs" role="tablist">{TABS.map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => router.replace(`/${locale}/moderation?tab=${x}`)}>{t(`mm.tab_${x}`)}</button>)}</div>
       {tab === "queue" && <div className="stack"><Queue /><ProductQueue /><ModerationReviews /></div>}
