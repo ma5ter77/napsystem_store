@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useApp } from "@/components/Providers";
 import { Breadcrumbs, PageHead } from "@/components/nav";
+import { RouterPanel } from "@/components/studio/Router";
 import { SourceLibrary } from "@/components/studio/Sources";
 import { timecode } from "@/components/studio/model";
 import { Empty, ErrorBox, Loading, RequireAuth, useAction, useLoad } from "@/components/ui";
@@ -79,6 +80,7 @@ export default function StudioPage() {
         <PageHead title={t("studio.name")} lead={t("studio.lead")} />
         <Projects />
         <SourceLibrary />
+        <RouterPanel />
       </div>
     </RequireAuth></div>
   );

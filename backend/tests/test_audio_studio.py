@@ -422,3 +422,111 @@ def test_flac_export_via_api(tmp_path):
     fp = ok(fl, 201)
     r = dev.post(f"/audio/projects/{fp['id']}/renders", {"profile": "HEADPHONES_2_0", "format": "flac"})
     assert r.status_code == 422 and r.json()["error"]["code"] == "flac_needs_integer"
+
+
+# ------------------------------------------------------------------ M2: channel router (custom profiles)
+
+def _router_profile(**opts):
+    from app.audio.schema import RoutingSpec
+    spec = {"name": "Test 3.0", "layout": "3.0",
+            "matrix": [{"NEURO_LEFT": 1.0}, {"NEURO_RIGHT": 1.0}, {"VOICE_CENTER": 0.5}],
+            "options": [{"delay_ms": 0}, {"invert": True}, {"delay_ms": opts.get("delay_ms", 1.0)}]}
+    spec.update(opts.get("override", {}))
+    return RoutingSpec.model_validate(spec).as_profile() | {"custom": True}
+
+
+def test_router_delay_polarity_gain_and_block_boundaries(tmp_path):
+    import app.audio.render as R
+    ints = np.random.default_rng(11).integers(-(1 << 21), 1 << 21, size=3 * R.BLOCK + 777)
+    x = ints / float(1 << 23)
+    a = src_from_array(tmp_path, "a", x)
+    n = len(ints)
+    st = project([{"id": f"t{i}", "bus": b, "clips": [{"id": f"c{i}", "asset_id": "a", "start_frame": 0,
+                                                       "duration_frames": n}]}
+                  for i, b in enumerate(["NEURO_LEFT", "NEURO_RIGHT", "VOICE_CENTER"])])
+    prof = _router_profile(delay_ms=1.0)                  # 1 ms at 48 kHz = 48 frames on FC
+    res = render(st, fs=FS, bits=24, profile_key="custom", sources={"a": a}, out_path=str(tmp_path / "r.wav"),
+                 profile=prof)
+    assert res.frames == n + 48                          # a full export keeps the delayed tail
+    pcm, info = read_pcm(res.path)
+    assert info["channel_layout"] == "3.0" and verify(res.path, res)["passed"]
+    assert np.array_equal(pcm[:n, 0], ints) and not pcm[n:, 0].any()          # FL untouched
+    assert np.array_equal(pcm[:n, 1], -ints)                                   # FR polarity flipped, bit-exact
+    fc = np.rint(x * 0.5 * (1 << 23)).astype(np.int64)
+    assert not pcm[:48, 2].any() and np.array_equal(pcm[48:, 2], fc)          # FC: -6 dB, 48 frames late
+    ro = res.report["routing"]["channel_options"]
+    assert ro[1]["invert"] and ro[2]["delay_frames"] == 48 and res.report["routing"]["custom"]
+
+
+def test_router_preview_window_equals_export_slice_with_delay(tmp_path):
+    """A delayed channel must be right at any window start: the window is rendered with a pre-roll."""
+    s = src_from_array(tmp_path, "a", tone(440, 2 * FS))
+    st = project([{"id": "t1", "bus": "VOICE_CENTER", "clips": [{"id": "c1", "asset_id": "a", "start_frame": 0,
+                                                                  "duration_frames": 2 * FS}]}])
+    prof = _router_profile(delay_ms=12.5)
+    full = render(st, fs=FS, bits=24, profile_key="custom", sources={"a": s}, out_path=str(tmp_path / "f.wav"), profile=prof)
+    win = render(st, fs=FS, bits=24, profile_key="custom", sources={"a": s}, out_path=str(tmp_path / "w.wav"),
+                 profile=prof, start=FS // 3, frames=FS // 2)
+    a, _ = read_pcm(full.path)
+    b, _ = read_pcm(win.path)
+    assert np.array_equal(b, a[FS // 3: FS // 3 + FS // 2])
+
+
+def test_router_mute_and_validation(tmp_path):
+    from app.audio.schema import RoutingSpec
+    s = src_from_array(tmp_path, "a", tone(500, FS // 4))
+    st = project([{"id": "t1", "bus": "NEURO_LEFT", "clips": [{"id": "c1", "asset_id": "a", "start_frame": 0,
+                                                                "duration_frames": FS // 4}]}])
+    prof = _router_profile(override={"options": [{"mute": True}, {}, {}]})
+    res = render(st, fs=FS, bits=16, profile_key="custom", sources={"a": s}, out_path=str(tmp_path / "m.wav"), profile=prof)
+    assert [c["silent"] for c in res.report["channels"]] == [True, True, True]
+    for bad in ({"name": "x", "layout": "5.1(side)", "matrix": [{}] * 5},                  # wrong row count
+                {"name": "x", "layout": "stereo", "matrix": [{"NOPE": 1.0}, {}]},           # unknown bus
+                {"name": "x", "layout": "stereo", "matrix": [{"LFE": 5.0}, {}]},            # above +12 dB
+                {"name": "x", "layout": "stereo", "matrix": [{}, {}], "options": [{"delay_ms": 500}, {}]}):
+        with pytest.raises(Exception):
+            RoutingSpec.model_validate(bad)
+
+
+def test_router_api_versions_and_access(tmp_path):
+    dev = Client().register(developer=True)
+    spec = {"name": "Кресло, тыл с задержкой", "layout": "5.1(side)",
+            "matrix": [{"MUSIC_LEFT": 1.0}, {"MUSIC_RIGHT": 1.0}, {"VOICE_CENTER": 1.0}, {"LFE": 1.0},
+                       {"NEURO_LEFT": 1.0}, {"NEURO_RIGHT": 1.0}],
+            "options": [{}, {}, {}, {}, {"delay_ms": 2.0}, {"delay_ms": 2.0}]}
+    bad = dev.post("/audio/routing-profiles", {**spec, "matrix": spec["matrix"][:3]})
+    assert bad.status_code == 422 and bad.json()["error"]["code"] == "invalid_profile"
+    p1 = ok(dev.post("/audio/routing-profiles", spec), 201)
+    assert p1["key"].startswith("u-") and p1["version"] == 1 and p1["channels"] == ["FL", "FR", "FC", "LFE", "SL", "SR"]
+    keys = [x["key"] for x in ok(dev.get("/audio/routing-profiles"))["items"]]
+    assert p1["key"] in keys and "NAP_CHAIR_5_1" in keys
+    assert dev.put("/audio/routing-profiles/NAP_CHAIR_5_1", spec).status_code == 409   # built-ins are read-only
+
+    pr = ok(dev.post("/audio/projects", {"title": "Router", "bus_count": 6}), 201)
+    st = pr["state"]
+    st["generators"] = [{"id": "g1", "type": "binaural", "params": {"carrier_hz": 200, "delta_hz": 8, "amplitude_dbfs": -18}}]
+    st["tracks"][0]["clips"] = [{"id": "c1", "generator_id": "g1", "generator_output": "left", "start_frame": 0, "duration_frames": FS // 2}]
+    ok(dev.patch(f"/audio/projects/{pr['id']}", {"base_revision": pr["revision"], "state": st}))
+    j1 = _wait(dev, ok(dev.post(f"/audio/projects/{pr['id']}/renders", {"profile": p1["key"]}), 201)["id"])
+    assert j1["state"] == "completed" and j1["profile_version"] == 1, (j1["error_code"], j1["error_detail"])
+    assert j1["artifact"]["frames"] == FS // 2 + 96 and j1["artifact"]["report"]["routing"]["custom"]
+
+    p2 = ok(dev.put(f"/audio/routing-profiles/{p1['key']}", {**spec, "options": [{}] * 6}))
+    assert p2["version"] == 2
+    j2 = _wait(dev, ok(dev.post(f"/audio/projects/{pr['id']}/renders", {"profile": p1["key"]}), 201)["id"])
+    assert j2["profile_version"] == 2 and j2["artifact"]["frames"] == FS // 2
+    assert ok(dev.get(f"/audio/render-jobs/{j1['id']}"))["artifact"]["frames"] == FS // 2 + 96   # old render unchanged
+
+    prev = dev.c.post(f"/api/v1/audio/projects/{pr['id']}/preview", json={"start_frame": 0, "frames": 1000,
+                      "profile": p1["key"]}, headers=dev._h())
+    assert prev.status_code == 200
+
+    other = Client().register(developer=True)
+    assert p1["key"] not in [x["key"] for x in ok(other.get("/audio/routing-profiles"))["items"]]
+    assert other.put(f"/audio/routing-profiles/{p1['key']}", spec).status_code == 422
+    assert other.post(f"/audio/projects/{pr['id']}/renders", {"profile": p1["key"]}).status_code == 404
+
+    assert dev.delete(f"/audio/routing-profiles/{p1['key']}").status_code == 204
+    assert p1["key"] not in [x["key"] for x in ok(dev.get("/audio/routing-profiles"))["items"]]
+    assert dev.post(f"/audio/projects/{pr['id']}/renders", {"profile": p1["key"]}).status_code == 422
+    assert ok(dev.get(f"/audio/render-jobs/{j1['id']}"))["state"] == "completed"   # history survives the archive

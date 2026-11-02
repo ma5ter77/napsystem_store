@@ -510,3 +510,15 @@ main .crumbs a:hover { text-decoration: underline; }
 }
 .studio-formats { border: 0; padding: 0; margin: 0; display: grid; gap: 6px; }
 .studio-formats legend { font-size: .85rem; font-weight: 500; margin-bottom: 4px; padding: 0; }
+/* channel router (M2): matrix grid; scrolls sideways on small screens instead of squeezing the cells */
+.studio-router-scroll { overflow-x: auto; border-radius: var(--r-sm); background: #fff; }
+.studio-router { border-collapse: collapse; font-size: .85rem; min-width: 760px; width: 100%; }
+.studio-router th, .studio-router td { padding: 6px 6px; border-bottom: 1px solid var(--hair); text-align: center; vertical-align: middle; }
+.studio-router thead th { font-weight: 500; color: var(--muted); font-size: .78rem; line-height: 1.2; }
+.studio-router tbody th { text-align: left; font-weight: 600; padding-left: 12px; }
+.studio-router th:first-child { position: sticky; left: 0; background: #fff; z-index: 1; }
+.studio-router input:not([type=checkbox]) { width: 4.6em; padding: 5px 6px; font-size: .85rem; text-align: center; font-variant-numeric: tabular-nums; }
+.studio-router input.is-on { background: var(--tint-action); border-color: var(--action); }
+.studio-router input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--action); }
+.studio-router tr.is-muted td input:not([type=checkbox]) { opacity: .4; }
+.studio-router-issues { margin: 0; padding: 10px 14px 10px 30px; }

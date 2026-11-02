@@ -44,6 +44,51 @@ PROFILES: dict[str, dict] = {
                                {"BACK_LEFT": 1.0}, {"BACK_RIGHT": 1.0}, {"NEURO_LEFT": 1.0}, {"NEURO_RIGHT": 1.0}],
                     "note": "FL, FR, FC, LFE, BL, BR, SL=NEURO_LEFT, SR=NEURO_RIGHT."},
 }
+# Layouts a custom profile may use: the channel order is fixed by the WAVE_FORMAT_EXTENSIBLE bit order.
+LAYOUTS = {"stereo": ["FL", "FR"], "3.0": ["FL", "FR", "FC"], "5.1(side)": ["FL", "FR", "FC", "LFE", "SL", "SR"],
+           "7.1": ["FL", "FR", "FC", "LFE", "BL", "BR", "SL", "SR"]}
+MAX_GAIN = 3.981071705534973       # +12 dB
+MAX_DELAY_MS = 100.0
+
+
+class ChannelOptions(BaseModel):
+    """Per output channel, applied after the matrix: mute, polarity flip, delay (speaker alignment)."""
+    model_config = ConfigDict(extra="forbid")
+    mute: bool = False
+    invert: bool = False
+    delay_ms: float = Field(default=0.0, ge=0.0, le=MAX_DELAY_MS)
+
+
+class RoutingSpec(BaseModel):
+    """A routing profile: matrix rows are the output channels in file order, values {bus: linear gain}."""
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=80)
+    layout: Literal["stereo", "3.0", "5.1(side)", "7.1"]
+    matrix: list[dict[str, float]]
+    options: list[ChannelOptions] = Field(default_factory=list)
+    note: str = Field(default="", max_length=500)
+
+    @model_validator(mode="after")
+    def _shape(self):
+        n = len(LAYOUTS[self.layout])
+        if len(self.matrix) != n:
+            raise ValueError(f"matrix needs {n} rows for {self.layout}")
+        if self.options and len(self.options) != n:
+            raise ValueError(f"options need {n} entries for {self.layout}")
+        for row in self.matrix:
+            for bus, g in row.items():
+                if bus not in BUSES:
+                    raise ValueError(f"unknown bus {bus}")
+                if not (0.0 < g <= MAX_GAIN):
+                    raise ValueError("gain must be above 0 and at most +12 dB (leave the bus out to not route it)")
+        return self
+
+    def as_profile(self) -> dict:
+        opts = [o.model_dump() for o in self.options] or [ChannelOptions().model_dump() for _ in self.matrix]
+        return {"name": self.name, "layout": self.layout, "channels": list(LAYOUTS[self.layout]),
+                "matrix": [dict(r) for r in self.matrix], "options": opts, "note": self.note}
+
+
 DEFAULT_PROFILE_FOR_BUSES = {2: "HEADPHONES_2_0", 3: "NAP_ACOUSTIC_3_0", 6: "NAP_CHAIR_5_1", 8: "NAP_PRO_7_1"}
 BUS_SETS = {2: ("NEURO_LEFT", "NEURO_RIGHT"), 3: ("NEURO_LEFT", "NEURO_RIGHT", "VOICE_CENTER"),
             6: ("NEURO_LEFT", "NEURO_RIGHT", "VOICE_CENTER", "MUSIC_LEFT", "MUSIC_RIGHT", "LFE"), 8: BUSES}

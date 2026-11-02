@@ -73,6 +73,16 @@ function wav24(p, secs = 12, fs_ = 48000) {
     resultTypes: ["violations"] })).violations.filter((v) => v.impact === "serious" || v.impact === "critical")
     .map((v) => `${v.id}: ${v.nodes.slice(0, 3).map((n) => n.target.join(" ")).join(", ")}`));
   if (axe.length) throw new Error("a11y: " + axe.join("; "));
+  // NAP-101: a custom output profile (2 ms delay on the surrounds, FR polarity) saves as version 1
+  await page.goto(`${BASE}/ru/developer/studio`);
+  await page.getByRole("heading", { name: "Профили вывода" }).waitFor();
+  await page.getByLabel("Новый профиль на основе").selectOption({ label: "Кресло NAP 5.1" });
+  await page.getByLabel("SL: Задержка, мс").fill("2");
+  await page.getByLabel("SR: Задержка, мс").fill("2");
+  await page.getByLabel("FR: Ø полярность").check();
+  await page.getByRole("button", { name: "Создать профиль" }).click();
+  await page.getByText("версия 1").waitFor();
+  await page.screenshot({ path: `${OUT}/studio-7-router.png`, fullPage: true });
   // mobile
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(400);

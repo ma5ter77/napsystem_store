@@ -60,6 +60,10 @@ class RoutingProfile(Base):
     matrix: Mapped[list] = mapped_column(JSONB)
     note: Mapped[str] = mapped_column(Text, default="")
     builtin: Mapped[bool] = mapped_column(Boolean, default=True)
+    # M2: custom profiles belong to an author; every edit is a new immutable version (renders keep key+version)
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"), index=True)
+    options: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     created_at: Mapped[datetime] = created_at()
     __table_args__ = (UniqueConstraint("key", "version"),)
 
