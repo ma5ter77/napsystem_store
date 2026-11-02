@@ -171,6 +171,7 @@ class ConversionJob(Base):
     lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error_code: Mapped[str | None] = mapped_column(String(64))
     error_detail: Mapped[str | None] = mapped_column(Text)
+    failed_stage: Mapped[str | None] = mapped_column(String(16))   # NAP-092: where a failed job stopped
     result: Mapped[dict | None] = mapped_column(JSONB)  # asset ids, opened atomically on completion
     report: Mapped[dict | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = created_at()

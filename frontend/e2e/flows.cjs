@@ -164,7 +164,7 @@ async function run(L) {
     await d.getByText(t("dev.saved_price")).waitFor();
     await d.getByText(t("dev.current_price")).waitFor();
     await d.getByRole("tab", { name: t("dev.tab_versions") }).click();
-    await d.getByText(t("dev.check_title")).waitFor();
+    await d.getByRole("heading", { name: t("dev.check_title"), exact: true }).waitFor();
     await d.getByText(t("dev.next_submit")).waitFor();
     await d.getByRole("button", { name: t("dev.submit"), exact: true }).click();
     await d.getByText(t("dev.done_submitted")).waitFor();
@@ -295,7 +295,8 @@ async function run(L) {
     await b.getByLabel(t("refund.reason")).fill("E2E: проверка запроса возврата");
     await b.getByRole("button", { name: t("refund.send") }).click();
     await b.getByText(t("refund.sent")).waitFor();
-    await b.locator(".badge", { hasText: t("refund_status.requested") }).first().waitFor();
+    await b.getByRole("list", { name: t("steps.refund_progress") }).first().waitFor();   // NAP-092 timeline
+    await b.getByText(t("steps.refund_next.requested")).first().waitFor();
     const a = await login(browser, L, t, "admin@nap.demo");
     await a.p.goto(`${BASE}/${L}/admin?tab=refunds`);
     const card = a.p.getByTestId("refund-request").filter({ hasText: "E2E: проверка запроса возврата" }).first();
@@ -304,7 +305,7 @@ async function run(L) {
     await a.p.getByTestId("refund-request").filter({ hasText: "E2E: проверка запроса возврата" }).first().waitFor({ state: "detached" });
     await a.ctx.close();
     await b.reload();
-    await b.locator(".badge", { hasText: t("refund_status.rejected") }).first().waitFor();
+    await b.getByText(t("steps.refund_next.rejected")).first().waitFor();
     await b.getByText("E2E decline").waitFor();
   });
   await step("developer analytics: funnel with page views, small groups hidden (NAP-027)", async () => {

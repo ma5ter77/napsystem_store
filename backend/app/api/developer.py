@@ -53,6 +53,7 @@ def version_view(db, v: AppVersion, locale: str) -> dict:
 def job_view(db, j: ConversionJob, with_urls: bool = False) -> dict:
     src = db.get(Asset, j.source_asset_id)
     out = {"id": str(j.id), "app_id": str(j.app_id), "state": j.state, "stage_progress": j.stage_progress,
+           "failed_stage": j.failed_stage,
            "attempt": j.attempt, "max_attempts": j.max_attempts, "error_code": j.error_code,
            "profile": j.profile_snapshot, "source": {"id": str(src.id), "name": src.original_name,
                                                      "probe": src.probe, "size_bytes": src.size_bytes},

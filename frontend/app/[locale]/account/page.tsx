@@ -1,5 +1,7 @@
 "use client";
 
+import { StatusTimeline } from "@/components/StatusTimeline";
+import { refundSteps } from "@/lib/steps";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { useApp } from "@/components/Providers";
@@ -20,7 +22,7 @@ function RefundCell({ o, onDone }: { o: any; onDone: () => void }) {  // NAP-024
   const act = useAction();
   const rq = o.refund_request;
   return <div className="stack">
-    {rq && <div><StatusBadge ns="refund_status" value={rq.status} />{rq.note && <div className="hint">{t("refund.answer")}: {rq.note}</div>}</div>}
+    {rq && <div><StatusTimeline value={refundSteps(rq)} ns="refund" label={t("steps.refund_progress")} />{rq.note && <div className="hint">{t("refund.answer")}: {rq.note}</div>}</div>}
     {sent && <p className="hint" role="status">{t("refund.sent")}</p>}
     {o.can_request_refund && !open && <div><button type="button" className="btn ghost small" onClick={() => { setOpen(true); setSent(false); }}>{t("refund.request")}</button></div>}
     {open && <form className="stack" onSubmit={async (e) => {
