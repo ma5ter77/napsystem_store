@@ -17,13 +17,13 @@ from .dsp.pipeline import _wav_header
 from .models import (App, Asset, Bom, BomItem, Category, Compatibility, ConversionJob, Device, DeviceModel,
                      DspProfile, Inventory, Price, Product, Questionnaire, RoleGrant, Seller, SellerMember, Sku, User,
                      Warehouse)
-from .security import hash_password
+from .models import AuthSession
+from .security import DOCUMENTED_DEMO_PASSWORD, demo_account_password, hash_password, verify_password
 from .services import apps as appsvc
 from .services.common import upsert_translation
 from .services.conversion import profile_snapshot, run_job
 from .storage import get_storage, new_key
 
-PASSWORD = "demo-password-1"
 APP_CATS = [("meditation", "Медитации", "Meditation"), ("audiobooks", "Аудиокниги", "Audiobooks"),
             ("music", "Музыка", "Music"), ("education", "Обучение", "Education"), ("sleep", "Сон", "Sleep")]
 HW_CATS = [("chairs", "Кресла NAP SYSTEM", "NAP SYSTEM chairs"),
@@ -88,7 +88,7 @@ def user(db, email, name, roles, locale="ru") -> User:
     u = db.scalar(select(User).where(User.email == email))
     if u:
         return u
-    u = User(email=email, password_hash=hash_password(PASSWORD), display_name=name, locale=locale)
+    u = User(email=email, password_hash=hash_password(demo_account_password()), display_name=name, locale=locale)
     db.add(u)
     db.flush()
     for r in roles:
@@ -222,10 +222,33 @@ def make_app(db, dev, slug, category, author, meta, lang, price, sessions_spec, 
     return app
 
 
+def secure_demo_accounts(db, emails: list[str] | None = None) -> int:
+    """On a public server, demo accounts still on the documented password get the server's own password and
+    lose their sessions (anyone could have signed in with the published one). Returns how many changed."""
+    pw = demo_account_password()
+    if pw == DOCUMENTED_DEMO_PASSWORD:
+        return 0
+    changed = 0
+    q = select(User).where(User.email.like("%@nap.demo"))
+    if emails is not None:
+        q = q.where(User.email.in_(emails))
+    for u in db.scalars(q):
+        if verify_password(u.password_hash, DOCUMENTED_DEMO_PASSWORD):
+            u.password_hash = hash_password(pw)
+            for sess in db.scalars(select(AuthSession).where(AuthSession.user_id == u.id,
+                                                             AuthSession.revoked_at.is_(None))):
+                sess.revoked_at = utcnow()
+            changed += 1
+    if changed:
+        print(f"demo accounts: {changed} moved off the documented password, their sessions revoked")
+    return changed
+
+
 def run() -> None:
     s = get_settings()
     with session_scope() as db:
         if db.scalar(select(User).where(User.email == "admin@nap.demo")):
+            secure_demo_accounts(db)
             seed_reviews(db)  # added in 0.3.0: existing demo databases get the demo ratings too
             admin = db.scalar(select(User).where(User.email == "admin@nap.demo"))
             for slug, names, desc, params in PROFILES:  # profiles added in later releases (gamma-40-v1)

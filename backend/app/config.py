@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     secret_key: str = "dev-insecure-change-me"  # HMAC for signed URLs, never used in production default
     public_base_url: str = "http://localhost:3000"
+    # Demo accounts (*@nap.demo). Locally, in CI and in previews they share the documented password. On a public
+    # server (public_demo=true) each server gets its own secret password, derived from secret_key unless
+    # demo_password is set; read it on the server with `python -m app.tools.demo_password`.
+    public_demo: bool = False
+    demo_password: str = ""
     api_base_url: str = "http://localhost:8000"
 
     # storage

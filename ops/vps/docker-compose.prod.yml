@@ -19,6 +19,9 @@ x-backend-env: &backend-env
   NAP_S3_SECRET_KEY: ${NAP_S3_SECRET_KEY:-}
   NAP_PUBLIC_BASE_URL: https://${STORE_DOMAIN:-store.napsystem.com}
   NAP_COOKIE_SECURE: "true"
+  # public server: demo accounts never use the documented password (app.tools.demo_password prints theirs)
+  NAP_PUBLIC_DEMO: "true"
+  NAP_DEMO_PASSWORD: ${NAP_DEMO_PASSWORD:-}
   NAP_PAYMENT_PROVIDER: ${NAP_PAYMENT_PROVIDER:-mock}
   NAP_STRIPE_SECRET_KEY: ${NAP_STRIPE_SECRET_KEY:-}
   NAP_STRIPE_WEBHOOK_SECRET: ${NAP_STRIPE_WEBHOOK_SECRET:-}
