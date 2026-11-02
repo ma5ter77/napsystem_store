@@ -26,7 +26,7 @@ from .generators import binaural, isochronic
 from .schema import PROFILES, ProjectState, channel_mask
 
 BLOCK = 65_536
-WAV_LIMIT = 0xFFFFFFFF - 1024          # RIFF size field; RF64 is M2
+WAV_LIMIT = 0xFFFFFFFF - 1024          # RIFF size field: larger files are written as RF64 (EBU Tech 3306)
 SUBTYPE_PCM = bytes.fromhex("0100000000001000800000aa00389b71")
 SUBTYPE_FLOAT = bytes.fromhex("0300000000001000800000aa00389b71")
 
@@ -88,15 +88,55 @@ def decode_source(src_path: str, cache_dir: str, key: str, fs: int) -> Source:
 
 
 def wav_header(frames: int, channels: int, fs: int, bits: int, mask: int) -> bytes:
+    """WAVE_FORMAT_EXTENSIBLE header. Above the 4 GiB RIFF limit the file is RF64 (EBU Tech 3306): the RIFF and
+    data sizes are 0xFFFFFFFF and the real 64-bit sizes live in a ds64 chunk right after "WAVE"."""
     flt = bits == 32
     bps = bits // 8
     data = frames * channels * bps
-    if data + 80 > WAV_LIMIT:
-        raise RenderError("too_large_for_wav", "RF64 output arrives in M2; shorten the project or use fewer channels")
     fmt = struct.pack("<HHIIHHHHI", 0xFFFE, channels, fs, fs * channels * bps, channels * bps, bits, 22, bits, mask) \
         + (SUBTYPE_FLOAT if flt else SUBTYPE_PCM)
-    return (b"RIFF" + struct.pack("<I", 4 + 8 + len(fmt) + 8 + data) + b"WAVE" + b"fmt " + struct.pack("<I", len(fmt))
-            + fmt + b"data" + struct.pack("<I", data))
+    body = b"fmt " + struct.pack("<I", len(fmt)) + fmt
+    if 4 + 8 + len(fmt) + 8 + data <= WAV_LIMIT:
+        return b"RIFF" + struct.pack("<I", 4 + len(body) + 8 + data) + b"WAVE" + body + b"data" + struct.pack("<I", data)
+    ds64 = b"ds64" + struct.pack("<IQQQI", 28, 4 + 36 + len(body) + 8 + data, data, frames, 0)
+    return b"RF64" + struct.pack("<I", 0xFFFFFFFF) + b"WAVE" + ds64 + body + b"data" + struct.pack("<I", 0xFFFFFFFF)
+
+
+def container_of(path: str) -> str:
+    with open(path, "rb") as fh:
+        return {b"RIFF": "WAV", b"RF64": "RF64"}.get(fh.read(4), "unknown")
+
+
+def read_wave_header(path: str) -> dict:
+    """Minimal independent RIFF/RF64 reader: channels, rate, bits and frames from fmt, ds64 and data."""
+    ch = fs = bits = data = None
+    ds64_data = None
+    with open(path, "rb") as fh:
+        head = fh.read(12)
+        if head[:4] not in (b"RIFF", b"RF64") or head[8:12] != b"WAVE":
+            raise RenderError("verify_failed", "not a WAVE/RF64 file")
+        while True:
+            hd = fh.read(8)
+            if len(hd) < 8:
+                break
+            cid, size = hd[:4], struct.unpack("<I", hd[4:])[0]
+            if cid == b"ds64":
+                body = fh.read(size)
+                ds64_data = struct.unpack("<Q", body[8:16])[0]
+            elif cid == b"fmt ":
+                body = fh.read(size)
+                ch, fs = struct.unpack("<HI", body[2:8])
+                bits = struct.unpack("<H", body[14:16])[0]
+            elif cid == b"data":
+                data = ds64_data if size == 0xFFFFFFFF and ds64_data is not None else size
+                break
+            else:
+                fh.seek(size, 1)
+            if size & 1:
+                fh.seek(1, 1)
+    frames = (data or 0) // ((ch or 1) * ((bits or 8) // 8))
+    return {"container": "RF64" if head[:4] == b"RF64" else "WAV", "frames": frames, "channels": ch,
+            "sample_rate": fs, "bits": bits}
 
 
 def quantize(y: np.ndarray, bits: int, hard_clip: bool) -> tuple[bytes, int]:
@@ -151,6 +191,7 @@ def render(state_dict: dict, *, fs: int, bits: int, profile_key: str, sources: d
     done = 0
     with open(out_path, "wb") as fh:
         head = wav_header(total, out_ch, fs, bits, mask)
+        container = "RF64" if head[:4] == b"RF64" else "WAV"
         fh.write(head)
         sha.update(head)
         while done < total:
@@ -238,7 +279,8 @@ def render(state_dict: dict, *, fs: int, bits: int, profile_key: str, sources: d
     report = {
         "profile": profile_key, "profile_note": profile["note"], "layout": profile["layout"],
         "channel_order": profile["channels"], "channel_mask": hex(mask), "sample_rate": fs, "bit_depth": bits,
-        "format": "WAV IEEE float" if bits == 32 else "WAV PCM", "frames": total, "start_frame": start,
+        "format": "WAV IEEE float" if bits == 32 else "WAV PCM", "container": container, "frames": total,
+        "start_frame": start,
         "duration_seconds": round(total / fs, 6), "sha256": sha.hexdigest(), "channels": channels,
         "on_clip": state.output.on_clip, "hard_clipped_samples": int(over.sum()),
         "processing": {"implicit": "none — no normalisation, EQ, limiter or dither",
@@ -248,34 +290,14 @@ def render(state_dict: dict, *, fs: int, bits: int, profile_key: str, sources: d
 
 
 def verify(path: str, expect: RenderResult) -> dict:
-    """Independent reader: stdlib `wave` (PCM) or the RIFF header (float) + ffprobe for the channel layout."""
-    rep = {}
-    if expect.report["bit_depth"] != 32:
-        with wave.open(path, "rb") as w:
-            rep = {"frames": w.getnframes(), "channels": w.getnchannels(), "sample_rate": w.getframerate(),
-                   "bits": w.getsampwidth() * 8}
-    else:                                              # stdlib wave cannot read float: walk the RIFF chunks
-        ch = fs = bits = data = None
-        with open(path, "rb") as fh:
-            if fh.read(12)[8:12] != b"WAVE":
-                raise RenderError("verify_failed", "not a WAVE file")
-            while True:
-                hd = fh.read(8)
-                if len(hd) < 8:
-                    break
-                cid, size = hd[:4], struct.unpack("<I", hd[4:])[0]
-                if cid == b"fmt ":
-                    body = fh.read(size)
-                    ch, fs = struct.unpack("<HI", body[2:8])
-                    bits = struct.unpack("<H", body[14:16])[0]
-                    if size & 1:
-                        fh.seek(1, 1)
-                elif cid == b"data":
-                    data = size
-                    break
-                else:
-                    fh.seek(size + (size & 1), 1)
-        rep = {"frames": (data or 0) // ((ch or 1) * 4), "channels": ch, "sample_rate": fs, "bits": bits}
+    """Independent reader: stdlib `wave` (PCM WAV) or our RIFF/RF64 chunk reader (float, RF64) + ffprobe for the
+    channel layout, + SHA-256 of the whole file."""
+    if expect.report["bit_depth"] != 32 and container_of(path) == "WAV":
+        with wave.open(path, "rb") as w:              # stdlib reader for plain PCM WAV
+            rep = {"container": "WAV", "frames": w.getnframes(), "channels": w.getnchannels(),
+                   "sample_rate": w.getframerate(), "bits": w.getsampwidth() * 8}
+    else:                                              # float or RF64: stdlib wave reads neither
+        rep = read_wave_header(path)
     pr = subprocess.run(["ffprobe", "-v", "error", "-show_streams", "-of", "json", path], capture_output=True, text=True)
     st = (json.loads(pr.stdout or "{}").get("streams") or [{}])[0]
     rep["ffprobe_layout"] = st.get("channel_layout")
@@ -286,8 +308,58 @@ def verify(path: str, expect: RenderResult) -> dict:
     rep["sha256"] = h.hexdigest()
     ok = (rep["frames"] == expect.frames and rep["channels"] == expect.channels
           and rep["sample_rate"] == expect.report["sample_rate"] and rep["bits"] == expect.report["bit_depth"]
-          and rep["sha256"] == expect.report["sha256"])
+          and rep["sha256"] == expect.report["sha256"] and rep["container"] == expect.report.get("container", "WAV"))
     rep["passed"] = bool(ok)
+    return rep
+
+
+def _pcm_sha256(path: str) -> tuple[str, int]:
+    """SHA-256 and byte count of the decoded samples (ffmpeg -> s32le, the same path for WAV and FLAC)."""
+    proc = subprocess.Popen(["ffmpeg", "-nostdin", "-v", "error", "-i", path, "-map", "0:a:0", "-f", "s32le",
+                             "-acodec", "pcm_s32le", "pipe:1"], stdout=subprocess.PIPE)
+    h, n = hashlib.sha256(), 0
+    for blk in iter(lambda: proc.stdout.read(1 << 20), b""):
+        h.update(blk)
+        n += len(blk)
+    if proc.wait() != 0:
+        raise RenderError("verify_failed", f"could not decode {os.path.basename(path)}")
+    return h.hexdigest(), n
+
+
+def encode_flac(wav_path: str, flac_path: str, bits: int) -> None:
+    """Lossless FLAC from the verified WAV/RF64 (16 or 24 bit; FLAC has no float). Layout comes from the WAV mask."""
+    if bits not in (16, 24):
+        raise RenderError("flac_needs_integer", "FLAC stores 16- or 24-bit integer samples; this project is 32-bit float")
+    cmd = ["ffmpeg", "-nostdin", "-v", "error", "-y", "-i", wav_path, "-map", "0:a:0", "-map_metadata", "-1",
+           "-c:a", "flac", "-compression_level", "8", "-sample_fmt", "s16" if bits == 16 else "s32"]
+    if bits == 24:
+        cmd += ["-bits_per_raw_sample", "24"]
+    r = subprocess.run(cmd + [flac_path], capture_output=True, text=True, timeout=6 * 3600)
+    if r.returncode != 0:
+        raise RenderError("encode_failed", r.stderr[-300:])
+
+
+def verify_flac(flac_path: str, wav_path: str, wav_check: dict, expect: RenderResult) -> dict:
+    """The FLAC is accepted only if it decodes to exactly the samples of the verified WAV, with the same channel
+    count, rate, bit depth and channel layout."""
+    pr = subprocess.run(["ffprobe", "-v", "error", "-show_streams", "-of", "json", flac_path], capture_output=True,
+                        text=True)
+    st = (json.loads(pr.stdout or "{}").get("streams") or [{}])[0]
+    flac_pcm, flac_n = _pcm_sha256(flac_path)
+    wav_pcm, wav_n = _pcm_sha256(wav_path)
+    h = hashlib.sha256()
+    with open(flac_path, "rb") as fh:
+        for blk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(blk)
+    rep = {"container": "FLAC", "codec": st.get("codec_name"), "channels": int(st.get("channels") or 0),
+           "sample_rate": int(st.get("sample_rate") or 0), "bits": int(st.get("bits_per_raw_sample") or 0),
+           "ffprobe_layout": st.get("channel_layout"), "frames": flac_n // (4 * max(1, int(st.get("channels") or 1))),
+           "samples_identical_to_wav": flac_pcm == wav_pcm and flac_n == wav_n, "pcm_sha256": flac_pcm,
+           "sha256": h.hexdigest(), "wav_sha256": wav_check["sha256"]}
+    rep["passed"] = bool(rep["codec"] == "flac" and rep["samples_identical_to_wav"] and wav_check["passed"]
+                         and rep["channels"] == expect.channels and rep["sample_rate"] == expect.report["sample_rate"]
+                         and rep["bits"] == expect.report["bit_depth"] and rep["frames"] == expect.frames
+                         and rep["ffprobe_layout"] == wav_check.get("ffprobe_layout"))
     return rep
 
 

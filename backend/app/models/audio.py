@@ -72,6 +72,7 @@ class RenderJob(Base):
     revision_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("audio_project_revisions.id"))
     profile_key: Mapped[str] = mapped_column(String(40))
     profile_version: Mapped[int] = mapped_column(Integer)
+    format: Mapped[str] = mapped_column(String(8), default="wav", server_default="wav")   # wav (RIFF/RF64) | flac
     idempotency_key: Mapped[str | None] = mapped_column(String(128))
     state: Mapped[str] = mapped_column(String(16), default="queued")
     progress: Mapped[float] = mapped_column(Float, default=0.0)
@@ -87,6 +88,7 @@ class RenderJob(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     __table_args__ = (CheckConstraint(_in("state", RENDER_STATES), name="state"),
+                      CheckConstraint(_in("format", ("wav", "flac")), name="format"),
                       Index("uq_render_idem", "owner_id", "idempotency_key", unique=True,
                             postgresql_where="idempotency_key IS NOT NULL"))
 

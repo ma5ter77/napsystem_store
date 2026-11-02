@@ -352,3 +352,73 @@ def test_render_recovers_after_worker_crash():
     assert run_render(job_id) == "completed"
     j = ok(dev.get(f"/audio/render-jobs/{job_id}"))
     assert j["state"] == "completed" and j["attempt"] == 2 and any("lease expired" in x["msg"] for x in j["logs"])
+
+
+# ------------------------------------------------------------------ M2: RF64 and FLAC
+
+def test_rf64_above_the_wav_limit(tmp_path, monkeypatch):
+    """Above 4 GiB the file is RF64 (EBU Tech 3306); ffmpeg and our reader both read it, samples bit-exact."""
+    import app.audio.render as R
+    monkeypatch.setattr(R, "WAV_LIMIT", 1000)          # make a small render cross the limit
+    ints = np.random.default_rng(7).integers(-(1 << 22), 1 << 22, size=FS)
+    s = src_from_array(tmp_path, "a", ints / float(1 << 23))
+    st = project([{"id": "t1", "bus": "VOICE_CENTER", "clips": [{"id": "c1", "asset_id": "a", "start_frame": 0,
+                                                                  "duration_frames": FS}]}])
+    res = render(st, fs=FS, bits=24, profile_key="NAP_PRO_7_1", sources={"a": s}, out_path=str(tmp_path / "r.wav"))
+    head = open(res.path, "rb").read(64)
+    assert head[:4] == b"RF64" and head[12:16] == b"ds64" and res.report["container"] == "RF64"
+    v = verify(res.path, res)
+    assert v["passed"] and v["container"] == "RF64" and v["ffprobe_layout"] == "7.1" and v["frames"] == FS
+    pcm, info = read_pcm(res.path)
+    assert np.array_equal(pcm[:, 2], ints) and not pcm[:, [0, 1, 3, 4, 5, 6, 7]].any()
+
+
+@pytest.mark.parametrize("profile,bits", [("HEADPHONES_2_0", 16), ("NAP_CHAIR_5_1", 24), ("NAP_PRO_7_1", 24)])
+def test_flac_is_lossless_and_keeps_the_layout(tmp_path, profile, bits):
+    from app.audio.render import encode_flac, verify_flac
+    buses = ["NEURO_LEFT", "NEURO_RIGHT", "VOICE_CENTER", "MUSIC_LEFT", "MUSIC_RIGHT", "LFE", "BACK_LEFT", "BACK_RIGHT"]
+    srcs = {b: src_from_array(tmp_path, b, tone(300 + 100 * i, FS // 2)) for i, b in enumerate(buses)}
+    st = project([{"id": f"t{i}", "bus": b, "clips": [{"id": f"c{i}", "asset_id": b, "start_frame": 0,
+                                                       "duration_frames": FS // 2}]} for i, b in enumerate(buses)])
+    res = render(st, fs=FS, bits=bits, profile_key=profile, sources=srcs, out_path=str(tmp_path / "r.wav"))
+    wav_check = verify(res.path, res)
+    encode_flac(res.path, str(tmp_path / "r.flac"), bits)
+    v = verify_flac(str(tmp_path / "r.flac"), res.path, wav_check, res)
+    assert v["passed"] and v["samples_identical_to_wav"] and v["bits"] == bits
+    assert v["ffprobe_layout"] == {"HEADPHONES_2_0": "stereo", "NAP_CHAIR_5_1": "5.1(side)", "NAP_PRO_7_1": "7.1"}[profile]
+    assert os.path.getsize(tmp_path / "r.flac") < os.path.getsize(res.path)
+    a, _ = read_pcm(res.path)
+    b, _ = read_pcm(str(tmp_path / "r.flac"))
+    assert np.array_equal(a, b)                       # independent decode: identical samples
+
+
+def test_flac_refuses_float(tmp_path):
+    from app.audio.render import encode_flac
+    with pytest.raises(RenderError) as e:
+        encode_flac(str(tmp_path / "x.wav"), str(tmp_path / "x.flac"), 32)
+    assert e.value.code == "flac_needs_integer"
+
+
+def test_flac_export_via_api(tmp_path):
+    dev = Client().register(developer=True)
+    pr = ok(dev.post("/audio/projects", {"title": "FLAC", "bus_count": 6}), 201)
+    st = pr["state"]
+    st["generators"] = [{"id": "g1", "type": "binaural", "params": {"carrier_hz": 200, "delta_hz": 8, "amplitude_dbfs": -18}}]
+    st["tracks"][0]["clips"] = [{"id": "c1", "generator_id": "g1", "generator_output": "left", "start_frame": 0, "duration_frames": FS}]
+    st["tracks"][1]["clips"] = [{"id": "c2", "generator_id": "g1", "generator_output": "right", "start_frame": 0, "duration_frames": FS}]
+    ok(dev.patch(f"/audio/projects/{pr['id']}", {"base_revision": pr["revision"], "state": st}))
+    assert dev.post(f"/audio/projects/{pr['id']}/renders", {"profile": "NAP_CHAIR_5_1", "format": "mp3"}).status_code == 422
+    job = _wait(dev, ok(dev.post(f"/audio/projects/{pr['id']}/renders", {"profile": "NAP_CHAIR_5_1", "format": "flac"}), 201)["id"])
+    assert job["state"] == "completed", (job["error_code"], job["error_detail"])
+    art = job["artifact"]
+    assert job["format"] == "flac" and art["format"] == "flac" and art["report"]["flac"]["samples_identical_to_wav"]
+    link = ok(dev.get(f"/audio/render-jobs/{job['id']}/download"))
+    assert link["format"] == "flac" and link["url"]
+    body = dev.c.get(link["url"]).content
+    assert body[:4] == b"fLaC" and hashlib.sha256(body).hexdigest() == art["sha256"]
+    x, info = read_pcm_bytes(tmp_path, body)
+    assert info["channel_layout"] == "5.1(side)" and x.shape == (FS, 6) and x[:, 4].any() and not x[:, 2].any()
+    fl = dev.post("/audio/projects", {"title": "float", "bus_count": 2, "bit_depth": 32})
+    fp = ok(fl, 201)
+    r = dev.post(f"/audio/projects/{fp['id']}/renders", {"profile": "HEADPHONES_2_0", "format": "flac"})
+    assert r.status_code == 422 and r.json()["error"]["code"] == "flac_needs_integer"

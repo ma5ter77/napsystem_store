@@ -16,7 +16,7 @@ from pydantic import ValidationError
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from ..audio.render import RenderError, decode_source, render, verify
+from ..audio.render import RenderError, decode_source, encode_flac, render, verify, verify_flac
 from ..audio.schema import BUS_SETS, PROFILES, ProjectState, state_hash
 from ..config import get_settings
 from ..db import session_scope, utcnow
@@ -244,7 +244,11 @@ def project_view(pr: AudioProject, full: bool = True) -> dict:
 
 # ------------------------------------------------------------------ renders
 
-def start_render(db: Session, pr: AudioProject, actor_id: uuid.UUID, profile_key: str, idem: str | None) -> RenderJob:
+EXPORT_FORMATS = ("wav", "flac")
+
+
+def start_render(db: Session, pr: AudioProject, actor_id: uuid.UUID, profile_key: str, idem: str | None,
+                 fmt: str = "wav") -> RenderJob:
     if idem:
         ex = db.scalar(select(RenderJob).where(RenderJob.owner_id == actor_id, RenderJob.idempotency_key == idem))
         if ex:
@@ -252,16 +256,21 @@ def start_render(db: Session, pr: AudioProject, actor_id: uuid.UUID, profile_key
     profiles = {p.key: p for p in ensure_profiles(db) if p.builtin}
     if profile_key not in profiles:
         raise ApiError("validation_failed", 422, details={"field": "profile"})
+    if fmt not in EXPORT_FORMATS:
+        raise ApiError("validation_failed", 422, details={"field": "format"})
+    if fmt == "flac" and pr.bit_depth not in (16, 24):
+        raise ApiError("flac_needs_integer", 422)
     st = validate_state(db, actor_id, pr.state)
     if st.duration_frames() <= 0:
         raise ApiError("empty_project", 422)
     rev = snapshot(db, pr, actor_id, note=f"render {profile_key}")
     job = RenderJob(owner_id=actor_id, project_id=pr.id, revision_id=rev.id, profile_key=profile_key,
-                    profile_version=profiles[profile_key].version, idempotency_key=idem,
+                    profile_version=profiles[profile_key].version, idempotency_key=idem, format=fmt,
                     max_attempts=get_settings().job_max_attempts)
     db.add(job)
     db.flush()
-    audit(db, actor_id, "studio.render_started", "render_job", job.id, {"profile": profile_key, "revision": rev.number})
+    audit(db, actor_id, "studio.render_started", "render_job", job.id, {"profile": profile_key, "revision": rev.number,
+                                                                          "format": fmt})
     return job
 
 
@@ -269,7 +278,7 @@ def job_view(db: Session, j: RenderJob) -> dict:
     art = db.scalar(select(RenderArtifact).where(RenderArtifact.render_job_id == j.id))
     rev = db.get(AudioProjectRevision, j.revision_id)
     out = {"id": str(j.id), "project_id": str(j.project_id), "revision": rev.number if rev else None,
-           "profile": j.profile_key, "profile_version": j.profile_version, "state": j.state,
+           "profile": j.profile_key, "profile_version": j.profile_version, "format": j.format, "state": j.state,
            "progress": round(j.progress, 3), "attempt": j.attempt, "error_code": j.error_code,
            "error_detail": j.error_detail, "logs": j.logs[-20:], "created_at": j.created_at.isoformat(),
            "finished_at": j.finished_at.isoformat() if j.finished_at else None, "artifact": None}
@@ -330,7 +339,7 @@ def run_render(job_id) -> str:
     with session_scope() as db:
         job = db.get(RenderJob, job_id)
         rev = db.get(AudioProjectRevision, job.revision_id)
-        state, fs, bits, profile = rev.state, rev.sample_rate, rev.bit_depth, job.profile_key
+        state, fs, bits, profile, fmt = rev.state, rev.sample_rate, rev.bit_depth, job.profile_key, job.format
         ids = ProjectState.model_validate(state).asset_ids()
         keys = {i: db.get(Asset, uuid.UUID(i)).storage_key for i in ids}
         owner, attempt = job.owner_id, job.attempt
@@ -373,19 +382,33 @@ def run_render(job_id) -> str:
         if not ver["passed"]:
             raise RenderError("verification_failed", "the file read back differs from the render", ver)
         res.report["verification"] = ver
+        final, ext, digest = out, "wav", ver["sha256"]
+        if fmt == "flac":
+            set_state("verifying", 0.95, "lossless FLAC from the verified WAV")
+            final, ext = os.path.join(workdir, "render.flac"), "flac"
+            encode_flac(out, final, bits)
+            fv = verify_flac(final, out, ver, res)
+            if not fv["passed"]:
+                raise RenderError("verification_failed", "the FLAC does not decode to the verified samples", fv)
+            res.report["flac"] = fv
+            res.report["verification"] = {**ver, "container": "FLAC", "sha256": fv["sha256"], "passed": True,
+                                          "samples_identical_to_wav": True, "wav_sha256": ver["sha256"]}
+            digest = fv["sha256"]
+            os.remove(out)
         with session_scope() as db:
             job = db.get(RenderJob, job_id)
-            a = store_generated(db, owner_id=owner, app_id=None, kind="studio_render", path=out, ext="wav",
-                                sha256=ver["sha256"])
+            a = store_generated(db, owner_id=owner, app_id=None, kind="studio_render", path=final, ext=ext,
+                                sha256=digest)
             a.probe = {"render_job_id": str(job_id), "layout": res.report["layout"]}
             db.flush()
-            db.add(RenderArtifact(render_job_id=job_id, asset_id=a.id, sha256=ver["sha256"], format="wav",
+            db.add(RenderArtifact(render_job_id=job_id, asset_id=a.id, sha256=digest, format=ext,
                                   channel_layout=res.report["layout"], channel_order=res.report["channel_order"],
-                                  sample_rate=fs, bit_depth=bits, frames=res.frames, size_bytes=os.path.getsize(out),
+                                  sample_rate=fs, bit_depth=bits, frames=res.frames, size_bytes=os.path.getsize(final),
                                   report=res.report))
             job.state, job.progress, job.finished_at, job.lease_owner = "completed", 1.0, utcnow(), None
-            _log(db, job, f"completed: {res.frames} frames, sha256 {ver['sha256'][:12]}…")
-            audit(db, owner, "studio.render_completed", "render_job", job_id, {"sha256": ver["sha256"]})
+            _log(db, job, f"completed: {ext} {res.report['container'] if ext == 'wav' else ''} {res.frames} frames, "
+                          f"sha256 {digest[:12]}…")
+            audit(db, owner, "studio.render_completed", "render_job", job_id, {"sha256": digest, "format": ext})
             db.commit()
         return "completed"
     except RenderError as e:

@@ -1654,17 +1654,16 @@
   "tp_not_measured": "не измеряется на этой частоте",
   "src_applied": "Часть исходников пересчитана по частоте — подробности в отчёте.",
   "download": "Скачать WAV",
-  "bus": {
-   "NEURO_LEFT": "Нейро Л",
-   "NEURO_RIGHT": "Нейро П",
-   "VOICE_CENTER": "Голос",
-   "MUSIC_LEFT": "Музыка Л",
-   "MUSIC_RIGHT": "Музыка П",
-   "LFE": "LFE",
-   "BACK_LEFT": "Тыл Л",
-   "BACK_RIGHT": "Тыл П"
-  },
+  "download_flac": "Скачать FLAC",
+  "fmt_wav": "WAV — без сжатия (длиннее 4 ГБ — RF64)",
+  "fmt_flac": "FLAC — без потерь, в 3–7 раз меньше",
+  "fmt_hint": "FLAC проверяется распаковкой: отсчёты должны совпасть с WAV бит в бит.",
+  "fmt_flac_float": "FLAC не хранит 32-бит float — для этого проекта доступен WAV.",
+  "lossless": "Без потерь",
+  "lossless_ok": "да: распакованный FLAC совпал с WAV бит в бит",
   "err": {
+   "flac_needs_integer": "FLAC не поддерживает 32-бит float",
+   "encode_failed": "Не удалось закодировать FLAC",
    "clipping": "Перегрузка: сумма сигналов выше 0 dBFS",
    "empty_project": "В проекте нет клипов",
    "missing_source": "Исходник недоступен",
@@ -1677,6 +1676,16 @@
    "too_large_for_wav": "Слишком длинно для WAV (больше 4 ГБ)",
    "render_error": "Сбой сервера при экспорте",
    "lease_expired": "Обработчик экспорта перестал отвечать"
+  },
+  "bus": {
+   "NEURO_LEFT": "Нейро Л",
+   "NEURO_RIGHT": "Нейро П",
+   "VOICE_CENTER": "Голос",
+   "MUSIC_LEFT": "Музыка Л",
+   "MUSIC_RIGHT": "Музыка П",
+   "LFE": "LFE",
+   "BACK_LEFT": "Тыл Л",
+   "BACK_RIGHT": "Тыл П"
   }
  },
  "render_state": {
