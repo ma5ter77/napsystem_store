@@ -179,3 +179,22 @@ def seller_ids_for(db: Session, user_id: uuid.UUID, roles: tuple[str, ...] = ("s
     rows = db.scalars(select(SellerMember.seller_id).where(SellerMember.user_id == user_id,
                                                            SellerMember.role.in_(roles)))
     return set(rows)
+
+
+DOCUMENTED_DEMO_PASSWORD = "demo-password-1"
+
+
+def demo_account_password(settings=None) -> str:
+    """Password of the *@nap.demo accounts. Public servers never use the documented one."""
+    import base64
+    import hashlib
+    import hmac
+
+    from .config import get_settings
+    s = settings or get_settings()
+    if s.demo_password:
+        return s.demo_password
+    if not s.public_demo:
+        return DOCUMENTED_DEMO_PASSWORD
+    mac = hmac.new(s.secret_key.encode(), b"nap-demo-accounts-v1", hashlib.sha256).digest()
+    return "nap-" + base64.b32encode(mac).decode().lower().rstrip("=")[:20]

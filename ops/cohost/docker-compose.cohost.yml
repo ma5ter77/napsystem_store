@@ -8,6 +8,8 @@ services:
     environment:
       NAP_PUBLIC_BASE_URL: ${NAP_PUBLIC_BASE_URL:-https://store.napsystem.com}
       NAP_COOKIE_SECURE: "true"
+      NAP_PUBLIC_DEMO: "true"
+      NAP_DEMO_PASSWORD: ${NAP_DEMO_PASSWORD:-}
     volumes: !override [storage:/app/var/storage, "${STORE_SHARED:-/srv/nap-store/shared}/backups:/backups:ro"]
   web:
     ports: !override ["127.0.0.1:${STORE_WEB_PORT:-3100}:3000"]

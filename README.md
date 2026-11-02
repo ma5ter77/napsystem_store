@@ -36,7 +36,7 @@ npm ci && npm run build
 BACKEND_URL=http://127.0.0.1:8000 npm start                                     # http://localhost:3000
 ```
 
-## Demo-аккаунты (пароль `demo-password-1`)
+## Demo-аккаунты (пароль `demo-password-1` локально и в превью; на публичном сервере — свой, см. docs/vps-deploy.md)
 
 | E-mail | Роли |
 |---|---|
