@@ -141,6 +141,8 @@ services:
       BACKUP_DIR: /backups
       BACKUP_AT: ${BACKUP_AT:-23:30}
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_STORAGE_KEEP_DAYS: ${BACKUP_STORAGE_KEEP_DAYS:-2}
+      BACKUP_MIN_FREE_PCT: ${BACKUP_MIN_FREE_PCT:-10}
       BACKUP_STORAGE_DIR: /storage
     entrypoint: ["bash", "/ops/backup-loop.sh"]
     volumes: ["..:/ops:ro", "${STORE_ROOT}/backups:/backups", "storage:/storage:ro"]
