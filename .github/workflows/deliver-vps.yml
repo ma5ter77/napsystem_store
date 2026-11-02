@@ -8,9 +8,10 @@
 # Settings -> Environments -> production -> Required reviewers.
 name: deliver-vps
 on:
-  workflow_run:
-    workflows: [ci]
-    types: [completed]
+  # called by ci.yml as its last job on master (after ci-ok); the manual run below redeploys any green commit
+  workflow_call:
+    inputs:
+      from_ci: { type: boolean, default: false }
   workflow_dispatch:
     inputs:
       sha:
@@ -23,12 +24,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   images:
-    if: >-
-      github.event_name == 'workflow_dispatch' || (
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'master' &&
-      (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch') &&
-      github.event.workflow_run.head_repository.full_name == 'ma5ter77/napsystem_store')
+    if: github.repository == 'ma5ter77/napsystem_store'
     runs-on: ubuntu-24.04
     timeout-minutes: 75   # arm64 is built under QEMU emulation: the first uncached build is slow
     permissions:
@@ -44,14 +40,17 @@ jobs:
       - name: Pick the commit (current master, green CI only)
         id: gate
         uses: actions/github-script@v7
+        env: { FROM_CI: "${{ inputs.from_ci }}" }
         with:
           script: |
             const {data: master} = await github.rest.repos.getBranch({...context.repo, branch: 'master'});
-            let sha = context.eventName === 'workflow_run' ? context.payload.workflow_run.head_sha
-                    : (context.payload.inputs?.sha || master.commit.sha);
+            const fromCi = process.env.FROM_CI === 'true';
+            let sha = fromCi ? context.sha : (context.payload.inputs?.sha || master.commit.sha);
             if (!/^[0-9a-f]{40}$/.test(sha)) core.setFailed('bad sha');
-            if (context.eventName === 'workflow_run' && sha !== master.commit.sha) {
-              core.notice(`skip: ${sha} is no longer master`); core.setOutput('go', 'no'); return;
+            if (fromCi) {
+              // called by ci.yml after ci-ok passed in this very run; a newer master supersedes this one
+              if (sha !== master.commit.sha) { core.notice(`skip: ${sha} is no longer master`); core.setOutput('go', 'no'); return; }
+              core.setOutput('go', 'yes'); core.setOutput('sha', sha); return;
             }
             const runs = await github.paginate(github.rest.actions.listWorkflowRunsForRepo,
               {...context.repo, head_sha: sha, per_page: 100});

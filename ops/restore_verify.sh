@@ -17,8 +17,9 @@ Q="SELECT string_agg(t || '=' || n, ',' ORDER BY t) FROM (
 A=$(psql "$SRC" -tAc "$Q"); B=$(psql "$TGT" -tAc "$Q")
 echo "source:   $A"; echo "restored: $B"
 REV=$(psql "$TGT" -tAc "select version_num from alembic_version")
-# immutability triggers survive the restore
-psql "$TGT" -tAc "UPDATE ledger_entries SET amount_minor = amount_minor WHERE false" >/dev/null
-if psql "$TGT" -tAc "DELETE FROM audit_log WHERE id IN (SELECT id FROM audit_log LIMIT 1)" 2>/dev/null; then TRIG=missing; else TRIG=present; fi
+# immutability triggers survive the restore: read the catalog (a probing DELETE proves nothing on an empty table)
+NTRIG=$(psql "$TGT" -tAc "SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal AND tgenabled <> 'D' AND tgname IN
+  ('ledger_tx_immutable', 'ledger_entries_immutable', 'audit_immutable')")
+[ "$NTRIG" = 3 ] && TRIG=present || TRIG="missing ($NTRIG of 3)"
 psql "$ADMIN" -qc "DROP DATABASE $DB"
 [ "$A" = "$B" ] && [ "$TRIG" = present ] && echo "RESTORE OK (migration $REV, append-only triggers $TRIG)" || { echo "RESTORE MISMATCH"; exit 1; }

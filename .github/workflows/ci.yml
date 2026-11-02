@@ -11,7 +11,8 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # superseded pull request runs are cancelled; master runs are not, since they end with a deploy to the server
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   NAP_DATABASE_URL: postgresql+psycopg://nap:nap@localhost:5432/nap
@@ -177,3 +178,16 @@ jobs:
     if: always()
     steps:
       - run: test "${{ needs.backend.result }}${{ needs.frontend.result }}${{ needs.e2e.result }}${{ needs.docker.result }}${{ needs.release-safety.result }}" = "successsuccesssuccesssuccesssuccess"
+
+  # NAP-097: green master -> the store server. Called from here because the auto-accept bot merges and starts
+  # this run with GITHUB_TOKEN, and GitHub does not start workflow_run listeners from such runs (the old
+  # trigger never fired). Pull requests never deploy.
+  deliver:
+    needs: [ci-ok]
+    if: >-
+      github.ref == 'refs/heads/master' && github.event_name != 'pull_request' &&
+      github.repository == 'ma5ter77/napsystem_store'
+    permissions: { contents: read, packages: write, actions: read }
+    uses: ./.github/workflows/deliver-vps.yml
+    with: { from_ci: true }
+    secrets: inherit
