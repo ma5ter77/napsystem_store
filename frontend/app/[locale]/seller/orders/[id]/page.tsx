@@ -1,5 +1,6 @@
 "use client";
 
+import { Breadcrumbs, PageHead } from "@/components/nav";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
@@ -31,7 +32,7 @@ function SellerOrder() {
   const a = o.address?.fields ?? {};
   return (
     <div className="stack">
-      <Link href={`/${locale}/seller`}>{t("seller.title")}</Link>
+      <Breadcrumbs label={t("crumbs.label")} items={[{ href: `/${locale}`, label: t("crumbs.home") }, { href: `/${locale}/seller`, label: t("seller.title") }, { label: o.number }]} />
       <div className="spread"><h1>{o.number}</h1>
         <div className="status-line"><StatusBadge ns="order_status" value={o.status} /><StatusBadge ns="payment_status" value={o.payment_status} /><StatusBadge ns="fulfillment_status" value={o.fulfillment_status} /></div></div>
       {o.is_demo && <div className="notice test">{t("common.test_mode")}</div>}

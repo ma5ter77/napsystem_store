@@ -1,5 +1,6 @@
 "use client";
 
+import { Breadcrumbs, PageHead } from "@/components/nav";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
@@ -61,7 +62,8 @@ function Seller() {
   const isSeller = me?.roles.includes("seller");
   return (
     <div className="stack">
-      <h1>{isSeller ? t("seller.title") : t("seller.fulfillment_title")}</h1>
+      <Breadcrumbs label={t("crumbs.label")} items={[{ href: `/${locale}`, label: t("crumbs.home") }, { label: isSeller ? t("seller.title") : t("seller.fulfillment_title") }]} />
+      <PageHead title={isSeller ? t("seller.title") : t("seller.fulfillment_title")} lead={isSeller ? t("seller.lead") : t("seller.fulfillment_lead")} />
       {isSeller && <div className="tabs" role="tablist">{["orders", "products", "inventory", "reviews"].map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => router.replace(`/${locale}/seller?tab=${x}`)}>{t(`seller.tab_${x}`)}</button>)}</div>}
       {tab === "products" && isSeller ? <SellerProducts /> : tab === "inventory" && isSeller ? <Inventory /> : tab === "reviews" && isSeller ? <DeveloperReviews scope="seller" /> : <Orders />}
     </div>

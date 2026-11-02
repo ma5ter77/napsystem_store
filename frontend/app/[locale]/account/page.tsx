@@ -1,5 +1,6 @@
 "use client";
 
+import { Breadcrumbs, PageHead } from "@/components/nav";
 import { StatusTimeline } from "@/components/StatusTimeline";
 import { refundSteps } from "@/lib/steps";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -165,7 +166,8 @@ function Account() {
   const tab = (useSearchParams()?.get("tab") as (typeof TABS)[number]) || "purchases";
   return (
     <div className="stack">
-      <h1>{t("account.title")}</h1>
+      <Breadcrumbs label={t("crumbs.label")} items={[{ href: `/${locale}`, label: t("crumbs.home") }, { label: t("account.title") }]} />
+      <PageHead title={t("account.title")} lead={t("account.lead")} />
       <div className="tabs" role="tablist">
         {TABS.map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => router.replace(`/${locale}/account?tab=${x}`)}>{t(`account.tab_${x}`)}</button>)}
       </div>

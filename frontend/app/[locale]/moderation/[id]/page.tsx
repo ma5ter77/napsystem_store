@@ -1,5 +1,6 @@
 "use client";
 
+import { Breadcrumbs, PageHead } from "@/components/nav";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
@@ -28,7 +29,7 @@ function Review() {
   };
   return (
     <div className="stack">
-      <Link href={`/${locale}/moderation`}>{t("mod.title")}</Link>
+      <Breadcrumbs label={t("crumbs.label")} items={[{ href: `/${locale}`, label: t("crumbs.home") }, { href: `/${locale}/moderation`, label: t("mod.title") }, { label: data.app.title }]} />
       <div className="spread"><div><h1>{data.app.title} <span className="hint">v{v.version_label}</span></h1><div className="hint">{data.app.slug} · {data.app.author}</div></div><StatusBadge ns="version_state" value={v.state} /></div>
       {data.integrity && data.integrity.length > 0 && <div className="notice bad">{t("mod.integrity")}: {data.integrity.join(", ")}</div>}
       <div className="two">

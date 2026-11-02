@@ -2,6 +2,7 @@
 
 // NAP-084: the moderator edits store texts and category of an app, stops/resumes sales, deletes and restores it.
 // Sound, program and price stay with the author (a new version / the author's price tab).
+import { Breadcrumbs, PageHead } from "@/components/nav";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -43,7 +44,7 @@ function AppManage() {
   };
   return (
     <div className="stack">
-      <Link href={`/${locale}/moderation?tab=apps`}>{t("mm.back_apps")}</Link>
+      <Breadcrumbs label={t("crumbs.label")} items={[{ href: `/${locale}`, label: t("crumbs.home") }, { href: `/${locale}/moderation?tab=apps`, label: t("mod.title") }, { label: a.texts[locale]?.title ?? a.texts.ru?.title ?? a.slug }]} />
       <div className="spread">
         <div><h1>{a.texts[locale]?.title ?? a.texts.ru?.title ?? a.slug}</h1><div className="hint">{a.slug} · {a.author}{a.latest ? ` · v${a.latest.label}` : ""}</div></div>
         <div className="row">

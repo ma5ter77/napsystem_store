@@ -1,5 +1,6 @@
 "use client";
 
+import { Breadcrumbs, PageHead } from "@/components/nav";
 import Link from "next/link";
 import { AppCover, spreadTones } from "@/components/Art";
 import { useApp } from "@/components/Providers";
@@ -13,7 +14,8 @@ function Library() {
   if (error) return <ErrorBox error={error} onRetry={reload} />;
   return (
     <div className="stack">
-      <h1>{t("library.title")}</h1>
+      <Breadcrumbs label={t("crumbs.label")} items={[{ href: `/${locale}`, label: t("crumbs.home") }, { label: t("library.title") }]} />
+      <PageHead title={t("library.title")} lead={t("library.lead")} />
       {data.items.length === 0 ? <Empty action={<Link className="btn" href={`/${locale}/apps`}>{t("home.cta_apps")}</Link>}>{t("library.empty")}</Empty> : (
         <div className="grid">
           {((tones) => data.items.map((a: any, i: number) => (

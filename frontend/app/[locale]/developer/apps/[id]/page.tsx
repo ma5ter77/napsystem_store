@@ -1,5 +1,6 @@
 "use client";
 
+import { Breadcrumbs, PageHead } from "@/components/nav";
 import { StatusTimeline } from "@/components/StatusTimeline";
 import { conversionSteps, versionSteps } from "@/lib/steps";
 import Link from "next/link";
@@ -448,7 +449,7 @@ function Editor() {
   return (
     <div className="stack">
       <div className="spread">
-        <div><Link href={`/${locale}/developer`}>{t("dev.title")}</Link><h1>{v.metadata?.[locale]?.title ?? v.metadata?.ru?.title ?? v.metadata?.en?.title ?? app.slug}</h1></div>
+        <div><Breadcrumbs label={t("crumbs.label")} items={[{ href: `/${locale}`, label: t("crumbs.home") }, { href: `/${locale}/developer`, label: t("dev.title") }, { label: v.metadata?.[locale]?.title ?? v.metadata?.ru?.title ?? v.metadata?.en?.title ?? app.slug }]} /><h1>{v.metadata?.[locale]?.title ?? v.metadata?.ru?.title ?? v.metadata?.en?.title ?? app.slug}</h1></div>
         <div className="row"><StatusBadge ns="version_state" value={v.state} />{app.published_version_id && <Link href={`/${locale}/apps/${app.slug}`}>{t("dev.open_in_store")}</Link>}</div>
       </div>
       <StatusTimeline value={versionSteps(v, v.auto_release)} ns="version" label={t("steps.version_progress")} showNext={false} />
