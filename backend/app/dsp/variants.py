@@ -1,8 +1,10 @@
-"""NAP-063: conversion pipeline for the 2.0 (headphones) and 5.1 (NAP acoustic system) variants.
+"""NAP-063 / NAP-108: conversion pipeline for the equipment layouts — headphones 2.0, speakers 3.0,
+NAP chair 5.1 and 7.1.
 
 Same stages and guarantees as pipeline.convert (block processing, two passes, common gain only, true peak
-<= -1 dBTP, 24-bit master, bit-exact FLAC delivery), plus: optional per-channel stems for 5.1, per-channel
-QA (source uploaded/generated, true peak, RMS) and pilot-tone verification of shift and channel placement.
+<= -1 dBTP, 24-bit master, bit-exact FLAC delivery), plus: an optional file of the author's own for any channel
+(otherwise the channel is derived from the main track), per-channel QA (own file or derived, true peak, RMS)
+and pilot-tone verification of shift and channel placement.
 """
 from __future__ import annotations
 
@@ -16,26 +18,35 @@ import numpy as np
 
 from .engine import FS, LoudnessMeter, Profile, TruePeakMeter, db_to_lin, lin_to_db
 from .media import Decoder, MediaError, free_bytes, probe, run_ffmpeg, tool_versions
-from .modes import CHANNELS_51, SHIFT_ENGINE_VERSION, STEM_KINDS, renderer_for, verify_mode
+from .modes import FFMPEG_LAYOUT, LAYOUTS, SHIFT_ENGINE_VERSION, WAVE_MASK, renderer_for, verify_mode
 from .pipeline import (BLOCK, INT24_MAX, TP_CEILING_DBTP, TP_MARGIN_DB, Limits, Outputs, _decoded_pcm_sha,
                        _to_int24_bytes, sha256_file)
 
-MODES = ("stereo_2_0", "surround_5_1")
-BS1770_WEIGHTS = {"stereo_2_0": [1.0, 1.0], "surround_5_1": [1.0, 1.0, 1.0, 0.0, 1.41, 1.41]}
+MODES = tuple(LAYOUTS)
+# ITU-R BS.1770 channel weights: LFE excluded, surround channels +1.5 dB
+_W = {"FL": 1.0, "FR": 1.0, "FC": 1.0, "LFE": 0.0, "SL": 1.41, "SR": 1.41, "BL": 1.41, "BR": 1.41}
+BS1770_WEIGHTS = {m: [_W[c] for c in ch] for m, ch in LAYOUTS.items()}
 KSDATAFORMAT_SUBTYPE_PCM = bytes.fromhex("0100000000001000800000aa00389b71")
 
 
-def wav_header(frames: int, channels: int, bits: int = 24, fs: int = FS) -> bytes:
-    """PCM WAV; more than two channels use WAVE_FORMAT_EXTENSIBLE with the 5.1 speaker mask (0x3F)."""
+def channel_mask(names: list[str]) -> int:
+    m = 0
+    for c in names:
+        m |= WAVE_MASK[c]
+    return m
+
+
+def wav_header(frames: int, channels: int, bits: int = 24, fs: int = FS, names: list[str] | None = None) -> bytes:
+    """PCM WAV; more than two channels use WAVE_FORMAT_EXTENSIBLE with the layout's speaker mask."""
     bps = bits // 8
     data = frames * channels * bps
     if channels <= 2:
         fmt = struct.pack("<HHIIHH", 1, channels, fs, fs * channels * bps, channels * bps, bits)
     else:
-        if channels != 6:
-            raise ValueError("only 5.1 is supported above stereo")
+        if not names or len(names) != channels:
+            raise ValueError("channel names are required above stereo")
         fmt = struct.pack("<HHIIHHHHI", 0xFFFE, channels, fs, fs * channels * bps, channels * bps, bits,
-                          22, bits, 0x3F) + KSDATAFORMAT_SUBTYPE_PCM
+                          22, bits, channel_mask(names)) + KSDATAFORMAT_SUBTYPE_PCM
     return (b"RIFF" + struct.pack("<I", 4 + 8 + len(fmt) + 8 + data) + b"WAVE" +
             b"fmt " + struct.pack("<I", len(fmt)) + fmt + b"data" + struct.pack("<I", data))
 
@@ -141,20 +152,18 @@ def convert_variant(src_path: str, workdir: str, profile_dict: dict, limits: Lim
     if mode not in MODES:
         raise MediaError("unknown_mode", mode)
     stem_paths = {k: v for k, v in (stem_paths or {}).items() if v}
-    if mode == "stereo_2_0" and stem_paths:
-        raise MediaError("stems_not_allowed", "stems are only used in 5.1 mode")
-    if set(stem_paths) - set(STEM_KINDS):
-        raise MediaError("unknown_stem", ",".join(sorted(set(stem_paths) - set(STEM_KINDS))))
+    names = LAYOUTS[mode]
+    if set(stem_paths) - set(names):
+        raise MediaError("unknown_stem", ",".join(sorted(set(stem_paths) - set(names))))
     os.makedirs(workdir, exist_ok=True)
     profile = Profile.from_dict(profile_dict)
-    nch = 6 if mode == "surround_5_1" else 2
-    names = CHANNELS_51 if nch == 6 else ["L", "R"]
+    nch = len(names)
 
     progress("validating", 0.0)
     total_in = os.path.getsize(src_path) + sum(os.path.getsize(p) for p in stem_paths.values())
     pr0 = probe(src_path)
     est = int(math.ceil(pr0.duration * FS * 1.01)) + FS
-    need = est * (2 * 4 + nch * 3 * 2 + sum(STEM_KINDS[k] * 4 for k in stem_paths)) + limits.disk_reserve
+    need = est * (2 * 4 + nch * 3 * 2 + len(stem_paths) * 4) + limits.disk_reserve
     if free_bytes(workdir) < need:
         raise MediaError("insufficient_disk", f"need {need}", retryable=True)
     progress("validating", 1.0)
@@ -164,8 +173,8 @@ def convert_variant(src_path: str, workdir: str, profile_dict: dict, limits: Lim
     spools = {"main": (main_spool, 2, frames)}
     stem_info = {}
     for i, (k, p) in enumerate(sorted(stem_paths.items())):
-        sp, sf, spr = _decode(p, workdir, k, STEM_KINDS[k], limits, check)
-        spools[k] = (sp, STEM_KINDS[k], sf)
+        sp, sf, spr = _decode(p, workdir, k, 1, limits, check)   # one channel's file: mono (stereo is downmixed)
+        spools[k] = (sp, 1, sf)
         stem_info[k] = {"sha256": sha256_file(p), "frames": sf, "probe": spr.to_dict(),
                         "fit": "padded" if sf < frames else ("truncated" if sf > frames else "exact")}
         progress("decoding", (i + 1) / (len(stem_paths) + 1))
@@ -204,7 +213,7 @@ def convert_variant(src_path: str, workdir: str, profile_dict: dict, limits: Lim
     clipped = 0
     done = 0
     with open(master, "wb") as fh:
-        fh.write(wav_header(frames, nch))
+        fh.write(wav_header(frames, nch, names=names))
         for y in _render(mode, profile, spools, frames, set(stem_paths)):
             y = y * gain
             data, c = _to_int24_bytes(y)
@@ -232,7 +241,7 @@ def convert_variant(src_path: str, workdir: str, profile_dict: dict, limits: Lim
     delivery = os.path.join(workdir, "delivery.flac")
     preview = os.path.join(workdir, "preview.flac")
     lim = (limits.timeout, limits.cpu_seconds, limits.memory_bytes)
-    layout = ["-channel_layout", "5.1"] if nch == 6 else []
+    layout = ["-channel_layout", FFMPEG_LAYOUT[mode]]
     run_ffmpeg(["-i", "file:" + master, "-c:a", "flac", "-compression_level", "5", "-sample_fmt", "s32",
                 *layout, "file:" + delivery], *lim)
     run_ffmpeg(["-i", "file:" + master, "-t", str(limits.preview_seconds), "-c:a", "flac", "-sample_fmt", "s32",
@@ -243,7 +252,7 @@ def convert_variant(src_path: str, workdir: str, profile_dict: dict, limits: Lim
     check()
 
     r = renderer_for(mode, profile, set(stem_paths))
-    sources = r.sources() if nch == 6 else {"L": "binaural_shift(main)", "R": "binaural_shift(main)"}
+    sources = r.sources() if hasattr(r, "sources") else {"FL": "binaural_shift(main L)", "FR": "binaural_shift(main R)"}
     loud = _weighted_lufs(lufs, BS1770_WEIGHTS[mode])
     channels = []
     for i, name in enumerate(names):
@@ -259,8 +268,9 @@ def convert_variant(src_path: str, workdir: str, profile_dict: dict, limits: Lim
         "output": {"sample_rate": FS, "channels": nch, "channel_order": names, "bits": 24, "frames": frames,
                    "duration_seconds": round(frames / FS, 6), "pcm_sha256": pcm_hash.hexdigest(),
                    "master_sha256": sha256_file(master), "delivery_sha256": sha256_file(delivery),
-                   "preview_sha256": sha256_file(preview), "delivery_format": "FLAC 24-bit 48 kHz" +
-                   (" 5.1 (FL FR FC LFE BL BR)" if nch == 6 else " stereo")},
+                   "preview_sha256": sha256_file(preview),
+                   "delivery_format": f"FLAC 24-bit 48 kHz {FFMPEG_LAYOUT[mode]} ({' '.join(names)})",
+                   "channel_mask": channel_mask(names)},
         "processing": {"block_frames": BLOCK, "common_gain_db": round(common_gain_db, 4),
                        "hilbert": "Kaiser-windowed type III FIR, 8191 taps, latency compensated",
                        "input_bytes_total": total_in, "dither": "none (deterministic rounding)"},
