@@ -5,7 +5,8 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "@/components/Providers";
 import { Empty, ErrorBox, Loading, RequireAuth, useAction, useLoad } from "@/components/ui";
-import { api, ApiError, sha256Hex, uid } from "@/lib/api";
+import { api, ApiError, uid } from "@/lib/api";
+import { detectOutput, Playback, type OfflineState } from "@/lib/playback";
 import { duration } from "@/lib/i18n";
 
 type Phase = "setup" | "precheck" | "pre" | "loading" | "player" | "post" | "done";
@@ -127,7 +128,15 @@ function Player() {
   const [result, setResult] = useState<any>(null);
   const act = useAction();
   const q = useEventQueue(session?.id ?? null);
-  const audio = useRef<{ ctx: AudioContext; buf: AudioBuffer; src?: AudioBufferSourceNode; startedAt: number; offset: number } | null>(null);
+  // NAP-109: streaming engine; the duration lives in state so the UI re-renders when it is known
+  const audio = useRef<Playback | null>(null);
+  const [dur, setDur] = useState(0);
+  const [offline, setOffline] = useState<OfflineState>({ state: "idle", progress: 0 });
+  const [waiting, setWaiting] = useState(false);
+  const [fatal, setFatal] = useState<string | null>(null);
+  const [output, setOutput] = useState<number | null>(null);
+  useEffect(() => { setOutput(detectOutput().maxChannels); }, []);
+  useEffect(() => () => { audio.current?.close(); audio.current = null; }, []);
 
   useEffect(() => {
     const u = () => setOnline(navigator.onLine);
@@ -173,20 +182,24 @@ function Player() {
 
   const download = useCallback(async () => {
     setPhase("loading");
-    await act.run(async () => {
-      let grant = session.grant;
-      let res = await fetch(grant.asset.url);
-      if (res.status === 410) { grant = await api(`/sessions/${session.id}/grant`, { method: "POST" }); res = await fetch(grant.asset.url); }
-      if (!res.ok) throw new ApiError(res.status, "download_failed", t("player.download_failed"));
-      const raw = await res.arrayBuffer();
-      if ((await sha256Hex(raw)) !== grant.asset.sha256) throw new ApiError(0, "checksum", t("player.checksum_failed"));
-      const ctx = new AudioContext({ sampleRate: 48000 });
-      ctx.destination.channelInterpretation = "discrete"; // no implicit downmix
-      const buf = await ctx.decodeAudioData(raw);
-      if (buf.numberOfChannels !== 2) throw new ApiError(0, "channels", t("player.not_stereo"));
-      audio.current = { ctx, buf, startedAt: 0, offset: 0 };
-      setPhase("player");
+    const ok = await act.run(async () => {
+      // a fresh short-lived link: the one from session start may have expired while the questionnaire was open
+      const grant = await api<any>(`/sessions/${session.id}/grant`, { method: "POST" });
+      audio.current?.close();
+      const pb = new Playback({
+        url: grant.asset.url, channels: grant.playback?.channels ?? 2, sha256: grant.asset.sha256, sizeBytes: grant.asset.size_bytes,
+        renew: async () => (await api<any>(`/sessions/${session.id}/grant`, { method: "POST" })).asset.url,
+        onEnded: () => { const d = audio.current?.duration ?? 0; finishRef.current(listenedRef.current >= d * 0.8); },  // skipping to the end is not a completed session
+        onOffline: setOffline,
+        onWaiting: setWaiting,
+        onFatal: (code) => { audio.current?.pause(); setFatal(code); },
+      });
+      audio.current = pb;
+      try { setDur(await pb.load()); }
+      catch (e: any) { throw new ApiError(0, e?.message === "channels" ? "channels" : "download_failed", e?.message === "channels" ? t("player.fatal_channels") : t("player.download_failed")); }
+      return true;
     });
+    if (ok) setPhase("player");
   }, [session, act, t]);
 
   useEffect(() => {
@@ -194,62 +207,53 @@ function Player() {
     const iv = setInterval(() => {
       const a = audio.current;
       if (!a) return;
-      const p = a.src ? a.offset + (a.ctx.currentTime - a.startedAt) : a.offset;
-      if (a.src && !dragRef.current) listenedRef.current += 0.25;  // NAP-042: time actually listened, not skipped
-      if (!dragRef.current) setPos(Math.min(p, a.buf.duration));
+      if (a.playing && !waitingRef.current && !dragRef.current) listenedRef.current += 0.25;  // NAP-042: time actually listened, not skipped
+      if (!dragRef.current) setPos(Math.min(a.position, a.duration || 0));
     }, 250);
-    const ping = setInterval(() => { if (audio.current?.src) q.push("progress", { position_seconds: Math.round(posRef.current) }); }, 15000);
+    const ping = setInterval(() => { if (audio.current?.playing) q.push("progress", { position_seconds: Math.round(posRef.current) }); }, 15000);
     return () => { clearInterval(iv); clearInterval(ping); };
   }, [phase, q]);
   const posRef = useRef(0);
   posRef.current = pos;
   const listenedRef = useRef(0);
   const dragRef = useRef(false);
+  const waitingRef = useRef(false);
+  waitingRef.current = waiting;
 
   // NAP-042: seek — the new position is queued as an event (works offline, synced later)
   function seek(to: number) {
     const a = audio.current;
     if (!a) return;
-    const t2 = Math.max(0, Math.min(to, a.buf.duration - 0.5));
-    const from = a.src ? a.offset + (a.ctx.currentTime - a.startedAt) : a.offset;
-    if (a.src) { const s = a.src; a.src = undefined; s.stop(); playFrom(t2); } else { a.offset = t2; }
+    const t2 = Math.max(0, Math.min(to, a.duration - 0.5));
+    const from = a.position;
+    a.seek(t2);
     setPos(t2);
     q.push("progress", { position_seconds: Math.round(t2), seek_from: Math.round(from) });
   }
 
-  function playFrom(offset: number) {
-    const a = audio.current!;
-    const src = a.ctx.createBufferSource();
-    src.buffer = a.buf;
-    src.channelCountMode = "explicit"; src.channelCount = 2; src.channelInterpretation = "discrete";
-    src.connect(a.ctx.destination);
-    src.onended = () => {
-      if (audio.current?.src !== src) return;
-      audio.current.src = undefined;
-      if (audio.current.offset + (audio.current.ctx.currentTime - audio.current.startedAt) >= audio.current.buf.duration - 0.25)
-        finish(listenedRef.current >= audio.current.buf.duration * 0.8);  // skipping to the end is not a completed session
-    };
-    a.src = src; a.startedAt = a.ctx.currentTime; a.offset = offset;
-    a.ctx.resume();
-    src.start(0, offset);
+  async function onPlay() {
+    setFatal(null);
+    // play first (inside the click, as browsers require), then report the state
+    const ok = await act.run(async () => { await audio.current!.play(); await command(state === "paused" ? "resume" : "start"); return true; });
+    if (!ok) audio.current?.pause();  // the server refused: do not keep playing a session it does not count
   }
-
-  async function onPlay() { await command(state === "paused" ? "resume" : "start"); playFrom(audio.current!.offset); }
   async function onPause() {
     const a = audio.current!;
-    const p = a.offset + (a.ctx.currentTime - a.startedAt);
-    const s = a.src; a.src = undefined; s?.stop(); a.offset = p;
+    a.pause();
+    const p = a.position;
     q.push("progress", { position_seconds: p });
     await command("pause", { position_seconds: p });
   }
+  const finishRef = useRef<(completed: boolean) => void>(() => {});
+  finishRef.current = (c) => { finish(c); };
   async function finish(completed: boolean) {
     const a = audio.current;
-    if (a?.src) { const s = a.src; a.src = undefined; s.stop(); } // local stop always works, also offline
+    a?.pause(); // local stop always works, also offline
     const final = completed ? "completed" : "cancelled";
     q.push("state", { state: final, position_seconds: Math.round(posRef.current), listened_seconds: Math.round(listenedRef.current) });
     try { await command(completed ? "complete" : "stop", { position_seconds: posRef.current, listened_seconds: Math.round(listenedRef.current) }); } catch { /* reported by event */ }
     setState(final);
-    a?.ctx.close();
+    a?.close(); audio.current = null;
     setPhase(session.post_status === "pending" ? "post" : "done");
   }
 
@@ -299,18 +303,19 @@ function Player() {
               {lr === false && <div className="notice bad">{t("player.lr_failed")}</div>}
             </>
           ) : <p>{device?.simulated ? t("player.sim_precheck") : t("player.hw_precheck")}</p>}
+          {output !== null && <p className="hint" data-testid="browser-output">{t("player.output", { n: output })}</p>}
           <button className="btn" disabled={act.pending || (needsHp && (!hp || !lr))} onClick={doPrecheck}>{t("player.continue")}</button>
         </div>
       )}
       {phase === "pre" && <Questionnaire q={qPre.data} phase="pre" onDone={(b) => answer("pre", b)} />}
       {phase === "loading" && <div className="panel"><Loading /><p className="hint">{t("player.downloading")}</p></div>}
-      {phase === "player" && audio.current && (
+      {phase === "player" && dur > 0 && (
         <div className="panel stack">
-          <div className="player-time">{duration(pos, locale)} <span className="muted" style={{ fontSize: "1rem" }}>/ {duration(audio.current.buf.duration, locale)}</span></div>
-          <div className="hint" aria-live="off">{t("player.remaining", { time: duration(Math.max(0, audio.current.buf.duration - pos), locale) })}</div>
-          <input type="range" className="seek" min={0} max={Math.floor(audio.current.buf.duration)} step={1} value={Math.floor(pos)}
-            aria-label={t("player.seek")} aria-valuetext={`${duration(pos, locale)} / ${duration(audio.current.buf.duration, locale)}`}
-            style={{ ["--p" as string]: `${(pos / audio.current.buf.duration) * 100}%` }}
+          <div className="player-time">{duration(pos, locale)} <span className="muted" style={{ fontSize: "1rem" }}>/ {duration(dur, locale)}</span></div>
+          <div className="hint" aria-live="off">{t("player.remaining", { time: duration(Math.max(0, dur - pos), locale) })}{waiting && <> · <span role="status">{t("player.buffering")}</span></>}</div>
+          <input type="range" className="seek" min={0} max={Math.floor(dur)} step={1} value={Math.floor(pos)}
+            aria-label={t("player.seek")} aria-valuetext={`${duration(pos, locale)} / ${duration(dur, locale)}`}
+            style={{ ["--p" as string]: `${dur ? (pos / dur) * 100 : 0}%` }}
             onPointerDown={() => { dragRef.current = true; }}
             onChange={(e) => { setPos(Number(e.target.value)); if (!dragRef.current) seek(Number(e.target.value)); }}
             onPointerUp={(e) => { dragRef.current = false; seek(Number((e.target as HTMLInputElement).value)); }} />
@@ -321,6 +326,9 @@ function Player() {
             <button className="btn ghost" onClick={() => seek(pos + 30)} aria-label={t("player.fwd30")}>+30 {t("player.sec")}</button>
             <button className="btn danger" onClick={() => finish(false)}>{t("player.stop")}</button>
           </div>
+          {fatal && <div className="notice bad" role="alert">{t(`player.fatal_${fatal}`)}</div>}
+          <p className="hint" role="status" data-testid="offline-copy">{offline.state === "saving" ? t("player.offline_saving", { pct: Math.round(offline.progress * 100) })
+            : offline.state === "idle" ? t("player.offline_saving", { pct: 0 }) : t(`player.offline_${offline.state}`)}</p>
           <p className="hint">{t("player.seek_hint")}</p>
           <p className="hint">{t("player.stereo_note")}</p>
           <p className="hint">{t("player.tab_note")}</p>

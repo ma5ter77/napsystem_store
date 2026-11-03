@@ -973,6 +973,29 @@ M.update({  # NAP-093: first steps for authors, explanations of audio terms, emp
 "account.to_library": ("Открыть библиотеку", "Open library"),
 })
 
+M.update({  # NAP-109: streaming player with a verified offline copy
+"player.downloading": ("Подготавливаем трек…", "Preparing the track…"),
+"player.buffering": ("загружаем…", "loading…"),
+"player.output": ("Выход браузера: каналов — {n}.", "Browser output: {n} channels."),
+"player.tab_note": ("Трек играет из сети и одновременно сохраняется в браузере с проверкой контрольной суммы. Когда копия готова, сеанс продолжится и без интернета. Закрытие вкладки прерывает сеанс; фоновые вкладки браузер может приостановить.",
+  "The track plays from the network and is saved in the browser at the same time, with its checksum verified. Once the copy is ready, the session continues without internet. Closing the tab ends the session; the browser may pause background tabs."),
+"player.offline_saving": ("Сохраняем копию для работы без интернета: {pct} %.", "Saving a copy for offline use: {pct}%."),
+"player.offline_ready": ("Копия сохранена и проверена: сеанс продолжится без интернета.", "The copy is saved and verified: the session continues without internet."),
+"player.offline_too_large": ("Трек большой, поэтому играет только из сети: без интернета воспроизведение остановится, когда закончится загруженная часть.",
+  "The track is large, so it plays from the network only: without internet, playback stops when the loaded part runs out."),
+"player.offline_unavailable": ("Браузер не дал сохранить копию: без интернета воспроизведение остановится, когда закончится загруженная часть.",
+  "The browser did not allow saving a copy: without internet, playback stops when the loaded part runs out."),
+"player.offline_mismatch": ("Сохранённая копия не совпала с контрольной суммой и удалена.", "The saved copy did not match its checksum and was deleted."),
+"player.fatal_checksum": ("Файл пришёл повреждённым: контрольная сумма не совпала, воспроизведение остановлено. Остановите сеанс и начните заново.",
+  "The file arrived damaged: the checksum did not match and playback stopped. Stop the session and start again."),
+"player.fatal_network": ("Связь пропала, а копия для работы без интернета ещё не готова. Восстановите соединение и нажмите «Продолжить».",
+  "The connection dropped before the offline copy was ready. Reconnect and press Resume."),
+"player.fatal_decode": ("Браузер не смог воспроизвести трек. Обновите страницу или откройте сеанс в Chrome, Edge или Firefox.",
+  "The browser could not play the track. Reload the page or open the session in Chrome, Edge or Firefox."),
+"player.fatal_channels": ("Каналов в треке больше, чем у выхода браузера. Подключите устройство с нужным числом каналов или выберите наушники.",
+  "The track has more channels than the browser output. Connect a device with enough channels or choose headphones."),
+})
+
 def nest(lang):
     out = {}
     for key, pair in M.items():
