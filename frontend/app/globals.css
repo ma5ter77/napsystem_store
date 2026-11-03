@@ -574,3 +574,7 @@ main .crumbs a:hover { text-decoration: underline; }
 @media (max-width: 760px) { .layout-split { grid-template-columns: 1fr; } .channel-diagram { max-width: 280px; } }
 .channel-map tr.is-active { background: var(--tint-action); }
 @media (prefers-reduced-motion: reduce) { .cd-seg rect { transition: none; } }
+
+/* NAP-117: beat editor */
+.beat-editor .check { align-items: flex-start; }
+.beat-editor .field-legend { font-weight: 600; margin-bottom: 6px; }

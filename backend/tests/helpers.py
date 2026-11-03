@@ -30,10 +30,11 @@ def upload(c: Client, app_id: str, data: bytes, name="track.wav", with_sha=True)
     return {"ticket": t, "response": r}
 
 
-def convert(c: Client, app_id: str, asset_id: str, profile="alpha-demo-v1", key=None) -> dict:
+def convert(c: Client, app_id: str, asset_id: str, profile="alpha-demo-v1", key=None, method="layer") -> dict:
+    # most flow tests check the MVP carrier layer report; NAP-117's default (beat from the track) has its own tests
     h = {"Idempotency-Key": key} if key else None
     j = ok(c.post("/developer/conversions", {"app_id": app_id, "source_asset_id": asset_id,
-                                             "profile_id": profile_id(c, profile)}, headers=h), 202)
+                                             "profile_id": profile_id(c, profile), "method": method}, headers=h), 202)
     wait_inline_jobs()
     return ok(c.get(f"/developer/conversions/{j['id']}"))
 

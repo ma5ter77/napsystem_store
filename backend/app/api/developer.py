@@ -55,7 +55,7 @@ def version_view(db, v: AppVersion, locale: str) -> dict:
 def job_view(db, j: ConversionJob, with_urls: bool = False) -> dict:
     src = db.get(Asset, j.source_asset_id)
     out = {"id": str(j.id), "app_id": str(j.app_id), "state": j.state, "stage_progress": j.stage_progress,
-           "failed_stage": j.failed_stage, "layout": j.layout,
+           "failed_stage": j.failed_stage, "layout": j.layout, "method": j.method,
            "channels": conversion.layout_channels(j.layout),
            "stems": {ch: {"id": aid, "name": (db.get(Asset, uuid.UUID(aid)).original_name if aid else None)}
                      for ch, aid in (j.stems or {}).items()},
@@ -308,6 +308,9 @@ class ConversionIn(BaseModel):
     profile_id: str
     layout: str = "headphones"   # NAP-108: headphones | acoustic_3_0 | surround_5_1 | surround_7_1
     stems: dict[str, str] = {}   # {"FC": asset_id, ...}: the author's own file per channel
+    # NAP-117: the beat from the track itself by default; "shift_layer" adds the carriers, "layer" is the MVP method
+    method: str = "shift"
+    beat: dict | None = None     # editor: {beat_hz, to_hz, over_minutes, layer_dbfs}
 
 
 @router.post("/conversions", status_code=202)
@@ -316,7 +319,8 @@ def create_conversion(body: ConversionIn, request: Request, p=P, db=DB, key=Depe
     ratelimit.check(request, "conversion", u.id)
     job, created = conversion.create_job(db, u.id, as_uuid(body.app_id), as_uuid(body.source_asset_id),
                                          as_uuid(body.profile_id, "profile"), key, body.layout,
-                                         {ch: as_uuid(a, "asset") for ch, a in body.stems.items() if a})
+                                         {ch: as_uuid(a, "asset") for ch, a in body.stems.items() if a},
+                                         body.method, body.beat)
     db.commit()
     if created:
         from ..worker import dispatch_job

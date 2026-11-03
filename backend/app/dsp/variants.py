@@ -16,7 +16,7 @@ import struct
 
 import numpy as np
 
-from .engine import FS, LoudnessMeter, Profile, TruePeakMeter, db_to_lin, lin_to_db
+from .engine import FS, BinauralRenderer, LoudnessMeter, Profile, TruePeakMeter, analyze_layer, db_to_lin, lin_to_db
 from .media import Decoder, MediaError, free_bytes, probe, run_ffmpeg, tool_versions
 from .modes import FFMPEG_LAYOUT, LAYOUTS, SHIFT_ENGINE_VERSION, WAVE_MASK, renderer_for, verify_mode
 from .pipeline import (BLOCK, INT24_MAX, TP_CEILING_DBTP, TP_MARGIN_DB, Limits, Outputs, _decoded_pcm_sha,
@@ -115,9 +115,13 @@ class _Reader:
         self.fh.close()
 
 
-def _render(mode, profile, spools, frames, stems_present):
-    """Yields aligned output blocks (n, C) totalling exactly `frames` (renderer latency removed)."""
+def _render(mode, profile, spools, frames, stems_present, add_layer=False):
+    """Yields aligned output blocks (n, C) totalling exactly `frames` (renderer latency removed).
+    NAP-117: with add_layer the carrier layer (left f_c - b/2, right f_c + b/2, with fades) is added to FL / FR on
+    top of the shifted track, and the track is lowered by the profile's source gain to make room for it."""
     r = renderer_for(mode, profile, stems_present)
+    lay = BinauralRenderer(profile, frames) if add_layer else None
+    src_gain = db_to_lin(profile.source_gain_db) if add_layer else 1.0
     readers = {k: _Reader(*v) for k, v in spools.items()}
     skip = r.latency
     fed = 0
@@ -140,6 +144,9 @@ def _render(mode, profile, spools, frames, stems_present):
                 y = y[drop:]
                 skip -= drop
             if len(y):
+                if lay is not None:
+                    y = y * src_gain
+                    y[:, 0:2] += lay.layer(len(y))
                 yield y
     finally:
         for rd in readers.values():
@@ -148,7 +155,7 @@ def _render(mode, profile, spools, frames, stems_present):
 
 def convert_variant(src_path: str, workdir: str, profile_dict: dict, limits: Limits, mode: str,
                     stem_paths: dict[str, str] | None = None, progress=lambda s, f: None,
-                    check=lambda: None) -> Outputs:
+                    check=lambda: None, add_layer: bool = False) -> Outputs:
     if mode not in MODES:
         raise MediaError("unknown_mode", mode)
     stem_paths = {k: v for k, v in (stem_paths or {}).items() if v}
@@ -157,6 +164,8 @@ def convert_variant(src_path: str, workdir: str, profile_dict: dict, limits: Lim
         raise MediaError("unknown_stem", ",".join(sorted(set(stem_paths) - set(names))))
     os.makedirs(workdir, exist_ok=True)
     profile = Profile.from_dict(profile_dict)
+    if add_layer and not profile.layer_enabled:
+        raise MediaError("layer_needs_level", "the profile has no carrier level")
     nch = len(names)
 
     progress("validating", 0.0)
@@ -185,7 +194,7 @@ def convert_variant(src_path: str, workdir: str, profile_dict: dict, limits: Lim
     progress("rendering", 0.0)
     tp_pre = TruePeakMeter(nch)
     done = 0
-    for y in _render(mode, profile, spools, frames, set(stem_paths)):
+    for y in _render(mode, profile, spools, frames, set(stem_paths), add_layer):
         if not np.all(np.isfinite(y)):
             raise MediaError("render_non_finite")
         tp_pre.feed(y)
@@ -214,7 +223,7 @@ def convert_variant(src_path: str, workdir: str, profile_dict: dict, limits: Lim
     done = 0
     with open(master, "wb") as fh:
         fh.write(wav_header(frames, nch, names=names))
-        for y in _render(mode, profile, spools, frames, set(stem_paths)):
+        for y in _render(mode, profile, spools, frames, set(stem_paths), add_layer):
             y = y * gain
             data, c = _to_int24_bytes(y)
             clipped += c
@@ -251,6 +260,13 @@ def convert_variant(src_path: str, workdir: str, profile_dict: dict, limits: Lim
         raise MediaError("delivery_mismatch")
     check()
 
+    layer_qa: dict | str = "not_added"
+    if add_layer:   # the layer is independent of the programme: verify a steady 10 s window of it
+        br = BinauralRenderer(profile, frames)
+        start = min(br.fi, max(0, frames - 10 * FS))
+        br.advance(start)
+        win = br.layer(min(10 * FS, frames - start))
+        layer_qa = analyze_layer(win, profile, start_frame=start) if len(win) >= FS // 2 else "not_measurable"
     r = renderer_for(mode, profile, set(stem_paths))
     sources = r.sources() if hasattr(r, "sources") else {"FL": "binaural_shift(main L)", "FR": "binaural_shift(main R)"}
     loud = _weighted_lufs(lufs, BS1770_WEIGHTS[mode])
@@ -272,6 +288,8 @@ def convert_variant(src_path: str, workdir: str, profile_dict: dict, limits: Lim
                    "delivery_format": f"FLAC 24-bit 48 kHz {FFMPEG_LAYOUT[mode]} ({' '.join(names)})",
                    "channel_mask": channel_mask(names)},
         "processing": {"block_frames": BLOCK, "common_gain_db": round(common_gain_db, 4),
+                       "beat_method": "shift_layer" if add_layer else "shift",
+                       "source_gain_db": profile.source_gain_db if add_layer else 0.0,
                        "hilbert": "Kaiser-windowed type III FIR, 8191 taps, latency compensated",
                        "input_bytes_total": total_in, "dither": "none (deterministic rounding)"},
     }
@@ -283,6 +301,9 @@ def convert_variant(src_path: str, workdir: str, profile_dict: dict, limits: Lim
                    "true_peak_tolerance_db": TP_MARGIN_DB, "common_gain_db": round(common_gain_db, 4)},
         "channels": channels,
         "verification": verification,
+        # NAP-117: how the beat is made — the whole track shifted (always), plus the carrier layer when chosen
+        "beat_method": "shift_layer" if add_layer else "shift",
+        "layer": layer_qa,
         "checks": {"frames_ok": True, "non_finite_samples": 0, "clipped_samples": clipped, "channels": nch,
                    "sample_rate": FS, "delivery_bit_exact": True,
                    "binaural_only_in_front": all(c["passed"] for c in verification["checks"])},
