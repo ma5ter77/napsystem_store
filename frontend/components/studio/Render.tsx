@@ -3,6 +3,7 @@
 // Export (spec §2.6–2.7): pick a routing profile, render on the server, watch progress, read the verification
 // report and download the exact file that was verified.
 import { Term } from "@/components/Term";
+import { ChannelDiagram, DIAGRAM_FOR_STUDIO } from "@/components/ChannelDiagram";
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "@/components/Providers";
 import { ErrorBox, StatusBadge, useAction } from "@/components/ui";
@@ -87,6 +88,7 @@ export function RenderPanel({ project, profiles, state, unsaved, onClipChange }:
             <select value={profile} onChange={(e) => setProfile(e.target.value)}>
               {profiles.map((x) => <option key={x.key} value={x.key}>{x.name} — {x.layout}{x.custom ? ` · ${t("studio.router_own_v", { n: x.version })}` : ""}</option>)}</select></label>
           {p && <>
+            {DIAGRAM_FOR_STUDIO[p.layout] && <ChannelDiagram layout={DIAGRAM_FOR_STUDIO[p.layout]} idPrefix="studio" />}
             <ol className="studio-channels" aria-label={t("studio.channel_order")}>
               {p.channels.map((ch, i) => (
                 <li key={ch}><strong>{ch}</strong><span className="muted">{p.options?.[i]?.mute ? t("studio.router_muted") : (Object.entries(p.matrix[i]).map(([bus, g]) =>

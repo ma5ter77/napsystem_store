@@ -9,6 +9,7 @@ import { Fragment, Suspense, useEffect, useRef, useState } from "react";
 import { useApp } from "@/components/Providers";
 import { AppCover } from "@/components/Art";
 import { Term } from "@/components/Term";
+import { ChannelDiagram } from "@/components/ChannelDiagram";
 import { ErrorBox, errorFields, Loading, Price, RequireAuth, StatusBadge, useAction, useLoad } from "@/components/ui";
 import { api, sha256File, uid, uploadWithProgress } from "@/lib/api";
 import { date, duration } from "@/lib/i18n";
@@ -126,6 +127,8 @@ function LayoutQa({ job, detail }: { job: any; detail: any }) {
       <div><div className="hint">{t("dev.result")}</div><audio controls preload="none" src={detail.urls.delivery} style={{ width: "100%" }} /></div>
       {job.studio && <p className="hint">{t("lay.studio_note", { project: job.studio.project_title, rev: job.studio.revision, profile: job.studio.routing_profile_name })}</p>}
       {(detail.channels?.length ?? 2) > 2 && <p className="hint">{t("lay.listen_note", { n: detail.channels?.length ?? 0 })}</p>}
+      <ChannelDiagram layout={(job.layout === "headphones" ? "headphones" : job.layout) as any} idPrefix={`qa-${job.id}`}
+        own={qa.channels.filter((c: any) => c.uploaded).map((c: any) => c.channel)} />
       <div className="scroll-x"><table className="channel-map">
         <thead><tr><th>{t("lay.channel")}</th><th>{t("lay.source")}</th><th>{t("terms.true_peak.name")}<Term k="true_peak" /></th><th>RMS<Term k="dbfs" /></th></tr></thead>
         <tbody>{qa.channels.map((c: any) => (
@@ -218,6 +221,7 @@ function LayoutBuilder({ app, assets, profile, preferMain, onCreated }: { app: a
   const [layout, setLayout] = useState<SpeakerLayout>("surround_5_1");
   const [main, setMain] = useState("");
   const [own, setOwn] = useState<Record<string, string>>({});
+  const [activeCh, setActiveCh] = useState<string | null>(null);
   const act = useAction();
   // by default the file the headphones track was made from, so both versions match in length
   const mainId = main || (ready.some((a: any) => a.id === preferMain) ? preferMain! : ready[ready.length - 1]?.id) || "";
@@ -240,15 +244,19 @@ function LayoutBuilder({ app, assets, profile, preferMain, onCreated }: { app: a
         <label className="field">{t("lay.main")}
           <select value={mainId} onChange={(e) => setMain(e.target.value)}>{ready.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
           <span className="hint">{t("lay.main_hint")}</span></label>
+        <div className="layout-split">
+        <ChannelDiagram layout={layout} own={chans.filter((c) => own[c])} active={activeCh}
+          onPick={(c) => { setActiveCh(c); (document.getElementById(`own-${c}`) as HTMLSelectElement | null)?.focus(); }} />
         <div className="scroll-x"><table className="channel-map">
           <thead><tr><th>{t("lay.channel")}</th><th>{t("lay.source")}</th></tr></thead>
           <tbody>{chans.map((c) => (
-            <tr key={c}><th scope="row"><span className="ch-code">{c}</span> {t(`ch.${c}`)}</th>
+            <tr key={c} className={activeCh === c ? "is-active" : undefined} onMouseEnter={() => setActiveCh(c)} onFocus={() => setActiveCh(c)}><th scope="row"><span className="ch-code">{c}</span> {t(`ch.${c}`)}</th>
               <td><label className="sr-only" htmlFor={`own-${c}`}>{t("lay.source_for", { ch: t(`ch.${c}`) })}</label>
                 <select id={`own-${c}`} value={own[c] ?? ""} onChange={(e) => setOwn({ ...own, [c]: e.target.value })}>
                   <option value="">{t(`lay.from_main.${c}`)}</option>
                   {ready.filter((a: any) => a.id !== mainId).map((a: any) => <option key={a.id} value={a.id}>{t("lay.own_file", { name: a.name })}</option>)}
                 </select></td></tr>))}</tbody></table></div>
+        </div>
         <p className="hint">{t("lay.rules")}</p>
         <ErrorBox error={act.error} />
         <div><button type="button" className="btn" disabled={act.pending || !mainId} onClick={build}>{t("lay.build", { layout: t(`layout.${layout}`) })}</button></div>
@@ -317,6 +325,7 @@ function Audio({ app, onTrackReady }: { app: any; onTrackReady?: () => void }) {
         <label className="field">{t("dev.profile")}
           <select value={profile} onChange={(e) => setProfile(e.target.value)}>{profiles.data?.items.map((p: any) => <option key={p.id} value={p.id}>{p.name} · v{p.version}</option>)}</select></label>
         {prof && <p className="hint">{prof.description}</p>}
+        <ChannelDiagram layout="headphones" idPrefix="hp-track" />
         {prof && <details><summary>{t("dev.advanced")}</summary><dl className="kv hint">{Object.entries(prof.params).map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{String(v)}</dd></Fragment>)}</dl><p className="hint">{t("dev.profile_locked")}</p></details>}
       </div>
       <div className="panel stack">

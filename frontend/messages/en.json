@@ -286,7 +286,10 @@
   "open_in_store": "Open in the store",
   "waits_for_price": "It goes live as soon as the author sets a price.",
   "waits_for_author": "The author publishes manually — it goes live when they press “Publish”.",
-  "lead": "The review queue for versions and products: open an item and decide with a comment. The app and product catalog and reviews are here too."
+  "lead": "The review queue for versions and products: open an item and decide with a comment. The app and product catalog and reviews are here too.",
+  "layout_channels": "{n} channels",
+  "layout_ok": "channel check passed",
+  "layout_bad": "channel check failed"
  },
  "qa": {
   "disclaimer": "Technical verification of signal parameters only. It does not verify or guarantee any brain state or therapeutic effect.",
@@ -1966,5 +1969,16 @@
   "setup_note": "The browser sees as many channels as the system is set up for. If the device supports more but the check shows 2, change the speaker configuration.",
   "offline_title": "Without internet",
   "offline_text": "During the session the track is saved in the browser and checked against its checksum. Once the copy is ready, the session continues without a connection. In private mode the browser may not allow saving; then playback stops without a connection when the loaded part runs out."
+ },
+ "diagram": {
+  "label": "The NAP chair from the front, {layout}: backrest segments and subwoofer — {list}.",
+  "label_hp": "Headphones: left and right channels, the binaural beat between them, the voice in front.",
+  "shift": "binaural shift: front left and right",
+  "own": "the channel's own file",
+  "shift_hp": "binaural shift: left and right channels",
+  "chair_note": "Each backrest segment is a separate membrane; the subwoofer is in the seat. A schematic picture.",
+  "hp_note": "The beat is the frequency difference between left and right; the voice plays in both and is heard in front.",
+  "voice": "voice",
+  "beat": "binaural beat"
  }
 }

@@ -52,8 +52,18 @@ def mod_version(version_id: str, request: Request, p=P, db=DB):
     for s in v.sessions:
         j = db.get(ConversionJob, s.conversion_job_id)
         src = db.get(Asset, j.source_asset_id)
+        from ..services.conversion import studio_info
+        layouts = []   # NAP-113: the moderator hears and checks every version the listener can get
+        for name, x in sorted((s.variants or {}).items()):
+            vj = db.get(ConversionJob, uuid.UUID(x["conversion_job_id"]))
+            layouts.append({"layout": name, "channels": x["channels"], "channel_order": x["channel_order"],
+                            "qa": (vj.report or {}).get("qa"), "studio": studio_info(vj),
+                            "own_files": {ch: (db.get(Asset, uuid.UUID(aid)).original_name if aid else None)
+                                          for ch, aid in (vj.stems or {}).items()},
+                            "delivery_url": signed_url(db.get(Asset, uuid.UUID(x["delivery_asset_id"])), f"{s.key}-{name}.flac")})
         sessions.append({"key": s.key, "titles": s.titles, "qa": (j.report or {}).get("qa"),
-                         "params": (j.report or {}).get("params"),
+                         "params": (j.report or {}).get("params"), "profile": j.profile_snapshot,
+                         "studio": studio_info(j), "layouts": layouts,
                          "source_url": signed_url(src, src.original_name or "source"),
                          "delivery_url": signed_url(db.get(Asset, s.delivery_asset_id), f"{s.key}.flac")})
     return {"app": {"id": str(app.id), "slug": app.slug, "author": app.author_name,
