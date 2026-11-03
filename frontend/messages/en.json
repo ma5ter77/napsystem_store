@@ -189,7 +189,7 @@
   "limits": "Up to {gb} GB and {min} min per file. Formats: {formats}. Mono or stereo.",
   "uploaded": "uploaded",
   "convert": "Conversion",
-  "profile": "Binaural layer profile",
+  "profile": "Starting profile",
   "profile_locked": "Profiles are approved by an administrator; editing creates a new version. Custom DSP code and filters are not accepted.",
   "file": "File",
   "format": "Format",
@@ -230,7 +230,7 @@
   "no_tracks": "No finished tracks yet: a track appears after you upload audio and a conversion completes.",
   "go_audio": "Go to Audio & converter",
   "tab_reviews": "Reviews",
-  "step_profile": "1. Binaural layer profile",
+  "step_profile": "1. Beat",
   "step_upload": "2. Upload audio",
   "auto_convert": "Convert right after upload with the selected profile",
   "step_files": "Uploaded files",
@@ -1082,7 +1082,8 @@
   "decode_unstable": "The file decodes inconsistently: export it again.",
   "unknown_stem": "An own file is set for a channel the layout does not have.",
   "unknown_mode": "Unknown layout.",
-  "mode_verification_failed": "The channel check failed: contact support."
+  "mode_verification_failed": "The channel check failed: contact support.",
+  "layer_needs_level": "The carrier layer needs a level."
  },
  "order_status": {
   "awaiting_quote": "awaiting quote",
@@ -1980,5 +1981,29 @@
   "hp_note": "The beat is the frequency difference between left and right; the voice plays in both and is heard in front.",
   "voice": "voice",
   "beat": "binaural beat"
+ },
+ "beat": {
+  "method": "How to make the beat",
+  "m_shift": "From the track itself (recommended)",
+  "m_shift_hint": "The whole uploaded track is frequency-shifted: the left channel lower, the right higher. Every sound of the track reaches the ears with the beat difference; no separate tones are added.",
+  "m_shift_layer": "From the track plus a carrier layer",
+  "m_shift_layer_hint": "As above, with two quiet tones of the same difference on top. The beat is more distinct, but the track gets a steady tone.",
+  "m_layer": "Carrier layer only",
+  "m_layer_hint": "The track stays as it is; the beat comes from two added tones. This is how the converter worked before.",
+  "hz": "Beat frequency, Hz",
+  "hz_hint": "The left channel shifts by −{l} Hz, the right by +{r} Hz.",
+  "layer": "Carrier layer level, dBFS",
+  "layer_hint": "From −60 to −12. Quieter is less noticeable.",
+  "transition": "Change the beat smoothly during the session",
+  "to_hz": "Beat at the end, Hz",
+  "over": "Over how many minutes",
+  "summary": "Beat {hz} Hz.",
+  "summary_curve": "The beat moves smoothly from {from} to {to} Hz over {min} min, then holds.",
+  "summary_shift": "Made from the track itself.",
+  "summary_both": "Made from the track, with a carrier layer on top.",
+  "summary_layer": "Made by two added tones; the track is not shifted.",
+  "measured": "Measured beat",
+  "qa_shift": "from the track itself",
+  "qa_shift_layer": "from the track plus the carrier layer"
  }
 }

@@ -128,11 +128,15 @@ async function run(L) {
   });
   await step("upload + real conversion", async () => {
     await d.getByRole("tab", { name: t("dev.tab_audio") }).click();
+    // NAP-117: by default the beat is made from the track itself
+    await d.getByTestId("beat-summary").getByText(t("beat.summary_shift"), { exact: false }).waitFor();
+    if (!(await d.getByRole("radio", { name: t("beat.m_shift"), exact: false }).isChecked())) throw new Error("beat from the track must be the default");
     // NAP-069: 60 s WAV (~11 MB) goes in two chunks through the Next.js proxy; conversion starts by itself
     await d.getByLabel(t("dev.upload"), { exact: true }).setInputFiles(wav(60));
     await d.getByText(t("dev.uploaded"), { exact: true }).first().waitFor({ timeout: 60000 });
     await d.locator(".badge", { hasText: t("job_state.completed") }).first().waitFor({ timeout: 120000 });
-    await d.getByText(t("qa.carriers")).waitFor({ timeout: 15000 });
+    await d.getByTestId("layout-qa").first().getByText(t("beat.measured")).waitFor({ timeout: 15000 });
+    await d.getByTestId("layout-qa").first().getByText(t("beat.qa_shift")).waitFor();
     // NAP-093: terms in the QA report explain themselves; keyboard opens, Esc closes and returns focus
     const what = d.getByRole("button", { name: t("terms.what_is", { term: t("terms.lufs.name") }) }).first();
     await what.focus();

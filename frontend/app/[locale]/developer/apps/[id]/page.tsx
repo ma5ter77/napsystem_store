@@ -137,6 +137,8 @@ function LayoutQa({ job, detail }: { job: any; detail: any }) {
             {typeof c.true_peak_dbtp === "number" ? <><td>{c.true_peak_dbtp} dBTP</td><td>{c.rms_dbfs} dBFS</td></>
               : <><td>{t("studio.silent")}</td><td>—</td></>}</tr>))}</tbody></table></div>
       <dl className="kv">
+        {qa.verification?.points?.length > 0 && <><dt>{t("beat.measured")}<Term k="beat" /></dt><dd>{qa.verification.points.map((p: any) => `${p.measured_beat_hz} Hz`).join(" → ")} · {t(`beat.qa_${qa.beat_method ?? "shift"}`)}</dd></>}
+        {typeof qa.layer === "object" && qa.layer && <><dt>{t("qa.carriers")}<Term k="carrier" /></dt><dd>{qa.layer.left_hz} / {qa.layer.right_hz} Hz, Δ {qa.layer.beat_hz} Hz</dd></>}
         <dt>{t("lay.loudness")}<Term k="lufs" /></dt><dd>{String(qa.levels.output_integrated_lufs)} LUFS</dd>
         <dt>{t("qa.tp")}<Term k="true_peak" /></dt><dd>{String(qa.levels.true_peak_master_dbtp)} dBTP ({t("qa.ceiling", { c: qa.levels.true_peak_ceiling_dbtp, tol: qa.levels.true_peak_tolerance_db })})</dd>
         <dt>{t("lay.gain")}<Term k="gain" /></dt><dd>{qa.levels.common_gain_db} dB</dd>
@@ -176,8 +178,8 @@ function JobCard({ job, onChange }: { job: any; onChange: () => void }) {
       </>}
       {job.state === "failed" && <div className="notice bad">{t(`job_errors.${job.error_code}`)}</div>}
       {["failed", "canceled"].includes(job.state) && <div><button className="btn ghost small" onClick={async () => { if (await act.run(() => api(`/developer/conversions/${job.id}/retry`, { method: "POST" }))) onChange(); }}>{t("dev.retry")}</button></div>}
-      {job.state === "completed" && detail?.urls && ((job.layout && job.layout !== "headphones") || job.studio) && <LayoutQa job={job} detail={detail} />}
-      {job.state === "completed" && detail?.urls && (!job.layout || job.layout === "headphones") && !job.studio && (
+      {job.state === "completed" && detail?.urls && ((job.layout && job.layout !== "headphones") || job.studio || (job.method && job.method !== "layer")) && <LayoutQa job={job} detail={detail} />}
+      {job.state === "completed" && detail?.urls && (!job.layout || job.layout === "headphones") && !job.studio && (!job.method || job.method === "layer") && (
         <div className="stack">
           <div className="lr">
             <div><div className="hint">{t("dev.source")}</div><audio controls preload="none" src={detail.urls.source} style={{ width: "100%" }} /></div>
@@ -215,7 +217,8 @@ const SPEAKER_LAYOUTS = { acoustic_3_0: ["FL", "FR", "FC"], surround_5_1: ["FL",
   surround_7_1: ["FL", "FR", "FC", "LFE", "BL", "BR", "SL", "SR"] } as const;
 type SpeakerLayout = keyof typeof SPEAKER_LAYOUTS;
 
-function LayoutBuilder({ app, assets, profile, preferMain, onCreated }: { app: any; assets: any[]; profile: string; preferMain?: string; onCreated: () => void }) {
+function LayoutBuilder({ app, assets, profile, preferMain, onCreated, beat }: { app: any; assets: any[]; profile: string; preferMain?: string; onCreated: () => void;
+  beat?: { method: string; beat: Record<string, number> | null } }) {
   const { t } = useApp();
   const ready = assets.filter((a: any) => a.status === "uploaded");
   const [layout, setLayout] = useState<SpeakerLayout>("surround_5_1");
@@ -228,7 +231,7 @@ function LayoutBuilder({ app, assets, profile, preferMain, onCreated }: { app: a
   const chans = SPEAKER_LAYOUTS[layout];
   const build = async () => {
     const stems = Object.fromEntries(chans.filter((c) => own[c]).map((c) => [c, own[c]]));
-    if (await act.run(() => api("/developer/conversions", { body: { app_id: app.id, source_asset_id: mainId, profile_id: profile, layout, stems },
+    if (await act.run(() => api("/developer/conversions", { body: { app_id: app.id, source_asset_id: mainId, profile_id: profile, layout, stems, ...(beat ?? {}) },
       headers: { "Idempotency-Key": uid() } }))) { setOwn({}); onCreated(); }
   };
   return (
@@ -265,6 +268,48 @@ function LayoutBuilder({ app, assets, profile, preferMain, onCreated }: { app: a
   );
 }
 
+// NAP-117: how the beat is made and what it is. The beat comes from the uploaded track itself by default (left shifted
+// by −b/2, right by +b/2); the carrier layer can be added on top or used alone (the earlier method).
+type Beat = { method: "shift" | "shift_layer" | "layer"; beat_hz: number; transition: boolean; to_hz: number; over_minutes: number; layer_dbfs: number };
+
+function beatBody(b: Beat, base: any, layout = "headphones") {
+  const method = layout !== "headphones" && b.method === "layer" ? "shift_layer" : b.method;
+  const beat: Record<string, number> = {};
+  if (b.beat_hz !== Number(base?.beat_hz) || b.transition || base?.beat_curve) beat.beat_hz = b.beat_hz;
+  if (b.transition) { beat.to_hz = b.to_hz; beat.over_minutes = b.over_minutes; }
+  if (method !== "shift" && b.layer_dbfs !== Number(base?.tone_gain_dbfs)) beat.layer_dbfs = b.layer_dbfs;
+  return { method, beat: Object.keys(beat).length ? beat : null };
+}
+
+function BeatEditor({ b, set }: { b: Beat; set: (b: Beat) => void }) {
+  const { t } = useApp();
+  const num = (k: keyof Beat, v: string) => set({ ...b, [k]: Number(v) });
+  return (
+    <div className="stack beat-editor" data-testid="beat-editor">
+      <fieldset className="stack" style={{ border: 0, padding: 0, margin: 0 }}>
+        <legend className="field-legend">{t("beat.method")}</legend>
+        {(["shift", "shift_layer", "layer"] as const).map((m) => (
+          <label key={m} className="check"><input type="radio" name="beat-method" checked={b.method === m} onChange={() => set({ ...b, method: m })} />
+            <span><strong>{t(`beat.m_${m}`)}</strong><span className="hint" style={{ display: "block" }}>{t(`beat.m_${m}_hint`)}</span></span></label>))}
+      </fieldset>
+      <div className="form wide">
+        <label className="field">{t("beat.hz")}<input type="number" min={0.5} max={40} step={0.1} value={b.beat_hz} onChange={(e) => num("beat_hz", e.target.value)} />
+          <span className="hint">{t("beat.hz_hint", { l: +(b.beat_hz / 2).toFixed(2), r: +(b.beat_hz / 2).toFixed(2) })}<Term k="beat" /></span></label>
+        {b.method !== "shift" && <label className="field">{t("beat.layer")}<input type="number" min={-60} max={-12} step={1} value={b.layer_dbfs} onChange={(e) => num("layer_dbfs", e.target.value)} />
+          <span className="hint">{t("beat.layer_hint")}<Term k="dbfs" /></span></label>}
+      </div>
+      <label className="check"><input type="checkbox" checked={b.transition} onChange={(e) => set({ ...b, transition: e.target.checked })} /> {t("beat.transition")}</label>
+      {b.transition && <div className="form wide">
+        <label className="field">{t("beat.to_hz")}<input type="number" min={0.5} max={40} step={0.1} value={b.to_hz} onChange={(e) => num("to_hz", e.target.value)} /></label>
+        <label className="field">{t("beat.over")}<input type="number" min={0.1} max={360} step={0.5} value={b.over_minutes} onChange={(e) => num("over_minutes", e.target.value)} /></label>
+      </div>}
+      <p className="notice" role="status" data-testid="beat-summary">{b.transition
+        ? t("beat.summary_curve", { from: b.beat_hz, to: b.to_hz, min: b.over_minutes })
+        : t("beat.summary", { hz: b.beat_hz })} {b.method === "shift" ? t("beat.summary_shift") : b.method === "shift_layer" ? t("beat.summary_both") : t("beat.summary_layer")}</p>
+    </div>
+  );
+}
+
 function Audio({ app, onTrackReady }: { app: any; onTrackReady?: () => void }) {
   const { t, locale } = useApp();
   const limits = useLoad<any>("/converter/limits");
@@ -274,9 +319,20 @@ function Audio({ app, onTrackReady }: { app: any; onTrackReady?: () => void }) {
   const [uploads, setUploads] = useState<Record<string, { p: number; err?: string; done?: boolean }>>({});
   const [profile, setProfile] = useState("");
   const [autoConvert, setAutoConvert] = useState(true);
+  const [beat, setBeat] = useState<Beat>({ method: "shift", beat_hz: 10, transition: false, to_hz: 4, over_minutes: 20, layer_dbfs: -30 });
   const act = useAction();
   const pickDefault = (items: any[] | undefined) => items?.find((p: any) => p.slug === "alpha-demo-v1")?.id ?? items?.[0]?.id ?? "";
   useEffect(() => { if (profiles.data && !profile) setProfile(pickDefault(profiles.data.items)); }, [profiles.data, profile]);
+  // the chosen profile gives the starting values of the editor
+  useEffect(() => {
+    const p = profiles.data?.items.find((x: any) => x.id === profile)?.params;
+    if (p) setBeat((b) => ({ ...b, beat_hz: Number(p.beat_hz), layer_dbfs: p.tone_gain_dbfs ?? -30, transition: !!p.beat_curve,
+      to_hz: p.beat_curve ? Number(p.beat_curve[p.beat_curve.length - 1][1]) : b.to_hz,
+      over_minutes: p.beat_curve ? Number(p.beat_curve[p.beat_curve.length - 1][0]) / 60 : b.over_minutes }));
+  }, [profile, profiles.data]);
+  const beatRef = useRef(beat);
+  beatRef.current = beat;
+  const baseParams = () => profiles.data?.items.find((x: any) => x.id === (profileRef.current || profile))?.params;
   // the upload may finish before or after profiles load: read the latest choice when it ends
   const profileRef = useRef("");
   profileRef.current = profile || pickDefault(profiles.data?.items);
@@ -306,7 +362,7 @@ function Audio({ app, onTrackReady }: { app: any; onTrackReady?: () => void }) {
         // NAP-069: start the conversion right away with the chosen profile, so the next step is not missed
         if (autoConvert && res?.status === "uploaded") {
           const pid = profileRef.current || pickDefault((await api<any>("/developer/profiles")).items);
-          await act.run(() => api("/developer/conversions", { body: { app_id: app.id, source_asset_id: res.asset_id ?? tk.asset_id, profile_id: pid }, headers: { "Idempotency-Key": uid() } }));
+          await act.run(() => api("/developer/conversions", { body: { app_id: app.id, source_asset_id: res.asset_id ?? tk.asset_id, profile_id: pid, ...beatBody(beatRef.current, baseParams()) }, headers: { "Idempotency-Key": uid() } }));
           jobs.reload();
         }
       } catch (e: any) {
@@ -325,7 +381,10 @@ function Audio({ app, onTrackReady }: { app: any; onTrackReady?: () => void }) {
         <label className="field">{t("dev.profile")}
           <select value={profile} onChange={(e) => setProfile(e.target.value)}>{profiles.data?.items.map((p: any) => <option key={p.id} value={p.id}>{p.name} · v{p.version}</option>)}</select></label>
         {prof && <p className="hint">{prof.description}</p>}
-        <ChannelDiagram layout="headphones" idPrefix="hp-track" />
+        <div className="layout-split">
+          <ChannelDiagram layout="headphones" idPrefix="hp-track" />
+          <BeatEditor b={beat} set={setBeat} />
+        </div>
         {prof && <details><summary>{t("dev.advanced")}</summary><dl className="kv hint">{Object.entries(prof.params).map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{String(v)}</dd></Fragment>)}</dl><p className="hint">{t("dev.profile_locked")}</p></details>}
       </div>
       <div className="panel stack">
@@ -347,12 +406,13 @@ function Audio({ app, onTrackReady }: { app: any; onTrackReady?: () => void }) {
               <tr key={a.id}><td>{a.name}</td><td className="hint">{a.probe?.format_name ? `${a.probe.codec}, ${a.probe.channels} ch, ${a.probe.sample_rate} Hz, ${duration(a.probe.duration, locale)}` : (a.probe?.error ? t(`job_errors.${a.probe.error}`) : "—")}</td>
                 <td><StatusBadge ns="asset_status" value={a.status} /></td>
                 <td>{a.status === "uploaded" && <button className="btn small" disabled={act.pending} onClick={async () => {
-                  if (await act.run(() => api("/developer/conversions", { body: { app_id: app.id, source_asset_id: a.id, profile_id: profile }, headers: { "Idempotency-Key": uid() } }))) jobs.reload();
+                  if (await act.run(() => api("/developer/conversions", { body: { app_id: app.id, source_asset_id: a.id, profile_id: profile, ...beatBody(beat, baseParams()) }, headers: { "Idempotency-Key": uid() } }))) jobs.reload();
                 }}>{t("dev.start_conversion")}</button>}</td></tr>))}</tbody></table>
         ) : <p className="muted">{t("dev.no_assets")}</p>}
         <ErrorBox error={act.error} />
       </div>
       {profile && <LayoutBuilder app={app} assets={assets.data?.items ?? []} profile={profile} onCreated={jobs.reload}
+        beat={beatBody(beat, baseParams(), "surround_5_1")}
         preferMain={(jobs.data?.items ?? []).find((j: any) => j.state === "completed" && (j.layout ?? "headphones") === "headphones")?.source?.id} />}
       <div className="stack">
         <h2>{t("dev.jobs")}</h2>

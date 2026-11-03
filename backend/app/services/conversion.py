@@ -25,7 +25,7 @@ from ..dsp.pipeline import Cancelled, Limits, convert
 from ..dsp.variants import convert_variant
 from ..errors import ApiError
 from ..models import App, Asset, ConversionJob, DspProfile
-from ..models.content import JOB_LAYOUTS, JOB_TERMINAL
+from ..models.content import BEAT_METHODS, JOB_LAYOUTS, JOB_TERMINAL
 from ..storage import get_storage
 from .assets import store_generated
 from .common import audit
@@ -55,9 +55,41 @@ def _own_source(db: Session, owner_id: uuid.UUID, app_id: uuid.UUID, asset_id: u
     return asset
 
 
+def edited_snapshot(base: dict, beat: dict | None, method: str) -> dict:
+    """NAP-117: the author's beat editor on top of a profile: beat frequency, a smooth transition and the layer level.
+    Validated like a profile; the result is frozen in the job (and so in the manifest)."""
+    snap = dict(base)
+    beat = {k: v for k, v in (beat or {}).items() if v is not None}
+    if beat.get("beat_hz") is not None:
+        snap["beat_hz"] = float(beat["beat_hz"])
+    if beat.get("to_hz") is not None and float(beat["to_hz"]) != snap["beat_hz"]:
+        minutes = float(beat.get("over_minutes") or 0)
+        if not (0 < minutes <= 360):
+            raise ApiError("validation_failed", 422, details={"field": "beat.over_minutes"})
+        snap["beat_curve"] = [[0.0, snap["beat_hz"]], [round(minutes * 60, 3), float(beat["to_hz"])]]
+    elif beat.get("beat_hz") is not None:
+        snap.pop("beat_curve", None)          # a constant beat chosen in the editor replaces the profile's curve
+    if beat.get("layer_dbfs") is not None:
+        snap["tone_gain_dbfs"] = float(beat["layer_dbfs"])
+    if method in ("layer", "shift_layer") and snap.get("tone_gain_dbfs") is None:
+        snap["tone_gain_dbfs"] = -30.0
+    from ..dsp.engine import Profile
+    try:
+        Profile.from_dict(snap)
+    except (ValueError, KeyError) as e:
+        raise ApiError("validation_failed", 422, details={"field": "beat", "message": str(e)}) from None
+    if beat:
+        snap["edited"] = {k: beat[k] for k in ("beat_hz", "to_hz", "over_minutes", "layer_dbfs") if k in beat}
+    return snap
+
+
 def create_job(db: Session, owner_id: uuid.UUID, app_id: uuid.UUID, source_asset_id: uuid.UUID,
                profile_id: uuid.UUID, idempotency_key: str | None, layout: str = "headphones",
-               stems: dict[str, uuid.UUID] | None = None) -> tuple[ConversionJob, bool]:
+               stems: dict[str, uuid.UUID] | None = None, method: str = "layer",
+               beat: dict | None = None) -> tuple[ConversionJob, bool]:
+    # NAP-117: layer = carrier layer only (MVP, headphones only); shift = the beat from the track; shift_layer = both
+    if method not in BEAT_METHODS or (method == "layer" and layout != "headphones"):
+        raise ApiError("validation_failed", 422, details={"field": "method"})
     # NAP-108: speakers 3.0 / NAP chair 5.1 and 7.1, each channel optionally from the author's own file
     if layout not in JOB_LAYOUTS:
         raise ApiError("validation_failed", 422, details={"field": "layout"})
@@ -73,7 +105,7 @@ def create_job(db: Session, owner_id: uuid.UUID, app_id: uuid.UUID, source_asset
                                                          ConversionJob.idempotency_key == idempotency_key))
         if existing:
             if existing.source_asset_id != source_asset_id or existing.profile_id != profile_id \
-                    or existing.layout != layout or (existing.stems or {}) != stems_s:
+                    or existing.layout != layout or (existing.stems or {}) != stems_s or existing.method != method:
                 raise ApiError("idempotency_conflict", 409)
             return existing, False
     app = db.get(App, app_id)
@@ -86,8 +118,9 @@ def create_job(db: Session, owner_id: uuid.UUID, app_id: uuid.UUID, source_asset
     if not prof or prof.status != "active":
         raise ApiError("profile_unavailable", 422)
     job = ConversionJob(owner_id=owner_id, app_id=app_id, source_asset_id=source_asset_id, profile_id=prof.id,
-                        profile_snapshot=profile_snapshot(prof), idempotency_key=idempotency_key,
-                        max_attempts=get_settings().job_max_attempts, layout=layout, stems=stems_s)
+                        profile_snapshot=edited_snapshot(profile_snapshot(prof), beat, method),
+                        idempotency_key=idempotency_key, max_attempts=get_settings().job_max_attempts,
+                        layout=layout, stems=stems_s, method=method)
     db.add(job)
     try:
         db.flush()
@@ -97,7 +130,7 @@ def create_job(db: Session, owner_id: uuid.UUID, app_id: uuid.UUID, source_asset
                                                          ConversionJob.idempotency_key == idempotency_key))
         return existing, False
     audit(db, owner_id, "conversion.created", "conversion_job", job.id,
-          {"profile": prof.slug, "layout": layout, "own_files": sorted(stems_s)})
+          {"profile": prof.slug, "layout": layout, "own_files": sorted(stems_s), "method": method})
     return job, True
 
 
@@ -178,7 +211,7 @@ def retry_job(db: Session, job_id: uuid.UUID, owner_id: uuid.UUID) -> Conversion
     job = ConversionJob(owner_id=owner_id, app_id=old.app_id, source_asset_id=old.source_asset_id,
                         profile_id=old.profile_id, profile_snapshot=old.profile_snapshot if prof is None
                         else old.profile_snapshot, retry_of_id=old.id, max_attempts=old.max_attempts,
-                        layout=old.layout, stems=dict(old.stems or {}))   # NAP-108: the retry keeps the layout
+                        layout=old.layout, stems=dict(old.stems or {}), method=old.method)   # the retry keeps them
     db.add(job)
     db.flush()
     audit(db, owner_id, "conversion.retried", "conversion_job", job.id, {"retry_of": str(old.id)})
@@ -299,6 +332,7 @@ def run_job(job_id: uuid.UUID | str) -> str:
         src_asset = db.get(Asset, job.source_asset_id)
         src_key, attempt = src_asset.storage_key, job.attempt
         layout = job.layout
+        method = job.method
         studio = studio_info(job)
         stem_keys = {ch: db.get(Asset, uuid.UUID(aid)).storage_key for ch, aid in (job.stems or {}).items()}
     workdir = os.path.join(s.job_workdir, str(job_id), f"attempt-{attempt}")
@@ -333,14 +367,18 @@ def run_job(job_id: uuid.UUID | str) -> str:
         if studio is not None:   # NAP-110: the studio mix is final, imported as it is
             out = import_render(src_path, workdir, limits, "stereo_2_0" if layout == "headphones" else layout,
                                 studio, progress, check)
-        elif layout == "headphones":
+        elif layout == "headphones" and method == "layer":
             out = convert(src_path, workdir, snapshot, limits, progress, check)
+        elif layout == "headphones":   # NAP-117: the beat from the track itself (+ the layer when chosen)
+            out = convert_variant(src_path, workdir, snapshot, limits, "stereo_2_0", None, progress, check,
+                                  add_layer=method == "shift_layer")
         else:
             stem_paths = {}
             for ch, key in stem_keys.items():
                 stem_paths[ch] = os.path.join(workdir, f"stem-{ch}.bin")
                 get_storage().get_to_file(key, stem_paths[ch])
-            out = convert_variant(src_path, workdir, snapshot, limits, layout, stem_paths, progress, check)
+            out = convert_variant(src_path, workdir, snapshot, limits, layout, stem_paths, progress, check,
+                                  add_layer=method == "shift_layer")
         return _complete(job_id, worker, out)
     except Cancelled:
         return "canceled"

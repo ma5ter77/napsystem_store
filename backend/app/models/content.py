@@ -13,6 +13,7 @@ from ..db import Base, created_at, uuid_pk
 from .system import _in
 
 APP_VERSION_STATES = ("draft", "submitted", "approved", "published", "rejected", "withdrawn", "archived")
+BEAT_METHODS = ("layer", "shift", "shift_layer")
 JOB_LAYOUTS = ("headphones", "acoustic_3_0", "surround_5_1", "surround_7_1")
 JOB_STATES = ("queued", "validating", "decoding", "rendering", "quality_check", "packaging", "completed",
               "failed", "canceled")
@@ -180,6 +181,8 @@ class ConversionJob(Base):
     # NAP-108: equipment layout and the author's own file per channel ({"FC": asset_id, ...}); headphones = 2.0 track
     layout: Mapped[str] = mapped_column(String(16), default="headphones", server_default="headphones")
     stems: Mapped[dict] = mapped_column(JSONB, default=dict, server_default=text("'{}'::jsonb"))
+    # NAP-117: shift (beat from the track itself) | shift_layer (+ carrier layer) | layer (carrier layer only, MVP)
+    method: Mapped[str] = mapped_column(String(16), default="layer", server_default="layer")
     result: Mapped[dict | None] = mapped_column(JSONB)  # asset ids, opened atomically on completion
     report: Mapped[dict | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = created_at()
@@ -188,6 +191,7 @@ class ConversionJob(Base):
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     __table_args__ = (CheckConstraint(_in("state", JOB_STATES), name="state"),
                       CheckConstraint(_in("layout", JOB_LAYOUTS), name="layout"),
+                      CheckConstraint(_in("method", BEAT_METHODS), name="method"),
                       Index("uq_job_idem", "owner_id", "idempotency_key", unique=True,
                             postgresql_where="idempotency_key IS NOT NULL"),
                       CheckConstraint("(state = 'completed') = (result IS NOT NULL)", name="result_only_completed"))

@@ -1152,6 +1152,37 @@ M.update({  # NAP-115: what plays where — chair segments and headphones
 "diagram.beat": ("бинауральный ритм", "binaural beat"),
 })
 
+M.update({  # NAP-117: the beat comes from the track itself; the carrier layer is optional; beat editor
+"dev.step_profile": ("1. Ритм", "1. Beat"),
+"dev.profile": ("Стартовый профиль", "Starting profile"),
+"beat.method": ("Как сделать ритм", "How to make the beat"),
+"beat.m_shift": ("Из самого трека (рекомендуется)", "From the track itself (recommended)"),
+"beat.m_shift_hint": ("Весь загруженный трек сдвигается по частоте: левый канал ниже, правый выше. Каждый звук трека приходит в уши с разницей ритма, отдельные тоны не добавляются.",
+  "The whole uploaded track is frequency-shifted: the left channel lower, the right higher. Every sound of the track reaches the ears with the beat difference; no separate tones are added."),
+"beat.m_shift_layer": ("Из трека и слой несущих", "From the track plus a carrier layer"),
+"beat.m_shift_layer_hint": ("Как выше, и поверх — два тихих тона с той же разницей. Ритм слышен отчётливее, но в треке появляется ровный тон.",
+  "As above, with two quiet tones of the same difference on top. The beat is more distinct, but the track gets a steady tone."),
+"beat.m_layer": ("Только слой несущих", "Carrier layer only"),
+"beat.m_layer_hint": ("Трек остаётся как есть, ритм дают два добавленных тона. Так конвертер работал раньше.",
+  "The track stays as it is; the beat comes from two added tones. This is how the converter worked before."),
+"beat.hz": ("Частота ритма, Гц", "Beat frequency, Hz"),
+"beat.hz_hint": ("Левый канал сдвигается на −{l} Гц, правый на +{r} Гц.", "The left channel shifts by −{l} Hz, the right by +{r} Hz."),
+"beat.layer": ("Уровень слоя несущих, dBFS", "Carrier layer level, dBFS"),
+"beat.layer_hint": ("От −60 до −12. Тише — незаметнее.", "From −60 to −12. Quieter is less noticeable."),
+"beat.transition": ("Плавно изменить ритм за время сеанса", "Change the beat smoothly during the session"),
+"beat.to_hz": ("Ритм в конце, Гц", "Beat at the end, Hz"),
+"beat.over": ("За сколько минут", "Over how many minutes"),
+"beat.summary": ("Ритм {hz} Гц.", "Beat {hz} Hz."),
+"beat.summary_curve": ("Ритм плавно меняется с {from} до {to} Гц за {min} мин, дальше держится.", "The beat moves smoothly from {from} to {to} Hz over {min} min, then holds."),
+"beat.summary_shift": ("Делается из самого трека.", "Made from the track itself."),
+"beat.summary_both": ("Делается из трека, поверх — слой несущих.", "Made from the track, with a carrier layer on top."),
+"beat.summary_layer": ("Делается двумя добавленными тонами, трек не сдвигается.", "Made by two added tones; the track is not shifted."),
+"beat.measured": ("Измеренный ритм", "Measured beat"),
+"beat.qa_shift": ("из самого трека", "from the track itself"),
+"beat.qa_shift_layer": ("из трека и слой несущих", "from the track plus the carrier layer"),
+"job_errors.layer_needs_level": ("Для слоя несущих нужен уровень слоя.", "The carrier layer needs a level."),
+})
+
 def nest(lang):
     out = {}
     for key, pair in M.items():

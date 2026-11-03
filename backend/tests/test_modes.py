@@ -178,3 +178,33 @@ def test_invalid_requests(tmp_path):
     with pytest.raises(MediaError) as e:
         convert_variant(str(src), str(tmp_path / "w"), ALPHA, LIM, "7.1")
     assert e.value.code == "unknown_mode"
+
+
+def test_beat_from_the_track_with_and_without_the_carrier_layer(tmp_path):
+    """NAP-117: the beat comes from the uploaded track (whole-track shift); the carrier layer is optional on top."""
+    from app.dsp.engine import magnitude_at
+    n = 12 * 48000
+    src = write_wav(tmp_path / "in.wav", np.stack([tone(1000, 12), tone(1000, 12)], 1)[:n], 48000)
+    p = ALPHA_DEMO_V1          # carriers 250 / 260 Hz, beat 10 Hz, tone -30 dBFS, source -6 dB
+    plain = convert_variant(str(src), str(tmp_path / "a"), ALPHA, LIM, "stereo_2_0")
+    both = convert_variant(str(src), str(tmp_path / "b"), ALPHA, LIM, "stereo_2_0", add_layer=True)
+    assert plain.report["beat_method"] == "shift" and plain.report["layer"] == "not_added"
+    assert both.report["beat_method"] == "shift_layer"
+    lq = both.report["layer"]
+    assert abs(lq["beat_hz"] - 10.0) <= 0.1 and abs(lq["left_hz"] - p.f_left) <= 0.05
+    x0, _ = _read(plain.master)
+    x1, _ = _read(both.master)
+    seg = slice(2 * FS, 10 * FS)
+    for x in (x0, x1):        # the track itself is shifted: 995 Hz left, 1005 Hz right
+        assert abs(measure_tone(x[seg, 0], FS, 995.0)[0] - 995.0) < 0.05
+        assert abs(measure_tone(x[seg, 1], FS, 1005.0)[0] - 1005.0) < 0.05
+    # carriers only where the layer was chosen
+    assert 20 * np.log10(magnitude_at(x0[seg, 0], FS, p.f_left) + 1e-12) < -90
+    assert 20 * np.log10(magnitude_at(x1[seg, 0], FS, p.f_left)) > -40
+    assert both.report["checks"]["clipped_samples"] == 0 and both.report["levels"]["true_peak_master_dbtp"] <= -1.0
+
+
+def _read(path):
+    from tests.test_audio_studio import read_pcm
+    x, info = read_pcm(path)
+    return x.astype(np.float64) / float(1 << 23), info
