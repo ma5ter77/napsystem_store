@@ -2,6 +2,7 @@
 
 import { Breadcrumbs, PageHead } from "@/components/nav";
 import Link from "next/link";
+import { ChannelDiagram } from "@/components/ChannelDiagram";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { useApp } from "@/components/Providers";
@@ -44,7 +45,27 @@ function Review() {
             <div><div className="hint">{t("dev.source")}</div><audio controls preload="none" src={s.source_url} style={{ width: "100%" }} /></div>
             <div><div className="hint">{t("dev.result")}</div><audio controls preload="none" src={s.delivery_url} style={{ width: "100%" }} /></div>
           </div>
-          {s.qa && <div className="hint">{typeof s.qa.layer === "object" ? `${s.qa.layer.left_hz}/${s.qa.layer.right_hz} Hz, Δ${s.qa.layer.beat_hz} · ` : ""}TP {String(s.qa.levels.true_peak_master_dbtp)} dBTP · {String(s.qa.levels.output_integrated_lufs)} LUFS · {s.params.profile.slug} v{s.params.profile.version}</div>}
+          {s.qa && <div className="hint">{typeof s.qa.layer === "object" ? `${s.qa.layer.left_hz}/${s.qa.layer.right_hz} Hz, Δ${s.qa.layer.beat_hz} · ` : ""}TP {String(s.qa.levels?.true_peak_master_dbtp)} dBTP · {String(s.qa.levels?.output_integrated_lufs)} LUFS · {s.studio
+            ? t("lay.studio_note", { project: s.studio.project_title, rev: s.studio.revision, profile: s.studio.routing_profile_name })
+            : `${s.profile?.slug ?? ""} v${s.profile?.version ?? ""}`}</div>}
+          {/* NAP-113: every version the listener can get is heard and checked here */}
+          {(s.layouts ?? []).map((l: any) => (
+            <details key={l.layout} className="panel flat" data-testid={`mod-layout-${l.layout}`}>
+              <summary><strong>{t(`layout.${l.layout}`)}</strong> <span className="hint">· {t("mod.layout_channels", { n: l.channels })} · {l.qa?.verification?.passed ? t("mod.layout_ok") : t("mod.layout_bad")}</span></summary>
+              <div className="stack" style={{ marginTop: 10 }}>
+                <audio controls preload="none" src={l.delivery_url} style={{ width: "100%" }} />
+                <p className="hint">{t("lay.listen_note", { n: l.channels })}</p>
+                <ChannelDiagram layout={l.layout} idPrefix={`mod-${s.key}-${l.layout}`}
+                  own={(l.qa?.channels ?? []).filter((c: any) => c.uploaded).map((c: any) => c.channel)} />
+                {l.studio && <p className="hint">{t("lay.studio_note", { project: l.studio.project_title, rev: l.studio.revision, profile: l.studio.routing_profile_name })}</p>}
+                {l.qa && <div className="scroll-x"><table className="channel-map">
+                  <thead><tr><th>{t("lay.channel")}</th><th>{t("lay.source")}</th><th>{t("terms.true_peak.name")}</th><th>RMS</th></tr></thead>
+                  <tbody>{l.qa.channels.map((c: any) => (
+                    <tr key={c.channel}><th scope="row"><span className="ch-code">{c.channel}</span> {t(`ch.${c.channel}`)}</th>
+                      <td>{c.source === "studio" ? t("lay.from_studio") : c.uploaded ? t("lay.own_file", { name: l.own_files?.[c.channel] ?? "" }) : t(`lay.from_main.${c.channel}`)}</td>
+                      {typeof c.true_peak_dbtp === "number" ? <><td>{c.true_peak_dbtp} dBTP</td><td>{c.rms_dbfs} dBFS</td></> : <><td>{t("studio.silent")}</td><td>—</td></>}</tr>))}</tbody></table></div>}
+              </div>
+            </details>))}
         </section>
       ))}
       <details className="panel flat"><summary>manifest ({v.manifest_sha256?.slice(0, 16)}…)</summary><pre style={{ whiteSpace: "pre-wrap", fontSize: ".8rem" }}>{JSON.stringify(data.manifest, null, 2)}</pre></details>

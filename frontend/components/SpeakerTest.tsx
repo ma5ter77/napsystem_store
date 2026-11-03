@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useApp } from "@/components/Providers";
+import { ChannelDiagram, type DiagramLayout } from "@/components/ChannelDiagram";
+
+const BY_COUNT: Record<number, DiagramLayout> = { 2: "headphones", 3: "acoustic_3_0", 6: "surround_5_1", 8: "surround_7_1" };
 
 // NAP-108/109: a short tone in each channel in turn, labelled, so the listener can check that every speaker plays
 // from where it should. Uses the browser output with exactly n discrete channels.
@@ -30,9 +33,12 @@ export function SpeakerTest({ order }: { order: string[] }) {
     ctx.close().catch(() => {});
   };
   return (
-    <div className="row" data-testid="speaker-test">
-      <button type="button" className="btn ghost small" disabled={!!now} onClick={run}>{t("player.speaker_test")}</button>
-      <span role="status" className="hint">{now ? t("player.speaker_now", { ch: t(`ch.${now}`) }) : t("player.speaker_hint")}</span>
+    <div className="stack" data-testid="speaker-test">
+      {BY_COUNT[order.length] && <ChannelDiagram layout={BY_COUNT[order.length]} active={now} idPrefix="spk" />}
+      <div className="row">
+        <button type="button" className="btn ghost small" disabled={!!now} onClick={run}>{t("player.speaker_test")}</button>
+        <span role="status" className="hint">{now ? t("player.speaker_now", { ch: t(`ch.${now}`) }) : t("player.speaker_hint")}</span>
+      </div>
     </div>
   );
 }

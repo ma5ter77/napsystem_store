@@ -1113,6 +1113,12 @@ M.update({  # NAP-109: how to listen — browsers and equipment, with a live che
   "During the session the track is saved in the browser and checked against its checksum. Once the copy is ready, the session continues without a connection. In private mode the browser may not allow saving; then playback stops without a connection when the loaded part runs out."),
 })
 
+M.update({  # NAP-113: moderators check every layout version
+"mod.layout_channels": ("каналов: {n}", "{n} channels"),
+"mod.layout_ok": ("проверка каналов пройдена", "channel check passed"),
+"mod.layout_bad": ("проверка каналов не пройдена", "channel check failed"),
+})
+
 M.update({  # NAP-111: comfortable listening — volume, soft start and stop
 "player.volume": ("Громкость", "Volume"),
 "player.volume_hint": ("Начните с тихого уровня и прибавляйте, пока звук не станет комфортным. Громкость меняется во всех каналах одинаково, поэтому разница между ними сохраняется.",
@@ -1132,6 +1138,18 @@ M.update({  # NAP-112: export for all equipment in one click
 "studio.all_started_app": ("Экспорты запущены. Когда они будут готовы, сеанс соберётся во вкладке «Аудио» приложения.", "The exports have started. When they are ready, the session is put together on the app's Audio tab."),
 "studio.will_send": ("Отправится в приложение, когда будет готов.", "Goes to the app when ready."),
 "studio.sent_auto": ("Отправлен в приложение.", "Sent to the app."),
+})
+
+M.update({  # NAP-115: what plays where — chair segments and headphones
+"diagram.label": ("Кресло NAP спереди, раскладка «{layout}»: сегменты спинки и сабвуфер — {list}.", "The NAP chair from the front, {layout}: backrest segments and subwoofer — {list}."),
+"diagram.label_hp": ("Наушники: левый и правый каналы, бинауральный ритм между ними, голос спереди.", "Headphones: left and right channels, the binaural beat between them, the voice in front."),
+"diagram.shift": ("бинауральный сдвиг: левый и правый фронт", "binaural shift: front left and right"),
+"diagram.own": ("свой файл канала", "the channel's own file"),
+"diagram.shift_hp": ("бинауральный сдвиг: левый и правый каналы", "binaural shift: left and right channels"),
+"diagram.chair_note": ("Каждый сегмент спинки — отдельная мембрана; сабвуфер — в сиденье. Схема для наглядности.", "Each backrest segment is a separate membrane; the subwoofer is in the seat. A schematic picture."),
+"diagram.hp_note": ("Ритм — разница частот левого и правого каналов; голос звучит в обоих и воспринимается спереди.", "The beat is the frequency difference between left and right; the voice plays in both and is heard in front."),
+"diagram.voice": ("голос", "voice"),
+"diagram.beat": ("бинауральный ритм", "binaural beat"),
 })
 
 def nest(lang):

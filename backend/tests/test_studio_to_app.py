@@ -73,6 +73,14 @@ def test_studio_exports_become_app_versions_and_play(tmp_path):
     ok(dev.patch(f"/developer/apps/{a['id']}/versions/{a['version_id']}", {"confirm_rights": True}))
     ok(dev.put(f"/developer/apps/{a['id']}/price", {"kind": "one_time", "amount_minor": 500, "currency": "EUR"}))
     ok(dev.post(f"/developer/apps/{a['id']}/versions/{a['version_id']}/submit"))
+    # NAP-113: the moderator sees, hears and checks the chair version too; the studio origin is named
+    mv = ok(mod.get(f"/moderation/versions/{a['version_id']}"))
+    s1 = mv["sessions"][0]
+    assert s1["studio"]["project_title"] == "Chair focus" and s1["profile"]["slug"] == "studio"
+    assert [x["layout"] for x in s1["layouts"]] == ["surround_5_1"]
+    lay = s1["layouts"][0]
+    assert lay["channels"] == 6 and lay["qa"]["verification"]["passed"] and lay["studio"]["routing_profile"] == "NAP_CHAIR_5_1"
+    assert mod.raw().get(lay["delivery_url"]).content[:4] == b"fLaC"
     assert ok(mod.post(f"/moderation/versions/{a['version_id']}/decision", {"decision": "approve", "comment": ""}))["state"] == "published"
     buyer = Client().register()
     mock_pay(buyer, ok(buyer.post("/checkout/digital", {"app_id": a["id"], "kind": "one_time"}), 201)["checkout_url"])

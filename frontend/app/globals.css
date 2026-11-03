@@ -546,3 +546,31 @@ main .crumbs a:hover { text-decoration: underline; }
 
 /* NAP-111: volume under the time */
 .player-volume input[type="range"] { flex: 1 1 200px; max-width: 360px; accent-color: var(--action); }
+
+/* NAP-115: channel diagram — the NAP chair from the front with membrane segments in the backrest, or headphones
+   with the voice in front. FL/FR wear the carrier colours (the binaural pair); the active channel takes the action ring. */
+.channel-diagram { margin: 0; display: grid; gap: 6px; max-width: 320px; }
+.channel-diagram svg { width: 100%; height: auto; display: block; }
+.cd-chair rect { fill: var(--fog); stroke: var(--line); stroke-width: 1.5; }
+.cd-seg rect { fill: var(--paper); stroke: var(--muted); stroke-width: 1.5; transition: fill .15s, stroke .15s; }
+.cd-seg .cd-cone { fill: none; stroke: var(--line); stroke-width: 1.5; }
+.cd-seg text, .cd-voice text, .cd-beat-label { font: 700 11px var(--text); fill: var(--slate); pointer-events: none; }
+.cd-seg.cd-left rect { fill: var(--tint-left); stroke: var(--left); }
+.cd-seg.cd-left .cd-cone { stroke: var(--left); }
+.cd-seg.cd-right rect { fill: var(--tint-right); stroke: var(--right); }
+.cd-seg.cd-right .cd-cone { stroke: var(--right); }
+.cd-seg.is-active rect { stroke: var(--action); stroke-width: 3; }
+.cd-own { fill: var(--ok); stroke: var(--paper); stroke-width: 1.5; }
+.cd-head ellipse { fill: var(--paper); stroke: var(--muted); stroke-width: 1.5; }
+.cd-band { fill: none; stroke: var(--muted); stroke-width: 5; stroke-linecap: round; }
+.cd-voice path { fill: var(--fog); stroke: var(--muted); stroke-width: 1.5; }
+.cd-beat { fill: none; stroke: var(--left); stroke-width: 2; stroke-dasharray: 3 3; }
+.cd-beat-label { font-weight: 500; fill: var(--muted); }
+.cd-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .8rem; color: var(--muted); align-items: center; }
+.cd-key { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.cd-key.cd-left { background: linear-gradient(90deg, var(--left) 50%, var(--right) 50%); }
+.cd-key.cd-ownkey { background: var(--ok); border-radius: 50%; }
+.layout-split { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 760px) { .layout-split { grid-template-columns: 1fr; } .channel-diagram { max-width: 280px; } }
+.channel-map tr.is-active { background: var(--tint-action); }
+@media (prefers-reduced-motion: reduce) { .cd-seg rect { transition: none; } }

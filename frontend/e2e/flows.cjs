@@ -150,9 +150,14 @@ async function run(L) {
     await d.getByLabel(t("dev.auto_convert")).uncheck();
     await d.getByLabel(t("dev.upload"), { exact: true }).setInputFiles(voice);
     const lb = d.getByTestId("layout-builder");
-    await lb.getByLabel(t("layout.surround_5_1")).check();
+    await lb.getByRole("radio", { name: t("layout.surround_5_1") }).check();
     // every channel of the layout is its own track
     if (await lb.locator("tbody tr").count() !== 6) throw new Error("5.1 must show 6 channel tracks");
+    // NAP-115: the chair diagram shows the six speakers; a speaker click leads to its row
+    const dia = lb.getByTestId("diagram-surround_5_1");
+    if (await dia.locator(".cd-seg").count() !== 6) throw new Error("diagram must show 5 backrest segments + subwoofer");
+    await dia.locator('.cd-seg[data-ch="FC"]').click();
+    if (!(await lb.locator("#own-FC").evaluate((el) => el === document.activeElement))) throw new Error("speaker click did not lead to the FC row");
     await lb.locator("#own-FC option", { hasText: "voice.wav" }).waitFor({ state: "attached", timeout: 60000 });
     await lb.getByLabel(t("lay.main")).selectOption({ label: "e2e.wav" });
     await lb.getByLabel(t("lay.source_for", { ch: t("ch.FC") })).selectOption({ label: t("lay.own_file", { name: "voice.wav" }) });
@@ -215,6 +220,11 @@ async function run(L) {
     await m.p.goto(`${BASE}/${L}/moderation`);
     await m.p.getByText(t("mod.goes_live_on_approve")).first().waitFor();
     await m.p.getByText(slug).click();
+    // NAP-113: the chair 5.1 version is on the card, with its own file in the centre and a passed channel check
+    const l51 = m.p.getByTestId("mod-layout-surround_5_1");
+    await l51.locator("summary").click();
+    await l51.getByText(t("lay.own_file", { name: "voice.wav" })).waitFor();
+    await l51.getByText(t("mod.layout_ok")).waitFor();
     await m.p.getByLabel(t("mod.comment")).fill("OK e2e");
     await m.p.getByRole("button", { name: t("mod.approve") }).click();
     await m.p.getByText(t("mod.done_published")).waitFor();
@@ -525,6 +535,14 @@ async function run(L) {
     await m.p.waitForURL(/moderation\/catalog\/products\//);
     await m.p.getByRole("tab", { name: t("sp.tab_photos") }).click();
     await m.p.getByText(t("ph.need_reason")).waitFor();
+    // a reused stand can already hold the maximum of 8 photos (then there is no upload field): free one first
+    if (await m.p.locator("[data-testid=photo-list] li").count() >= 8) {
+      await m.p.locator("#mod-edit-reason").fill("E2E: место для фото");
+      const n8 = await m.p.locator("[data-testid=photo-list] li").count();
+      await m.p.locator("[data-testid=photo-list] li").last().getByRole("button", { name: t("ph.delete") }).click();
+      await m.p.waitForFunction((n) => document.querySelectorAll("[data-testid=photo-list] li").length < n, n8);
+      await m.p.locator("#mod-edit-reason").fill("");
+    }
     const before = await m.p.locator("[data-testid=photo-list] li").count();
     await m.p.locator("input[type=file][accept^='image']").setInputFiles(png());
     await m.p.getByText(t("ph.held", { name: "cover.png" })).waitFor();
