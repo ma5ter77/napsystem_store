@@ -47,7 +47,7 @@ async function step(name, fn) {
   const t0 = Date.now();
   try { await fn(); console.log(`  ok   ${name} (${Date.now() - t0} ms)`); }
   catch (e) {
-    console.log(`  FAIL ${name}: ${e.message.split("\n")[0]}`);
+    console.log(`  FAIL ${name}: ${e.message.split("\n").slice(0, 4).join(" | ")}`);
     if (CUR) await CUR.screenshot({ path: `${out}/fail-${name.replace(/\W+/g, "_")}.png`, fullPage: true }).catch(() => {});
     throw e;
   }
@@ -100,7 +100,12 @@ async function run(L) {
     await d.goto(`${BASE}/${L}/developer`);  // the next step starts in the developer dashboard
   });
   await step("create app", async () => {
-    await d.getByRole("button", { name: t("dev.new_app") }).first().click();
+    // NAP-093: a new author sees the path from file to store and starts from it
+    const first = d.getByTestId("first-steps");
+    await first.waitFor();
+    if (await first.locator("li").count() !== 5) throw new Error("first steps: expected 5 steps");
+    await first.getByRole("button", { name: t("first.start") }).click();
+    await first.waitFor({ state: "hidden" });
     const slugInput = d.getByLabel(t("dev.slug"));
     await d.getByLabel(t("dev.author")).fill("E2E Studio");
     await d.getByLabel(t("dev.title_ru")).fill("Тестовая медитация");
@@ -128,6 +133,15 @@ async function run(L) {
     await d.getByText(t("dev.uploaded"), { exact: true }).first().waitFor({ timeout: 60000 });
     await d.locator(".badge", { hasText: t("job_state.completed") }).first().waitFor({ timeout: 120000 });
     await d.getByText(t("qa.carriers")).waitFor({ timeout: 15000 });
+    // NAP-093: terms in the QA report explain themselves; keyboard opens, Esc closes and returns focus
+    const what = d.getByRole("button", { name: t("terms.what_is", { term: t("terms.lufs.name") }) }).first();
+    await what.focus();
+    await d.keyboard.press("Enter");
+    await d.getByTestId("term-lufs").first().waitFor();
+    if ((await what.getAttribute("aria-expanded")) !== "true") throw new Error("term button is not expanded");
+    await d.keyboard.press("Escape");
+    await d.getByTestId("term-lufs").first().waitFor({ state: "detached" });
+    if (!(await what.evaluate((el) => el === document.activeElement))) throw new Error("focus did not return to the term button");
     await d.screenshot({ path: `${out}/${L}-converter.png`, fullPage: true });
   });
   await step("details, program, price, submit", async () => {

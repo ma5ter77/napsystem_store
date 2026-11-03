@@ -3,6 +3,7 @@
 import { Breadcrumbs, PageHead } from "@/components/nav";
 import { StatusTimeline } from "@/components/StatusTimeline";
 import { refundSteps } from "@/lib/steps";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { useApp } from "@/components/Providers";
@@ -91,11 +92,11 @@ function Subs() {
 }
 
 function Devices() {
-  const { t } = useApp();
+  const { t, locale } = useApp();
   const { data, error, loading, reload } = useLoad<any>("/devices");
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} onRetry={reload} />;
-  if (!data.items.length) return <Empty>{t("account.no_devices")}</Empty>;
+  if (!data.items.length) return <Empty action={<Link className="btn ghost" href={`/${locale}/library`}>{t("account.to_library")}</Link>}>{t("account.no_devices")}</Empty>;
   return <div className="stack">{data.items.map((d: any) => (
     <div key={d.id} className="panel flat"><strong>{d.name}</strong> {d.simulated && <span className="badge warn">{t("player.simulator")}</span>}
       <div className="hint">{t("account.caps")}: {(d.capabilities.provides ?? []).map((c: string) => t(`caps.${c}`)).join(", ") || "—"} · API {d.capabilities.api_version} · {t(`separation.${d.capabilities.channel_separation}`)}</div></div>))}</div>;
@@ -106,7 +107,7 @@ function History() {
   const { data, error, loading, reload } = useLoad<any>("/me/sessions");
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} onRetry={reload} />;
-  if (!data.items.length) return <Empty>{t("account.no_history")}</Empty>;
+  if (!data.items.length) return <Empty action={<Link className="btn" href={`/${locale}/library`}>{t("account.to_library")}</Link>}>{t("account.no_history")}</Empty>;
   return <div className="stack">{data.items.map((s: any) => (
     <div key={s.id} className="panel flat stack">
       <div className="spread"><strong>{s.app.slug} — {s.program_session.title}</strong><StatusBadge ns="session_state" value={s.state} /></div>

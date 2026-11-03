@@ -49,6 +49,19 @@ function NewApp({ onCreated }: { onCreated: (id: string) => void }) {
   );
 }
 
+// NAP-093: an author with no apps sees the whole path once, in order, with the first action at hand
+function FirstSteps({ onStart }: { onStart: () => void }) {
+  const { t } = useApp();
+  return (
+    <section className="panel stack first-steps" aria-labelledby="first-steps-h" data-testid="first-steps">
+      <h2 id="first-steps-h">{t("first.title")}</h2>
+      <p className="hint">{t("first.lead")}</p>
+      <ol>{["create", "audio", "qa", "program", "submit"].map((k) => <li key={k}>{t(`first.${k}`)}</li>)}</ol>
+      <div><button type="button" className="btn" onClick={onStart}>{t("first.start")}</button></div>
+    </section>
+  );
+}
+
 function Apps() {
   const { t, locale } = useApp();
   const router = useRouter();
@@ -60,7 +73,7 @@ function Apps() {
     <div className="stack">
       <div className="spread"><h2>{t("dev.my_apps")}</h2><button className="btn" onClick={() => setShowNew(!showNew)}>{t("dev.new_app")}</button></div>
       {showNew && <NewApp onCreated={(id) => router.push(`/${locale}/developer/apps/${id}`)} />}
-      {!data.items.length ? <Empty>{t("dev.no_apps")}</Empty> : (
+      {!data.items.length ? (!showNew && <FirstSteps onStart={() => setShowNew(true)} />) : (
         <div className="grid">
           {((tones) => data.items.map((a: any, i: number) => (
             <Link key={a.id} className="card" href={`/${locale}/developer/apps/${a.id}`}>
@@ -135,12 +148,12 @@ function Finance() {
 }
 
 function Analytics() {
-  const { t } = useApp();
+  const { t, locale } = useApp();
   const { data, error, loading } = useLoad<any>("/developer/analytics");
   const [app, setApp] = useState<string>("");
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} />;
-  if (!data.items.length) return <Empty>{t("dev.no_apps")}</Empty>;
+  if (!data.items.length) return <Empty action={<Link className="btn" href={`/${locale}/developer?tab=apps`}>{t("dev.go_apps")}</Link>}>{t("dev.no_apps")}</Empty>;
   const cur = data.items.find((a: any) => a.app_id === app) ?? data.items[0];
   return <div className="stack">
     <label className="field">{t("an.choose_app")}
