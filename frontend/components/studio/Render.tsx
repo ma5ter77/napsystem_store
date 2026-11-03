@@ -2,6 +2,7 @@
 
 // Export (spec §2.6–2.7): pick a routing profile, render on the server, watch progress, read the verification
 // report and download the exact file that was verified.
+import { Term } from "@/components/Term";
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "@/components/Providers";
 import { ErrorBox, StatusBadge, useAction } from "@/components/ui";
@@ -118,7 +119,7 @@ function Job({ j, locale, onChange }: { j: any; locale: "ru" | "en"; onChange: (
           {a.report?.hard_clipped_samples > 0 && <><dt>{t("studio.clipped")}</dt><dd>{a.report.hard_clipped_samples}</dd></>}
         </dl>
         <table className="studio-meter">
-          <thead><tr><th>{t("studio.ch")}</th><th>{t("studio.peak")}</th><th>{t("studio.true_peak")}</th><th>RMS</th></tr></thead>
+          <thead><tr><th>{t("studio.ch")}</th><th>{t("studio.peak")}</th><th>{t("studio.true_peak")}<Term k="true_peak" /></th><th>RMS</th></tr></thead>
           <tbody>{a.report?.channels?.map((c: any) => (
             <tr key={c.channel}><td>{c.channel}</td><td>{c.silent ? t("studio.silent") : `${c.sample_peak_dbfs} dBFS`}</td>
               <td>{typeof c.true_peak_dbtp === "number" ? `${c.true_peak_dbtp} dBTP` : c.silent ? "—" : t("studio.tp_not_measured")}</td><td>{c.silent ? "—" : `${c.rms_dbfs} dBFS`}</td></tr>

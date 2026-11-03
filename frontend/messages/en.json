@@ -165,7 +165,7 @@
   "my_apps": "My apps",
   "no_apps": "No apps yet. Create your first draft.",
   "split_note": "Platform {pct}%, you get the rest; the platform share is rounded half-up. Hold period: {days} days. Payment processor fees are a platform expense.",
-  "no_sales": "No sales yet.",
+  "no_sales": "No sales yet. They appear here after the first payment for a published app.",
   "frozen": "This version was submitted and is frozen. Create a new version to make changes.",
   "f_title": "Title",
   "f_subtitle": "Subtitle",
@@ -253,7 +253,8 @@
   "cover_saved": "Cover saved.",
   "cover_removed": "The generated cover will be used.",
   "price_currencies": "You can price in several currencies: buyers see and pay in theirs, or in the one you set if theirs is missing.",
-  "lead": "Your apps, reviews, revenue and analytics. Start a new app with “New app”; build session audio in the Audio Studio."
+  "lead": "Your apps, reviews, revenue and analytics. Start a new app with “New app”; build session audio in the Audio Studio.",
+  "go_apps": "Go to apps"
  },
  "mod": {
   "done_approve": "Version approved.",
@@ -673,9 +674,9 @@
   "cancel_autorenew": "Turn off auto-renewal",
   "sim_renew": "Simulate renewal",
   "sim_fail": "Simulate failed renewal",
-  "no_devices": "No devices.",
+  "no_devices": "No devices yet. A device is added in the player before the first session.",
   "caps": "Capabilities",
-  "no_history": "No sessions yet.",
+  "no_history": "No sessions yet. Open an app from your library and start a session.",
   "q_pre": "pre-questionnaire",
   "q_post": "post",
   "synthetic": "synthetic simulator data",
@@ -687,7 +688,8 @@
   "no_notifications": "No notifications.",
   "tab_addresses": "Addresses",
   "no_addresses": "No saved addresses yet. An address is saved when you enter it for a hardware order.",
-  "lead": "Purchases, subscriptions, devices, notifications and your data. Refund requests start here too."
+  "lead": "Purchases, subscriptions, devices, notifications and your data. Refund requests start here too.",
+  "to_library": "Open library"
  },
  "fin": {
   "sales": "One-time sales",
@@ -1785,5 +1787,51 @@
   "completed": "completed",
   "failed": "failed",
   "canceled": "canceled"
+ },
+ "terms": {
+  "what_is": "What is “{term}”?",
+  "close": "Close explanation",
+  "carrier": {
+   "name": "Carrier",
+   "text": "The generator’s main tone, the one you hear in the headphones. For a binaural beat the left and right channels get two carriers with a small difference in frequency."
+  },
+  "beat": {
+   "name": "Binaural beat",
+   "text": "The difference between the left and right carrier frequencies: for example, 205 and 195 Hz give a 10 Hz beat. The file contains no sound at the beat frequency; the brain perceives it, so it has to be heard on headphones."
+  },
+  "separation": {
+   "name": "Opposite carrier suppression",
+   "text": "How much weaker the other channel’s carrier is than the channel’s own: the left carrier in the right channel and vice versa. More dB means cleaner separation; for a binaural beat each ear should hear only its own carrier."
+  },
+  "lufs": {
+   "name": "LUFS",
+   "text": "A unit of perceived loudness (ITU-R BS.1770, EBU R128). Integrated loudness is the average over the whole track: −16 LUFS is louder than −23 LUFS. The converter measures it before and after; loudness changes only if the level had to be lowered because of a peak."
+  },
+  "true_peak": {
+   "name": "True peak",
+   "text": "The signal’s peak level (in dBTP), including the values between samples that appear on playback. Above 0 dBTP some devices distort the sound, so the peak is kept below the ceiling."
+  },
+  "gain": {
+   "name": "Common gain",
+   "text": "How many dB the converter changed the level of the whole track so the peak stays under the ceiling. 0 dB means the level was not changed. All channels change by the same amount, so the balance and the beat are kept."
+  },
+  "dbfs": {
+   "name": "dBFS",
+   "text": "Level relative to the digital maximum: 0 dBFS is the loudest possible sample, −20 dBFS is ten times smaller in amplitude."
+  },
+  "ramp": {
+   "name": "Ramp",
+   "text": "How long the generator takes to rise smoothly from silence to the set level at the start of the clip and to fade the same way at the end, without clicks."
+  }
+ },
+ "first": {
+  "title": "Where to start",
+  "lead": "The way from an audio file to an app in the store. Every step can be saved and picked up later.",
+  "create": "Create a draft: address, author, category and title.",
+  "audio": "On the Audio tab pick a profile and upload a file. The conversion starts by itself.",
+  "qa": "Check the quality report: listen to the result, look at the carriers, loudness and true peak.",
+  "program": "On the Program tab build sessions from the finished tracks.",
+  "submit": "Confirm the rights, set a price and send the version to moderation. Once approved, you publish it yourself or automatically.",
+  "start": "Create the first draft"
  }
 }

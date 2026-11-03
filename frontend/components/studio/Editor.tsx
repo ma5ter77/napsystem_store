@@ -2,6 +2,7 @@
 
 // NAP Audio Studio editor (spec v2.1 M1): bus tracks, clips with waveforms, generators, inspector, zoom/snap,
 // undo/redo, autosave with optimistic revisions, server preview (same render as export) and verified exports.
+import { Term, type TermKey } from "@/components/Term";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/components/Providers";
 import { ErrorBox } from "@/components/ui";
@@ -101,7 +102,8 @@ export function Editor({ project, profiles, onReload }: { project: Project; prof
       else if (mod && e.key.toLowerCase() === "y") { e.preventDefault(); setHist(redo); }
       else if ((e.key === "Delete" || e.key === "Backspace") && sel.clip) { e.preventDefault(); commit(removeClip(state, sel.clip)); setSel({ track: sel.track }); }
       else if (e.key.toLowerCase() === "s" && !mod && sel.clip) { e.preventDefault(); commit(splitClip(state, sel.clip, playhead)); }
-      else if (e.key === " ") { e.preventDefault(); preview.playing ? preview.stop() : preview.play(playhead, total, setPlayhead); }
+      // Space on a focused button or link presses it; elsewhere it starts and stops the preview
+      else if (e.key === " " && !(e.target as HTMLElement | null)?.closest?.("button, a, [role=button], summary")) { e.preventDefault(); preview.playing ? preview.stop() : preview.play(playhead, total, setPlayhead); }
       else if (e.key === "+" || e.key === "=") setZoom((z) => Math.min(MAX_ZOOM, z * 1.5));
       else if (e.key === "-") setZoom((z) => Math.max(MIN_ZOOM, z / 1.5));
     };
@@ -296,8 +298,9 @@ function SaveState({ s, revision, t }: { s: Save; revision: number; t: (k: strin
 
 // ------------------------------------------------------------------------------------------- inspector
 
-function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: React.ReactNode }) {
-  return <label className="field">{label}{children}{hint && <span className="hint">{hint}</span>}</label>;
+// the term button sits after the input: the input stays the label's control (first labelable element)
+function Field({ label, children, hint, term }: { label: string; children: React.ReactNode; hint?: React.ReactNode; term?: TermKey }) {
+  return <label className="field">{label}{children}{(hint || term) && <span className="hint">{hint}{term && <Term k={term} />}</span>}</label>;
 }
 
 function NumberInput({ value, onCommit, step = "any", min, max, suffix }: { value: number; onCommit: (v: number) => void; step?: string;
@@ -363,16 +366,16 @@ function Inspector({ state, sel, fs, assets, commit, onDelete, playhead }: { sta
 function GeneratorFields({ gen, fs, onChange }: { gen: State["generators"][number]; fs: number; onChange: (p: Record<string, any>) => void }) {
   const { t } = useApp();
   const p = gen.params;
-  const num = (k: string, label: string, suffix: string, hint?: string) => (
-    <Field key={k} label={label} hint={hint}><NumberInput value={p[k]} suffix={suffix} onCommit={(v) => onChange({ [k]: v })} /></Field>
+  const num = (k: string, label: string, suffix: string, hint?: string, term?: TermKey) => (
+    <Field key={k} label={label} hint={hint} term={term}><NumberInput value={p[k]} suffix={suffix} onCommit={(v) => onChange({ [k]: v })} /></Field>
   );
   return (
     <div className="form">
-      {num("carrier_hz", t("studio.carrier"), "Hz")}
-      {gen.type === "binaural" ? num("delta_hz", t("studio.delta"), "Hz", t("studio.delta_hint", { l: +(p.carrier_hz - p.delta_hz / 2).toFixed(3), r: +(p.carrier_hz + p.delta_hz / 2).toFixed(3) }))
+      {num("carrier_hz", t("studio.carrier"), "Hz", undefined, "carrier")}
+      {gen.type === "binaural" ? num("delta_hz", t("studio.delta"), "Hz", t("studio.delta_hint", { l: +(p.carrier_hz - p.delta_hz / 2).toFixed(3), r: +(p.carrier_hz + p.delta_hz / 2).toFixed(3) }), "beat")
         : <>{num("rate_hz", t("studio.rate"), "Hz")}{num("duty", t("studio.duty"), "")}{num("edge_ms", t("studio.edge"), "ms")}</>}
-      {num("amplitude_dbfs", t("studio.amplitude"), "dBFS", t("studio.amplitude_hint"))}
-      <Field label={t("studio.ramp")} hint={t("studio.frames_n", { n: p.ramp_frames ?? 0 })}>
+      {num("amplitude_dbfs", t("studio.amplitude"), "dBFS", t("studio.amplitude_hint"), "dbfs")}
+      <Field label={t("studio.ramp")} hint={t("studio.frames_n", { n: p.ramp_frames ?? 0 })} term="ramp">
         <NumberInput value={+((p.ramp_frames ?? 0) / fs).toFixed(6)} suffix="s" onCommit={(v) => onChange({ ramp_frames: Math.max(0, Math.round(v * fs)) })} /></Field>
       {gen.type === "binaural" && <Automation gen={gen} fs={fs} onChange={onChange} field="delta_automation" />}
       {gen.type === "binaural" && <Automation gen={gen} fs={fs} onChange={onChange} field="carrier_automation" />}

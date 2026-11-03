@@ -8,6 +8,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useEffect, useRef, useState } from "react";
 import { useApp } from "@/components/Providers";
 import { AppCover } from "@/components/Art";
+import { Term } from "@/components/Term";
 import { ErrorBox, errorFields, Loading, Price, RequireAuth, StatusBadge, useAction, useLoad } from "@/components/ui";
 import { api, sha256File, uid, uploadWithProgress } from "@/lib/api";
 import { date, duration } from "@/lib/i18n";
@@ -148,12 +149,12 @@ function JobCard({ job, onChange }: { job: any; onChange: () => void }) {
             <div><div className="hint">{t("dev.result")}</div><audio controls preload="none" src={detail.urls.delivery} style={{ width: "100%" }} /></div>
           </div>
           <dl className="kv">
-            <dt>{t("qa.carriers")}</dt><dd>{typeof qa.layer === "object" ? `${qa.layer.left_hz} / ${qa.layer.right_hz} Hz, Δ ${qa.layer.beat_hz} Hz` : t(`qa.${qa.layer}`)}</dd>
+            <dt>{t("qa.carriers")}<Term k="carrier" /></dt><dd>{typeof qa.layer === "object" ? <>{qa.layer.left_hz} / {qa.layer.right_hz} Hz, Δ {qa.layer.beat_hz} Hz<Term k="beat" /></> : t(`qa.${qa.layer}`)}</dd>
             {typeof qa.layer === "object" && qa.layer.curve && <><dt>{t("qa.curve")}</dt><dd>{t("qa.curve_value", { points: qa.layer.curve.points.length, err: String(qa.layer.curve.max_error_hz ?? "—") })}</dd></>}
-            {typeof qa.layer === "object" && <><dt>{t("qa.separation")}</dt><dd>{String(qa.layer.opposite_suppression_db.left)} / {String(qa.layer.opposite_suppression_db.right)} dB</dd></>}
-            <dt>{t("qa.lufs")}</dt><dd>{String(qa.levels.source_integrated_lufs)} → {String(qa.levels.output_integrated_lufs)} LUFS</dd>
-            <dt>{t("qa.tp")}</dt><dd>{String(qa.levels.true_peak_master_dbtp)} dBTP ({t("qa.ceiling", { c: qa.levels.true_peak_ceiling_dbtp, tol: qa.levels.true_peak_tolerance_db })})</dd>
-            <dt>{t("qa.gain")}</dt><dd>{qa.levels.common_gain_db} dB</dd>
+            {typeof qa.layer === "object" && <><dt>{t("qa.separation")}<Term k="separation" /></dt><dd>{String(qa.layer.opposite_suppression_db.left)} / {String(qa.layer.opposite_suppression_db.right)} dB</dd></>}
+            <dt>{t("qa.lufs")}<Term k="lufs" /></dt><dd>{String(qa.levels.source_integrated_lufs)} → {String(qa.levels.output_integrated_lufs)} LUFS</dd>
+            <dt>{t("qa.tp")}<Term k="true_peak" /></dt><dd>{String(qa.levels.true_peak_master_dbtp)} dBTP ({t("qa.ceiling", { c: qa.levels.true_peak_ceiling_dbtp, tol: qa.levels.true_peak_tolerance_db })})</dd>
+            <dt>{t("qa.gain")}<Term k="gain" /></dt><dd>{qa.levels.common_gain_db} dB</dd>
             <dt>{t("qa.duration")}</dt><dd>{duration(detail.params.output.duration_seconds, locale)} · {detail.params.output.frames} frames · 48 kHz / 24 bit</dd>
           </dl>
           <details><summary>{t("dev.advanced")}</summary>
