@@ -117,6 +117,35 @@ function CoverPicker({ app, v, reload, done }: { app: any; v: any; reload: () =>
   );
 }
 
+function LayoutQa({ job, detail }: { job: any; detail: any }) {
+  const { t, locale } = useApp();
+  const qa = detail.report;
+  const stems = detail.stems ?? {};
+  return (
+    <div className="stack" data-testid="layout-qa">
+      <div><div className="hint">{t("dev.result")}</div><audio controls preload="none" src={detail.urls.delivery} style={{ width: "100%" }} /></div>
+      <p className="hint">{t("lay.listen_note", { n: detail.channels?.length ?? 0 })}</p>
+      <div className="scroll-x"><table className="channel-map">
+        <thead><tr><th>{t("lay.channel")}</th><th>{t("lay.source")}</th><th>{t("terms.true_peak.name")}<Term k="true_peak" /></th><th>RMS<Term k="dbfs" /></th></tr></thead>
+        <tbody>{qa.channels.map((c: any) => (
+          <tr key={c.channel}><th scope="row"><span className="ch-code">{c.channel}</span> {t(`ch.${c.channel}`)}</th>
+            <td>{c.uploaded ? t("lay.own_file", { name: stems[c.channel]?.name ?? "" }) : t(`lay.from_main.${c.channel}`)}</td>
+            <td>{String(c.true_peak_dbtp)} dBTP</td><td>{String(c.rms_dbfs)} dBFS</td></tr>))}</tbody></table></div>
+      <dl className="kv">
+        <dt>{t("lay.loudness")}<Term k="lufs" /></dt><dd>{String(qa.levels.output_integrated_lufs)} LUFS</dd>
+        <dt>{t("qa.tp")}<Term k="true_peak" /></dt><dd>{String(qa.levels.true_peak_master_dbtp)} dBTP ({t("qa.ceiling", { c: qa.levels.true_peak_ceiling_dbtp, tol: qa.levels.true_peak_tolerance_db })})</dd>
+        <dt>{t("lay.gain")}<Term k="gain" /></dt><dd>{qa.levels.common_gain_db} dB</dd>
+        <dt>{t("lay.check")}</dt><dd>{qa.verification?.passed ? t("lay.check_ok") : t("lay.check_bad")}</dd>
+        <dt>{t("qa.duration")}</dt><dd>{duration(detail.params.output.duration_seconds, locale)} · {detail.params.output.channels} ch · 48 kHz / 24 bit</dd>
+      </dl>
+      <details><summary>{t("dev.advanced")}</summary>
+        <div className="row"><a href={detail.urls.master}>{t("dev.dl_master")}</a><a href={detail.urls.qa_report}>{t("dev.dl_report")}</a><a href={detail.urls.params}>{t("dev.dl_params")}</a></div>
+      </details>
+      <p className="hint">{t("qa.disclaimer")}</p>
+    </div>
+  );
+}
+
 function JobCard({ job, onChange }: { job: any; onChange: () => void }) {
   const { t, locale } = useApp();
   const [detail, setDetail] = useState<any>(null);
@@ -131,7 +160,7 @@ function JobCard({ job, onChange }: { job: any; onChange: () => void }) {
   return (
     <div className="panel flat stack">
       <div className="spread">
-        <div><strong>{job.source.name}</strong> <span className="hint">· {job.profile.slug} v{job.profile.version} · {date(job.created_at, locale, true)}</span></div>
+        <div><strong>{job.source.name}</strong> <span className="badge gray">{t(`layout.${job.layout ?? "headphones"}`)}</span> <span className="hint">· {job.profile.slug} v{job.profile.version} · {date(job.created_at, locale, true)}</span></div>
         <StatusBadge ns="job_state" value={job.state} />
       </div>
       <StatusTimeline value={conversionSteps(job)} ns="conversion" label={t("steps.conversion_progress")} />
@@ -142,7 +171,8 @@ function JobCard({ job, onChange }: { job: any; onChange: () => void }) {
       </>}
       {job.state === "failed" && <div className="notice bad">{t(`job_errors.${job.error_code}`)}</div>}
       {["failed", "canceled"].includes(job.state) && <div><button className="btn ghost small" onClick={async () => { if (await act.run(() => api(`/developer/conversions/${job.id}/retry`, { method: "POST" }))) onChange(); }}>{t("dev.retry")}</button></div>}
-      {job.state === "completed" && detail?.urls && (
+      {job.state === "completed" && detail?.urls && job.layout && job.layout !== "headphones" && <LayoutQa job={job} detail={detail} />}
+      {job.state === "completed" && detail?.urls && (!job.layout || job.layout === "headphones") && (
         <div className="stack">
           <div className="lr">
             <div><div className="hint">{t("dev.source")}</div><audio controls preload="none" src={detail.urls.source} style={{ width: "100%" }} /></div>
@@ -171,6 +201,57 @@ function JobCard({ job, onChange }: { job: any; onChange: () => void }) {
       )}
       <ErrorBox error={act.error} />
     </div>
+  );
+}
+
+// NAP-108: versions for speakers 3.0 and the NAP chair 5.1 / 7.1. Every channel takes the author's own file or is
+// derived from the main file; the binaural shift stays in the front pair.
+const SPEAKER_LAYOUTS = { acoustic_3_0: ["FL", "FR", "FC"], surround_5_1: ["FL", "FR", "FC", "LFE", "SL", "SR"],
+  surround_7_1: ["FL", "FR", "FC", "LFE", "BL", "BR", "SL", "SR"] } as const;
+type SpeakerLayout = keyof typeof SPEAKER_LAYOUTS;
+
+function LayoutBuilder({ app, assets, profile, preferMain, onCreated }: { app: any; assets: any[]; profile: string; preferMain?: string; onCreated: () => void }) {
+  const { t } = useApp();
+  const ready = assets.filter((a: any) => a.status === "uploaded");
+  const [layout, setLayout] = useState<SpeakerLayout>("surround_5_1");
+  const [main, setMain] = useState("");
+  const [own, setOwn] = useState<Record<string, string>>({});
+  const act = useAction();
+  // by default the file the headphones track was made from, so both versions match in length
+  const mainId = main || (ready.some((a: any) => a.id === preferMain) ? preferMain! : ready[ready.length - 1]?.id) || "";
+  const chans = SPEAKER_LAYOUTS[layout];
+  const build = async () => {
+    const stems = Object.fromEntries(chans.filter((c) => own[c]).map((c) => [c, own[c]]));
+    if (await act.run(() => api("/developer/conversions", { body: { app_id: app.id, source_asset_id: mainId, profile_id: profile, layout, stems },
+      headers: { "Idempotency-Key": uid() } }))) { setOwn({}); onCreated(); }
+  };
+  return (
+    <section className="panel stack" aria-labelledby="layouts-h" data-testid="layout-builder">
+      <h2 id="layouts-h">{t("lay.title")}</h2>
+      <p className="hint">{t("lay.lead")}</p>
+      {!ready.length ? <p className="muted">{t("lay.need_file")}</p> : <>
+        <fieldset className="row" style={{ border: 0, padding: 0, margin: 0 }}>
+          <legend className="sr-only">{t("lay.layout")}</legend>
+          {(Object.keys(SPEAKER_LAYOUTS) as SpeakerLayout[]).map((l) => (
+            <label key={l} className="check"><input type="radio" name="layout" checked={layout === l} onChange={() => setLayout(l)} /> {t(`layout.${l}`)}</label>))}
+        </fieldset>
+        <label className="field">{t("lay.main")}
+          <select value={mainId} onChange={(e) => setMain(e.target.value)}>{ready.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
+          <span className="hint">{t("lay.main_hint")}</span></label>
+        <div className="scroll-x"><table className="channel-map">
+          <thead><tr><th>{t("lay.channel")}</th><th>{t("lay.source")}</th></tr></thead>
+          <tbody>{chans.map((c) => (
+            <tr key={c}><th scope="row"><span className="ch-code">{c}</span> {t(`ch.${c}`)}</th>
+              <td><label className="sr-only" htmlFor={`own-${c}`}>{t("lay.source_for", { ch: t(`ch.${c}`) })}</label>
+                <select id={`own-${c}`} value={own[c] ?? ""} onChange={(e) => setOwn({ ...own, [c]: e.target.value })}>
+                  <option value="">{t(`lay.from_main.${c}`)}</option>
+                  {ready.filter((a: any) => a.id !== mainId).map((a: any) => <option key={a.id} value={a.id}>{t("lay.own_file", { name: a.name })}</option>)}
+                </select></td></tr>))}</tbody></table></div>
+        <p className="hint">{t("lay.rules")}</p>
+        <ErrorBox error={act.error} />
+        <div><button type="button" className="btn" disabled={act.pending || !mainId} onClick={build}>{t("lay.build", { layout: t(`layout.${layout}`) })}</button></div>
+      </>}
+    </section>
   );
 }
 
@@ -260,6 +341,8 @@ function Audio({ app, onTrackReady }: { app: any; onTrackReady?: () => void }) {
         ) : <p className="muted">{t("dev.no_assets")}</p>}
         <ErrorBox error={act.error} />
       </div>
+      {profile && <LayoutBuilder app={app} assets={assets.data?.items ?? []} profile={profile} onCreated={jobs.reload}
+        preferMain={(jobs.data?.items ?? []).find((j: any) => j.state === "completed" && (j.layout ?? "headphones") === "headphones")?.source?.id} />}
       <div className="stack">
         <h2>{t("dev.jobs")}</h2>
         <p className="hint">{t("dev.jobs_hint")}</p>
@@ -273,10 +356,11 @@ function Audio({ app, onTrackReady }: { app: any; onTrackReady?: () => void }) {
 function Program({ app, v, reload, saved }: { app: any; v: any; reload: () => void; saved: (m: string) => void }) {
   const { t, locale } = useApp();
   const jobs = useLoad<any>(`/developer/conversions?app_id=${app.id}`);
-  const [rows, setRows] = useState<any[]>(v.sessions.map((s: any) => ({ key: s.key, ru: s.titles.ru ?? "", en: s.titles.en ?? "", job: s.conversion_job_id })));
+  const [rows, setRows] = useState<any[]>(v.sessions.map((s: any) => ({ key: s.key, ru: s.titles.ru ?? "", en: s.titles.en ?? "", job: s.conversion_job_id, variants: s.variants ?? {} })));
   const [missing, setMissing] = useState<Set<number>>(new Set());
   const act = useAction();
-  const done = (jobs.data?.items ?? []).filter((j: any) => j.state === "completed");
+  const finished = (jobs.data?.items ?? []).filter((j: any) => j.state === "completed");
+  const done = finished.filter((j: any) => (j.layout ?? "headphones") === "headphones");
   const editable = v.state === "draft";
   const move = (i: number, d: number) => { const r = [...rows]; [r[i], r[i + d]] = [r[i + d], r[i]]; setRows(r); setMissing(new Set()); };
   const set = (i: number, patch: any) => { setRows(rows.map((x, j) => j === i ? { ...x, ...patch } : x)); if (patch.job) setMissing(new Set([...missing].filter((m) => m !== i))); };
@@ -300,6 +384,14 @@ function Program({ app, v, reload, saved }: { app: any; v: any; reload: () => vo
           <label className="field">{t("dev.track")}<select required value={r.job ?? ""} aria-invalid={isBad(i, "track") || undefined} onChange={(e) => set(i, { job: e.target.value })}>
             <option value="">{t("dev.choose_track")}</option>{done.map((j: any) => <option key={j.id} value={j.id}>{j.source.name} · {j.profile.slug}</option>)}</select>
             {isBad(i, "track") && <span className="err-text">{t("dev.track_required")}</span>}</label>
+          {(Object.keys(SPEAKER_LAYOUTS) as SpeakerLayout[]).map((l) => {
+            const opts = finished.filter((j: any) => j.layout === l);
+            if (!opts.length && !r.variants?.[l]) return null;
+            return <label key={l} className="field">{t("lay.version_for", { layout: t(`layout.${l}`) })}
+              <select value={r.variants?.[l] ?? ""} aria-invalid={bad.has(`sessions.${i + 1}.variants.${l}`) || undefined}
+                onChange={(e) => set(i, { variants: { ...(r.variants ?? {}), [l]: e.target.value } })}>
+                <option value="">{t("lay.none")}</option>{opts.map((j: any) => <option key={j.id} value={j.id}>{j.source.name} · {j.profile.slug}</option>)}</select></label>;
+          })}
           <div className="row">
             <button type="button" className="btn ghost small" disabled={i === 0} onClick={() => move(i, -1)} aria-label={t("dev.up")}>↑</button>
             <button type="button" className="btn ghost small" disabled={i === rows.length - 1} onClick={() => move(i, 1)} aria-label={t("dev.down")}>↓</button>
@@ -313,7 +405,8 @@ function Program({ app, v, reload, saved }: { app: any; v: any; reload: () => vo
           const empty = new Set(rows.flatMap((r, i) => (r.job ? [] : [i])));
           setMissing(empty);
           if (empty.size) return; // NAP-068: do not send sessions without a track
-          const sessions = rows.map((r) => ({ key: r.key, titles: Object.fromEntries([["ru", r.ru], ["en", r.en]].filter(([, x]) => x)), conversion_job_id: r.job }));
+          const sessions = rows.map((r) => ({ key: r.key, titles: Object.fromEntries([["ru", r.ru], ["en", r.en]].filter(([, x]) => x)), conversion_job_id: r.job,
+            variants: Object.fromEntries(Object.entries(r.variants ?? {}).filter(([, x]) => x)) }));
           if (await act.run(() => api(`/developer/apps/${app.id}/versions/${v.id}/program`, { method: "PUT", body: { sessions } }))) { reload(); saved(t("dev.saved_program")); }
         }}>{t("dev.save_program")}</button>
       </div>}

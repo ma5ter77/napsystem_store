@@ -426,7 +426,8 @@
   "subscribe": "Subscribe",
   "buy": "Buy",
   "listen_preview": "Play preview",
-  "preview_note": "Public preview, up to 30 seconds. The full file is available after purchase."
+  "preview_note": "Public preview, up to 30 seconds. The full file is available after purchase.",
+  "layouts": "Equipment"
  },
  "auth": {
   "login_title": "Sign in",
@@ -663,7 +664,13 @@
   "fatal_checksum": "The file arrived damaged: the checksum did not match and playback stopped. Stop the session and start again.",
   "fatal_network": "The connection dropped before the offline copy was ready. Reconnect and press Resume.",
   "fatal_decode": "The browser could not play the track. Reload the page or open the session in Chrome, Edge or Firefox.",
-  "fatal_channels": "The track has more channels than the browser output. Connect a device with enough channels or choose headphones."
+  "fatal_channels": "The track has more channels than the browser output. Connect a device with enough channels or choose headphones.",
+  "will_play": "Will play: {layout}, {n} channels.",
+  "more_layouts": "The app has versions for: {list}. They play when the browser output has enough channels (HDMI, a USB receiver); the headphones version plays now.",
+  "speaker_test": "Test speakers",
+  "speaker_now": "Playing: {ch}",
+  "speaker_hint": "A tone plays in each channel in turn; the channel name shows here.",
+  "multi_note": "Each channel goes to its own speaker as it is: no mixing and no swapping."
  },
  "account": {
   "title": "Account",
@@ -1844,5 +1851,53 @@
   "program": "On the Program tab build sessions from the finished tracks.",
   "submit": "Confirm the rights, set a price and send the version to moderation. Once approved, you publish it yourself or automatically.",
   "start": "Create the first draft"
+ },
+ "layout": {
+  "headphones": "Headphones 2.0",
+  "acoustic_3_0": "Speakers 3.0",
+  "surround_5_1": "NAP chair 5.1",
+  "surround_7_1": "NAP chair 7.1"
+ },
+ "ch": {
+  "FL": "front left",
+  "FR": "front right",
+  "FC": "centre",
+  "LFE": "subwoofer",
+  "SL": "side left",
+  "SR": "side right",
+  "BL": "back left",
+  "BR": "back right"
+ },
+ "lay": {
+  "title": "Versions for speakers and the chair",
+  "lead": "Each channel of the layout is a separate track. Any of them can take a file of its own, for example a voice in the centre. A channel without its own file is built from the main file. A finished version joins the session that plays the same main file by itself.",
+  "need_file": "Upload the main file in step 2 first.",
+  "layout": "Equipment",
+  "main": "Main file",
+  "main_hint": "The same file as the headphones track, so the versions match in length.",
+  "channel": "Channel",
+  "source": "What plays",
+  "source_for": "What plays in the {ch} channel",
+  "from_main": {
+   "FL": "Main file, frequency-shifted",
+   "FR": "Main file, frequency-shifted",
+   "FC": "Middle of the main file",
+   "LFE": "Low frequencies of the main file",
+   "SL": "Main file, unshifted, delayed",
+   "SR": "Main file, unshifted, delayed",
+   "BL": "Main file, unshifted, delayed",
+   "BR": "Main file, unshifted, delayed"
+  },
+  "own_file": "Own file: {name}",
+  "rules": "The binaural difference plays only in the front channels. A channel's own file plays only in that channel and is mixed to mono if it is stereo. A file shorter than the main one ends in silence.",
+  "build": "Build the {layout} version",
+  "listen_note": "The file has {n} channels. On headphones and stereo speakers the browser mixes them down, so channel separation is heard only on equipment with enough outputs.",
+  "loudness": "Loudness",
+  "gain": "Common gain on all channels",
+  "check": "Channel check",
+  "check_ok": "passed: shift only in the front, own files only in their channels",
+  "check_bad": "failed",
+  "version_for": "{layout} version",
+  "none": "None"
  }
 }

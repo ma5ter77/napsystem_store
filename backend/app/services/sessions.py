@@ -117,18 +117,37 @@ def create_session(db: Session, user: User, app_id: uuid.UUID, session_key: str,
     return s
 
 
-def grant(db: Session, s: PlaySession) -> dict:
+LAYOUT_NAMES = ("headphones", "acoustic_3_0", "surround_5_1", "surround_7_1")
+
+
+def choose_layout(ps: ProgramSession, device: Device | None, max_channels: int) -> tuple[str, dict | None]:
+    """NAP-108: the richest version the listener's output can play. Headphones always play the 2.0 track; speakers
+    and the NAP chair get the 3.0 / 5.1 / 7.1 version when the browser output has that many channels."""
+    if device is None or device.adapter == "web_headphones":
+        return "headphones", None
+    best = ("headphones", None)
+    for name in LAYOUT_NAMES[1:]:
+        x = (ps.variants or {}).get(name)
+        if x and x["channels"] <= max_channels and (best[1] is None or x["channels"] > best[1]["channels"]):
+            best = (name, x)
+    return best
+
+
+def grant(db: Session, s: PlaySession, max_channels: int = 2) -> dict:
     """Pinned version + files + short-lived permission (re-request when expired)."""
     ps = db.get(ProgramSession, s.program_session_id)
-    a = db.get(Asset, ps.delivery_asset_id)
+    layout, var = choose_layout(ps, db.get(Device, s.device_id), max(1, min(int(max_channels or 2), 32)))
+    a = db.get(Asset, uuid.UUID(var["delivery_asset_id"]) if var else ps.delivery_asset_id)
     v = db.get(AppVersion, s.version_id)
     return {"session_id": str(s.id), "version_id": str(v.id), "version": v.version_label,
             "manifest_sha256": v.manifest_sha256, "program_session": {"key": ps.key, "titles": ps.titles,
                                                                        "duration_seconds": ps.duration_seconds},
             "asset": {"id": str(a.id), "sha256": a.sha256, "size_bytes": a.size_bytes, "content_type": a.content_type,
                       "url": signed_url(a, f"{ps.key}.flac"), "expires_in": get_settings().signed_url_ttl_seconds},
-            "playback": {"channels": 2, "sample_rate": 48000, "mono_downmix": False, "crossfeed": False,
-                         "channel_swap": False}}
+            "playback": {"layout": layout, "channels": var["channels"] if var else 2,
+                         "channel_order": var["channel_order"] if var else ["FL", "FR"],
+                         "available": ["headphones", *sorted((ps.variants or {}).keys())],
+                         "sample_rate": 48000, "mono_downmix": False, "crossfeed": False, "channel_swap": False}}
 
 
 def own_session(db: Session, session_id: uuid.UUID, user_id: uuid.UUID | None, device_id: uuid.UUID | None = None,

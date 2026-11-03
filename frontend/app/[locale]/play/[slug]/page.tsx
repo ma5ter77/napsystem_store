@@ -105,6 +105,40 @@ function LrTest({ onResult }: { onResult: (ok: boolean) => void }) {
   );
 }
 
+// NAP-108/109: a short tone in each channel in turn, labelled, so the listener can check that every speaker plays
+// from where it should. Uses the browser output with exactly n discrete channels.
+function SpeakerTest({ order }: { order: string[] }) {
+  const { t } = useApp();
+  const [now, setNow] = useState<string | null>(null);
+  const run = async () => {
+    const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+    const ctx: AudioContext = new Ctx();
+    const n = order.length;
+    ctx.destination.channelCount = Math.min(n, ctx.destination.maxChannelCount || 2);
+    ctx.destination.channelCountMode = "explicit";
+    ctx.destination.channelInterpretation = "discrete";
+    const merger = ctx.createChannelMerger(n);
+    merger.connect(ctx.destination);
+    for (let i = 0; i < n; i++) {
+      setNow(order[i]);
+      const osc = ctx.createOscillator(), g = ctx.createGain(), at = ctx.currentTime;
+      osc.frequency.value = order[i] === "LFE" ? 60 : 440;
+      g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(0.15, at + 0.05); g.gain.linearRampToValueAtTime(0, at + 0.9);
+      osc.connect(g).connect(merger, 0, i);
+      osc.start(at); osc.stop(at + 1);
+      await new Promise((r) => setTimeout(r, 1200));
+    }
+    setNow(null);
+    ctx.close().catch(() => {});
+  };
+  return (
+    <div className="row" data-testid="speaker-test">
+      <button type="button" className="btn ghost small" disabled={!!now} onClick={run}>{t("player.speaker_test")}</button>
+      <span role="status" className="hint">{now ? t("player.speaker_now", { ch: t(`ch.${now}`) }) : t("player.speaker_hint")}</span>
+    </div>
+  );
+}
+
 function Player() {
   const { slug } = useParams<{ slug: string }>();
   const { t, locale } = useApp();
@@ -135,6 +169,7 @@ function Player() {
   const [waiting, setWaiting] = useState(false);
   const [fatal, setFatal] = useState<string | null>(null);
   const [output, setOutput] = useState<number | null>(null);
+  const [playing, setPlaying] = useState<any>(null);
   useEffect(() => { setOutput(detectOutput().maxChannels); }, []);
   useEffect(() => () => { audio.current?.close(); audio.current = null; }, []);
 
@@ -165,8 +200,10 @@ function Player() {
     if (d) { await devices.reload(); setDeviceId(d.id); }
   }
 
+  // NAP-108: headphones always get the 2.0 track; speakers / the chair get the richest version the output can play
+  const maxChannels = device?.adapter === "web_headphones" ? 2 : (output ?? 2);
   async function start() {
-    const s = await act.run(() => api("/sessions", { body: { app_id: app.id, session_key: key, device_id: deviceId } }));
+    const s = await act.run(() => api("/sessions", { body: { app_id: app.id, session_key: key, device_id: deviceId, max_channels: maxChannels } }));
     if (!s) return;
     setSession(s); setVer(s.state_version); setState(s.state);
     setPhase("precheck");
@@ -184,11 +221,12 @@ function Player() {
     setPhase("loading");
     const ok = await act.run(async () => {
       // a fresh short-lived link: the one from session start may have expired while the questionnaire was open
-      const grant = await api<any>(`/sessions/${session.id}/grant`, { method: "POST" });
+      const grant = await api<any>(`/sessions/${session.id}/grant?max_channels=${maxChannels}`, { method: "POST" });
+      setPlaying(grant.playback);
       audio.current?.close();
       const pb = new Playback({
         url: grant.asset.url, channels: grant.playback?.channels ?? 2, sha256: grant.asset.sha256, sizeBytes: grant.asset.size_bytes,
-        renew: async () => (await api<any>(`/sessions/${session.id}/grant`, { method: "POST" })).asset.url,
+        renew: async () => (await api<any>(`/sessions/${session.id}/grant?max_channels=${maxChannels}`, { method: "POST" })).asset.url,
         onEnded: () => { const d = audio.current?.duration ?? 0; finishRef.current(listenedRef.current >= d * 0.8); },  // skipping to the end is not a completed session
         onOffline: setOffline,
         onWaiting: setWaiting,
@@ -200,7 +238,7 @@ function Player() {
       return true;
     });
     if (ok) setPhase("player");
-  }, [session, act, t]);
+  }, [session, act, t, maxChannels]);
 
   useEffect(() => {
     if (phase !== "player") return;
@@ -304,6 +342,10 @@ function Player() {
             </>
           ) : <p>{device?.simulated ? t("player.sim_precheck") : t("player.hw_precheck")}</p>}
           {output !== null && <p className="hint" data-testid="browser-output">{t("player.output", { n: output })}</p>}
+          {session?.grant?.playback && <p data-testid="will-play">{t("player.will_play", { layout: t(`layout.${session.grant.playback.layout}`), n: session.grant.playback.channels })}</p>}
+          {session?.grant?.playback && session.grant.playback.available.length > 1 && session.grant.playback.layout === "headphones" && device?.adapter !== "web_headphones" &&
+            <p className="hint">{t("player.more_layouts", { list: session.grant.playback.available.filter((l: string) => l !== "headphones").map((l: string) => t(`layout.${l}`)).join(", ") })}</p>}
+          {session?.grant?.playback && session.grant.playback.channels > 2 && <SpeakerTest order={session.grant.playback.channel_order} />}
           <button className="btn" disabled={act.pending || (needsHp && (!hp || !lr))} onClick={doPrecheck}>{t("player.continue")}</button>
         </div>
       )}
@@ -330,7 +372,8 @@ function Player() {
           <p className="hint" role="status" data-testid="offline-copy">{offline.state === "saving" ? t("player.offline_saving", { pct: Math.round(offline.progress * 100) })
             : offline.state === "idle" ? t("player.offline_saving", { pct: 0 }) : t(`player.offline_${offline.state}`)}</p>
           <p className="hint">{t("player.seek_hint")}</p>
-          <p className="hint">{t("player.stereo_note")}</p>
+          {playing && <p className="hint" data-testid="now-playing">{t("player.will_play", { layout: t(`layout.${playing.layout}`), n: playing.channels })}</p>}
+          <p className="hint">{playing && playing.channels > 2 ? t("player.multi_note") : t("player.stereo_note")}</p>
           <p className="hint">{t("player.tab_note")}</p>
         </div>
       )}

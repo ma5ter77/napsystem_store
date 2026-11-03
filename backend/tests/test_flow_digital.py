@@ -141,11 +141,12 @@ def test_signed_link_expires_and_needs_new_grant(monkeypatch):
         from sqlalchemy import select
         a = db.scalar(select(Asset).where(Asset.kind == "delivery"))
         key = a.storage_key
-    url = get_storage().signed_get_url(key, "x.flac", "audio/flac", ttl=1)
+    # whole-second expiry: a 1 s link could already be expired by the first request
+    url = get_storage().signed_get_url(key, "x.flac", "audio/flac", ttl=10)
     c = Client()
     assert c.raw().get(url).status_code == 200
     real = time.time
-    monkeypatch.setattr(st.time, "time", lambda: real() + 5)
+    monkeypatch.setattr(st.time, "time", lambda: real() + 30)
     r = c.raw().get(url)
     assert r.status_code == 410 and r.json()["error"]["code"] == "link_expired"
     # tampered token

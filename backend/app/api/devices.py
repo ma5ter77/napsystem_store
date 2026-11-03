@@ -67,6 +67,7 @@ class SessionIn(BaseModel):
     app_id: str
     session_key: str
     device_id: str
+    max_channels: int = 2   # NAP-108: channels of the listener's audio output (browser), picks the layout
 
 
 @router.post("/sessions", status_code=201)
@@ -75,7 +76,7 @@ def create(body: SessionIn, request: Request, p=P, db=DB):
     p.require_scope("sessions:write")
     s = svc.create_session(db, db.merge(u), as_uuid(body.app_id, "app"), body.session_key, as_uuid(body.device_id, "device"))
     db.commit()
-    return svc.session_view(db, s, locale_of(request)) | {"grant": svc.grant(db, s)}
+    return svc.session_view(db, s, locale_of(request)) | {"grant": svc.grant(db, s, body.max_channels)}
 
 
 def _load(db, p, session_id, lock=False) -> PlaySession:
@@ -92,7 +93,7 @@ def get(session_id: str, request: Request, p=P, db=DB):
 
 
 @router.post("/sessions/{session_id}/grant")
-def regrant(session_id: str, p=P, db=DB):
+def regrant(session_id: str, max_channels: int = 2, p=P, db=DB):
     """Signed links are short-lived; an expired link requires a fresh, re-authorized grant."""
     s = _load(db, p, session_id)
     if s.state not in ("created", "precheck", "ready", "running", "paused"):
@@ -100,7 +101,7 @@ def regrant(session_id: str, p=P, db=DB):
     from ..services.billing import access_for
     if not access_for(db, s.user_id, s.app_id)["has_access"]:
         raise ApiError("no_entitlement", 403)
-    return svc.grant(db, s)
+    return svc.grant(db, s, max_channels)
 
 
 class CommandIn(BaseModel):

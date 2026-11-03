@@ -110,7 +110,8 @@
     "flac_needs_integer": "FLAC stores 16- or 24-bit integer samples and this project is 32-bit float — export to WAV.",
     "invalid_profile": "The routing profile has errors — check the marked fields.",
     "too_many_profiles": "Limit reached: 50 custom profiles. Archive the ones you no longer use.",
-    "builtin_profile": "Built-in profiles cannot be changed — create your own based on one."
+    "builtin_profile": "Built-in profiles cannot be changed — create your own based on one.",
+    "variant_duration_mismatch": "The speaker or chair version differs in length from the headphones track by more than 1 second. Build it from the same main file."
   },
   "jobs": {
     "decode_failed": "The file could not be fully decoded.",

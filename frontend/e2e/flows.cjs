@@ -144,6 +144,25 @@ async function run(L) {
     if (!(await what.evaluate((el) => el === document.activeElement))) throw new Error("focus did not return to the term button");
     await d.screenshot({ path: `${out}/${L}-converter.png`, fullPage: true });
   });
+  await step("chair 5.1 version with an own file in the centre (NAP-108)", async () => {
+    const voice = path.join(out, "voice.wav");
+    fs.copyFileSync(wav(60), voice);
+    await d.getByLabel(t("dev.auto_convert")).uncheck();
+    await d.getByLabel(t("dev.upload"), { exact: true }).setInputFiles(voice);
+    const lb = d.getByTestId("layout-builder");
+    await lb.getByLabel(t("layout.surround_5_1")).check();
+    // every channel of the layout is its own track
+    if (await lb.locator("tbody tr").count() !== 6) throw new Error("5.1 must show 6 channel tracks");
+    await lb.locator("#own-FC option", { hasText: "voice.wav" }).waitFor({ state: "attached", timeout: 60000 });
+    await lb.getByLabel(t("lay.main")).selectOption({ label: "e2e.wav" });
+    await lb.getByLabel(t("lay.source_for", { ch: t("ch.FC") })).selectOption({ label: t("lay.own_file", { name: "voice.wav" }) });
+    await lb.getByRole("button", { name: t("lay.build", { layout: t("layout.surround_5_1") }) }).click();
+    const qa = d.getByTestId("layout-qa").first();
+    await qa.waitFor({ timeout: 240000 });
+    await qa.getByText(t("lay.own_file", { name: "voice.wav" })).waitFor();
+    await qa.getByText(t("lay.check_ok")).waitFor();
+    await d.screenshot({ path: `${out}/${L}-layout.png`, fullPage: true });
+  });
   await step("details, program, price, submit", async () => {
     await d.getByRole("tab", { name: t("dev.tab_details") }).click();
     // NAP-082: the next-step banner lists what is missing; saving is confirmed on screen
@@ -211,6 +230,7 @@ async function run(L) {
     const r = await d.request.get(`${BASE}/api/v1/catalog/apps/${slug}`);
     const card = await r.json();
     if (!card.cover_url) throw new Error("published app has no cover_url");
+    if (!(card.layouts || []).includes("surround_5_1")) throw new Error("the 5.1 version did not join the session: " + JSON.stringify(card.layouts));
     const img = await d.request.get(`${BASE}${card.cover_url}`);
     if (img.status() !== 200 || img.headers()["content-type"] !== "image/webp") throw new Error("cover not served: " + img.status());
   });
@@ -238,6 +258,9 @@ async function run(L) {
     await b.getByRole("button", { name: t("player.add_sim") }).click();
     await b.waitForTimeout(500);
     await b.getByRole("button", { name: t("player.prepare") }).click();
+    // NAP-108: a 2-channel browser output plays the headphones version and says that a 5.1 version exists
+    await b.getByTestId("will-play").getByText(t("layout.headphones"), { exact: false }).waitFor();
+    await b.getByText(t("layout.surround_5_1"), { exact: false }).first().waitFor();
     await b.getByRole("button", { name: t("player.continue") }).click();
     await b.getByRole("button", { name: t("player.q_skip") }).click();
     await b.getByRole("button", { name: t("player.play") }).click({ timeout: 30000 });

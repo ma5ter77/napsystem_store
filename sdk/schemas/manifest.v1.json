@@ -55,7 +55,23 @@
           "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
           "duration_seconds": {"type": "number", "exclusiveMinimum": 0},
           "dsp_profile": {"type": "string"},
-          "dsp_profile_version": {"type": "integer"}
+          "dsp_profile_version": {"type": "integer"},
+          "layouts": {
+            "description": "NAP-108: versions for speakers 3.0 and the NAP chair 5.1 / 7.1 next to the headphones track",
+            "type": "array", "maxItems": 3,
+            "items": {
+              "type": "object", "additionalProperties": false,
+              "required": ["layout", "asset_id", "sha256", "channels", "channel_order", "duration_seconds"],
+              "properties": {
+                "layout": {"enum": ["acoustic_3_0", "surround_5_1", "surround_7_1"]},
+                "asset_id": {"type": "string", "format": "uuid"},
+                "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                "channels": {"type": "integer", "minimum": 3, "maximum": 8},
+                "channel_order": {"type": "array", "items": {"enum": ["FL", "FR", "FC", "LFE", "BL", "BR", "SL", "SR"]}},
+                "duration_seconds": {"type": "number", "exclusiveMinimum": 0}
+              }
+            }
+          }
         }
       }
     },
