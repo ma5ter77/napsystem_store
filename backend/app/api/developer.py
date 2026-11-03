@@ -60,7 +60,8 @@ def job_view(db, j: ConversionJob, with_urls: bool = False) -> dict:
            "stems": {ch: {"id": aid, "name": (db.get(Asset, uuid.UUID(aid)).original_name if aid else None)}
                      for ch, aid in (j.stems or {}).items()},
            "attempt": j.attempt, "max_attempts": j.max_attempts, "error_code": j.error_code,
-           "profile": j.profile_snapshot, "source": {"id": str(src.id), "name": src.original_name,
+           "profile": j.profile_snapshot, "studio": conversion.studio_info(j),
+           "source": {"id": str(src.id), "name": src.original_name or (conversion.studio_info(j) or {}).get("label"),
                                                      "probe": src.probe, "size_bytes": src.size_bytes},
            "retry_of": str(j.retry_of_id) if j.retry_of_id else None, "created_at": j.created_at.isoformat(),
            "started_at": j.started_at.isoformat() if j.started_at else None,

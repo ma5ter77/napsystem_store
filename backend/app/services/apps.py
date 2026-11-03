@@ -220,9 +220,13 @@ def attach_layout(db: Session, job: ConversionJob) -> ProgramSession | None:
     v = latest_version(db, job.app_id)
     if v is None or v.state != "draft":
         return None
+    from .conversion import studio_info
+    mine = (studio_info(job) or {}).get("project_id")
     for ps in v.sessions:
         primary = db.get(ConversionJob, ps.conversion_job_id)
-        if primary.source_asset_id == job.source_asset_id and job.layout not in (ps.variants or {}) \
+        # same main file, or (NAP-110) exports of the same studio project
+        same = primary.source_asset_id == job.source_asset_id or (mine and (studio_info(primary) or {}).get("project_id") == mine)
+        if same and job.layout not in (ps.variants or {}) \
                 and abs(job.result["duration_seconds"] - ps.duration_seconds) <= VARIANT_DURATION_TOLERANCE_S:
             ps.variants = {**(ps.variants or {}), job.layout: _variant_entry(db, job)}
             audit(db, job.owner_id, "version.layout_attached", "app_version", v.id,

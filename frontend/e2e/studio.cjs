@@ -67,6 +67,27 @@ function wav24(p, secs = 12, fs_ = 48000) {
   await page.locator(".studio-render").scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${OUT}/studio-5-export.png`, fullPage: true });
   const report = await page.locator(".studio-job").first().innerText();
+  // NAP-110: the verified export goes to an app as its chair 5.1 version
+  await page.getByTestId("to-app").getByText("сначала создайте приложение").waitFor();
+  const made = await page.evaluate(async () => {
+    const tok = (document.cookie.match(/(?:^|; )nap_csrf=([^;]+)/) || [])[1] || "";
+    const r = await fetch("/api/v1/developer/apps", { method: "POST", headers: { "content-type": "application/json", "x-csrf-token": tok },
+      body: JSON.stringify({ slug: "studio-" + Date.now().toString(36), author_name: "Автор", metadata: { ru: { title: "Из студии" } } }) });
+    return { status: r.status, body: await r.json() };
+  });
+  if (made.status !== 201) throw new Error("create app " + made.status);
+  await page.reload();
+  await page.locator(".studio-job .badge", { hasText: "готово" }).first().waitFor({ timeout: 30000 });
+  const ta = page.getByTestId("to-app").first();
+  await ta.getByText("версией «Кресло NAP 5.1»").waitFor();
+  await ta.getByRole("button", { name: "Отправить в приложение" }).click();
+  await ta.getByRole("link", { name: "Открыть приложение" }).click();
+  await page.waitForURL("**/developer/apps/**");
+  const qa = page.getByTestId("layout-qa").first();
+  await qa.waitFor({ timeout: 60000 });
+  await qa.getByText("Из проекта студии").first().waitFor();
+  await qa.getByText("пройдена при экспорте в студии").waitFor();
+  await page.screenshot({ path: `${OUT}/studio-8-to-app.png`, fullPage: true });
   // WCAG 2.1 AA on the populated editor (serious/critical issues fail the run, as in a11y.cjs)
   await page.addScriptTag({ content: fs.readFileSync(require.resolve("axe-core/axe.min.js", { paths: [process.cwd()] }), "utf8") });
   const axe = await page.evaluate(async () => (await window.axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] },

@@ -111,7 +111,8 @@
     "invalid_profile": "The routing profile has errors — check the marked fields.",
     "too_many_profiles": "Limit reached: 50 custom profiles. Archive the ones you no longer use.",
     "builtin_profile": "Built-in profiles cannot be changed — create your own based on one.",
-    "variant_duration_mismatch": "The speaker or chair version differs in length from the headphones track by more than 1 second. Build it from the same main file."
+    "variant_duration_mismatch": "The speaker or chair version differs in length from the headphones track by more than 1 second. Build it from the same main file.",
+    "layout_not_supported": "This export cannot go to an app: the store has the 2.0, 3.0, 5.1 and 7.1 layouts."
   },
   "jobs": {
     "decode_failed": "The file could not be fully decoded.",

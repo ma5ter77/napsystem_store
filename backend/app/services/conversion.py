@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from ..config import get_settings
 from ..db import session_scope, utcnow
 from ..dsp.media import MediaError
+from ..dsp.importer import STUDIO_LAYOUT, import_render
 from ..dsp.modes import LAYOUTS
 from ..dsp.pipeline import Cancelled, Limits, convert
 from ..dsp.variants import convert_variant
@@ -100,6 +101,59 @@ def create_job(db: Session, owner_id: uuid.UUID, app_id: uuid.UUID, source_asset
     return job, True
 
 
+def studio_info(job: ConversionJob) -> dict | None:
+    return (job.profile_snapshot or {}).get("studio") if (job.profile_snapshot or {}).get("slug") == "studio" else None
+
+
+def create_studio_import(db: Session, owner_id: uuid.UUID, render_job_id: uuid.UUID, app_id: uuid.UUID,
+                         idempotency_key: str | None) -> tuple[ConversionJob, bool]:
+    """NAP-110: a finished studio export joins an app as it is: a stereo export is the headphones track, a 3.0 /
+    5.1 / 7.1 export is the speaker or chair version of the session made from the same project."""
+    from ..models import AudioProject, AudioProjectRevision, RenderArtifact, RenderJob, RoutingProfile
+    if idempotency_key:
+        existing = db.scalar(select(ConversionJob).where(ConversionJob.owner_id == owner_id,
+                                                         ConversionJob.idempotency_key == idempotency_key))
+        if existing:
+            if (studio_info(existing) or {}).get("render_job_id") != str(render_job_id) or existing.app_id != app_id:
+                raise ApiError("idempotency_conflict", 409)
+            return existing, False
+    app = db.get(App, app_id)
+    if not app or app.developer_id != owner_id:
+        raise ApiError("not_found", 404, entity="app")
+    rj = db.get(RenderJob, render_job_id)
+    if not rj or rj.owner_id != owner_id:
+        raise ApiError("not_found", 404, entity="render_job")
+    art = db.scalar(select(RenderArtifact).where(RenderArtifact.render_job_id == rj.id))
+    if rj.state != "completed" or art is None:
+        raise ApiError("not_ready", 409)
+    mode = STUDIO_LAYOUT.get(art.channel_layout)
+    if mode is None:
+        raise ApiError("layout_not_supported", 422, details={"layout": art.channel_layout})
+    layout = "headphones" if mode == "stereo_2_0" else mode
+    project = db.get(AudioProject, rj.project_id)
+    rev = db.get(AudioProjectRevision, rj.revision_id)
+    prof = db.scalar(select(RoutingProfile).where(RoutingProfile.key == rj.profile_key,
+                                                  RoutingProfile.version == rj.profile_version))
+    studio = {"project_id": str(project.id), "project_title": project.title, "revision": rev.number,
+              "render_job_id": str(rj.id), "routing_profile": rj.profile_key, "routing_profile_version": rj.profile_version,
+              "routing_profile_name": prof.name if prof else rj.profile_key, "layout": art.channel_layout,
+              "export_sha256": art.sha256, "export_verified": bool((art.report or {}).get("verification", {}).get("passed")),
+              "label": f"{project.title} · {prof.name if prof else rj.profile_key} · r{rev.number}"}
+    job = ConversionJob(owner_id=owner_id, app_id=app_id, source_asset_id=art.asset_id, profile_id=None,
+                        profile_snapshot={"slug": "studio", "version": rev.number, "studio": studio},
+                        idempotency_key=idempotency_key, max_attempts=get_settings().job_max_attempts, layout=layout)
+    db.add(job)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        return db.scalar(select(ConversionJob).where(ConversionJob.owner_id == owner_id,
+                                                     ConversionJob.idempotency_key == idempotency_key)), False
+    audit(db, owner_id, "conversion.studio_import", "conversion_job", job.id,
+          {"render_job_id": str(rj.id), "layout": layout, "app_id": str(app_id)})
+    return job, True
+
+
 def cancel_job(db: Session, job_id: uuid.UUID, owner_id: uuid.UUID) -> ConversionJob:
     job = db.get(ConversionJob, job_id, with_for_update=True)
     if not job or job.owner_id != owner_id:
@@ -120,10 +174,11 @@ def retry_job(db: Session, job_id: uuid.UUID, owner_id: uuid.UUID) -> Conversion
         raise ApiError("not_found", 404, entity="conversion")
     if old.state not in ("failed", "canceled"):
         raise ApiError("invalid_state", 409)
-    prof = db.get(DspProfile, old.profile_id)
+    prof = db.get(DspProfile, old.profile_id) if old.profile_id else None
     job = ConversionJob(owner_id=owner_id, app_id=old.app_id, source_asset_id=old.source_asset_id,
                         profile_id=old.profile_id, profile_snapshot=old.profile_snapshot if prof is None
-                        else old.profile_snapshot, retry_of_id=old.id, max_attempts=old.max_attempts)
+                        else old.profile_snapshot, retry_of_id=old.id, max_attempts=old.max_attempts,
+                        layout=old.layout, stems=dict(old.stems or {}))   # NAP-108: the retry keeps the layout
     db.add(job)
     db.flush()
     audit(db, owner_id, "conversion.retried", "conversion_job", job.id, {"retry_of": str(old.id)})
@@ -244,6 +299,7 @@ def run_job(job_id: uuid.UUID | str) -> str:
         src_asset = db.get(Asset, job.source_asset_id)
         src_key, attempt = src_asset.storage_key, job.attempt
         layout = job.layout
+        studio = studio_info(job)
         stem_keys = {ch: db.get(Asset, uuid.UUID(aid)).storage_key for ch, aid in (job.stems or {}).items()}
     workdir = os.path.join(s.job_workdir, str(job_id), f"attempt-{attempt}")
     shutil.rmtree(workdir, ignore_errors=True)
@@ -274,7 +330,10 @@ def run_job(job_id: uuid.UUID | str) -> str:
                         cpu_seconds=s.job_cpu_seconds, memory_bytes=s.job_memory_bytes,
                         disk_reserve=s.job_disk_reserve_bytes, timeout=s.job_timeout_seconds,
                         preview_seconds=s.preview_seconds)
-        if layout == "headphones":
+        if studio is not None:   # NAP-110: the studio mix is final, imported as it is
+            out = import_render(src_path, workdir, limits, "stereo_2_0" if layout == "headphones" else layout,
+                                studio, progress, check)
+        elif layout == "headphones":
             out = convert(src_path, workdir, snapshot, limits, progress, check)
         else:
             stem_paths = {}

@@ -182,6 +182,27 @@ def download_render(job_id: str, p=P, db=DB):
             "format": art.format}
 
 
+class ToAppIn(BaseModel):
+    app_id: str
+
+
+@router.post("/render-jobs/{job_id}/to-app", status_code=202)
+def render_to_app(job_id: str, body: ToAppIn, request: Request, p=P, db=DB, key=Depends(idem)):
+    """NAP-110: the verified export becomes a track of one of the author's apps (headphones or a speaker/chair
+    version, by its channel layout). Returns the conversion job, shown on the app's Audio tab."""
+    u = author(p)
+    ratelimit.check(request, "conversion", u.id)
+    from ..api.developer import job_view as conversion_view
+    from ..services import conversion
+    job, created = conversion.create_studio_import(db, u.id, as_uuid(job_id, "render_job"), as_uuid(body.app_id, "app"), key)
+    db.commit()
+    if created:
+        from ..worker import dispatch_job
+        dispatch_job(job.id)
+    db.refresh(job)
+    return conversion_view(db, job) | {"created": created}
+
+
 @router.get("/routing-profiles")
 def routing_profiles(p=P, db=DB):
     u = author(p)
