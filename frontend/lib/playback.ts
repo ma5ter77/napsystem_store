@@ -41,12 +41,16 @@ type Opts = {
 
 // the offline copy is kept only while the session page is open; larger files play from the network
 export const OFFLINE_LIMIT_BYTES = 2 * 1024 ** 3;
+const FADE_IN_S = 0.6;
+const FADE_OUT_S = 0.35;
 const CACHE = "nap-session-audio";
 
 export class Playback {
   readonly el: HTMLAudioElement;
   private ctx: AudioContext;
   private node: MediaElementAudioSourceNode | null = null;
+  private gain: GainNode | null = null;
+  private volume = 0.7;   // 0..1 as on the slider; the gain follows a squared curve, close to how loudness is heard
   private opts: Opts;
   private local: string | null = null;
   private usingLocal = false;
@@ -92,7 +96,14 @@ export class Playback {
     this.node.channelCountMode = "explicit";
     this.node.channelCount = this.opts.channels;
     this.node.channelInterpretation = "discrete";
-    this.node.connect(dst);
+    // NAP-111: the volume and the soft start / stop go through one gain shared by all channels (the balance between
+    // channels, and so the binaural difference, never changes)
+    this.gain = this.ctx.createGain();
+    this.gain.channelCountMode = "explicit";
+    this.gain.channelCount = this.opts.channels;
+    this.gain.channelInterpretation = "discrete";
+    this.gain.gain.value = 0;
+    this.node.connect(this.gain).connect(dst);
     this.saveOffline();
     return this.el.duration;
   }
@@ -105,12 +116,37 @@ export class Playback {
   async play(from?: number) {
     if (from !== undefined) this.el.currentTime = from;
     // Safari / iOS allow playback only while the tap is being handled: start both without awaiting one first
+    this.ramp(0, 0);
     const started = this.el.play();
     const resumed = this.ctx.resume();
     await Promise.all([started, resumed]);
+    this.ramp(this.level(), FADE_IN_S);   // soft start: no click, no sudden loudness
   }
 
-  pause() { this.el.pause(); }
+  /** Soft stop: the level falls to silence first, then the element pauses. Resolves when it is quiet. */
+  pause(): Promise<void> {
+    if (!this.playing) { this.el.pause(); return Promise.resolve(); }
+    this.ramp(0, FADE_OUT_S);
+    return new Promise((r) => setTimeout(() => { this.el.pause(); r(); }, FADE_OUT_S * 1000 + 30));
+  }
+
+  /** 0..1; applied smoothly so moving the slider does not crackle. */
+  setVolume(v: number) {
+    this.volume = Math.max(0, Math.min(1, v));
+    if (this.playing) this.ramp(this.level(), 0.08);
+  }
+
+  private level() { return this.volume * this.volume; }
+
+  private ramp(to: number, seconds: number) {
+    const g = this.gain?.gain;
+    if (!g) return;
+    const now = this.ctx.currentTime;
+    g.cancelScheduledValues(now);
+    g.setValueAtTime(g.value, now);
+    if (seconds <= 0) g.setValueAtTime(to, now);
+    else g.linearRampToValueAtTime(to, now + seconds);
+  }
 
   private onNetLost = () => { this.useLocal(); };
 

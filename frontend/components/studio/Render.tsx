@@ -24,6 +24,39 @@ function bytes(n: number) {
   return n >= 1 << 30 ? `${(n / (1 << 30)).toFixed(2)} GB` : n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${Math.ceil(n / 1024)} KB`;
 }
 
+// NAP-112: what "for all equipment" exports, by the project's bus count (same table as the server)
+const ALL_EQUIPMENT: Record<number, string[]> = { 2: ["HEADPHONES_2_0"], 3: ["HEADPHONES_2_0", "NAP_ACOUSTIC_3_0"],
+  6: ["HEADPHONES_2_0", "NAP_ACOUSTIC_3_0", "NAP_CHAIR_5_1"], 8: ["HEADPHONES_2_0", "NAP_ACOUSTIC_3_0", "NAP_CHAIR_5_1", "NAP_PRO_7_1"] };
+
+function ExportAll({ project, profiles, format, disabled, onStarted }: { project: { id: string; bus_count: number }; profiles: Profile[];
+  format: "wav" | "flac"; disabled: boolean; onStarted: () => void }) {
+  const { t } = useApp();
+  const [apps, setApps] = useState<any[] | null>(null);
+  const [app, setApp] = useState("");
+  const [started, setStarted] = useState(false);
+  const act = useAction();
+  useEffect(() => { api<any>("/developer/apps").then((r) => setApps(r.items)).catch(() => setApps([])); }, []);
+  const keys = ALL_EQUIPMENT[project.bus_count] ?? ["HEADPHONES_2_0"];
+  const names = keys.map((k) => profiles.find((p) => p.key === k)?.name ?? k);
+  return (
+    <div className="stack studio-all" data-testid="export-all">
+      <h3>{t("studio.all_title")}</h3>
+      <p className="hint">{t("studio.all_lead", { list: names.join(", ") })}</p>
+      <label className="field">{t("studio.all_send")}
+        <select value={app} onChange={(e) => setApp(e.target.value)} disabled={!apps}>
+          <option value="">{t("studio.all_no_app")}</option>
+          {(apps ?? []).map((a: any) => <option key={a.id} value={a.id}>{a.title}</option>)}</select>
+        {app && <span className="hint">{t("studio.all_send_hint")}</span>}</label>
+      <ErrorBox error={act.error} />
+      <div><button className="btn ghost" disabled={disabled || act.pending} onClick={async () => {
+        const r = await act.run(() => api(`/audio/projects/${project.id}/renders/all`, { body: { format, app_id: app || null }, headers: { "Idempotency-Key": uid() } }));
+        if (r) { setStarted(true); onStarted(); }
+      }}>{t("studio.all_button", { n: keys.length })}</button></div>
+      {started && <p className="notice ok" role="status">{app ? t("studio.all_started_app") : t("studio.all_started")}</p>}
+    </div>
+  );
+}
+
 export function RenderPanel({ project, profiles, state, unsaved, onClipChange }: { project: { id: string; bus_count: number; sample_rate: number; bit_depth: number };
   profiles: Profile[]; state: State; unsaved: boolean; onClipChange: (v: "fail" | "hard_clip") => void }) {
   const { t, locale } = useApp();
@@ -78,6 +111,7 @@ export function RenderPanel({ project, profiles, state, unsaved, onClipChange }:
           <div><button className="btn" disabled={act.pending || unsaved || active}
             onClick={() => act.run(async () => { await api(`/audio/projects/${project.id}/renders`, { body: { profile, format: flacOk ? format : "wav" }, headers: { "Idempotency-Key": uid() } }); await load(); })}>
             {t("studio.render")}</button></div>
+          {(ALL_EQUIPMENT[project.bus_count]?.length ?? 1) > 1 && <ExportAll project={project} profiles={profiles} format={flacOk ? format : "wav"} disabled={unsaved || active} onStarted={load} />}
         </div>
         <div className="stack">
           <h3>{t("studio.renders")}</h3>
@@ -132,6 +166,7 @@ function Job({ j, locale, onChange }: { j: any; locale: "ru" | "en"; onChange: (
         <span><strong>{j.profile_name ?? j.profile}</strong>{j.profile?.startsWith("u-") ? <span className="muted"> · {t("studio.router_version", { n: j.profile_version })}</span> : null} <span className="muted">· {t("studio.snapshot_n", { n: j.revision })} · {date(j.created_at, locale, true)}</span></span>
         <StatusBadge ns="render_state" value={j.state} />
       </div>
+      {j.deliver_app_id && <p className="hint">{j.state === "completed" ? t("studio.sent_auto") : t("studio.will_send")}</p>}
       {ACTIVE.has(j.state) && <>
         <div className="progress" role="progressbar" aria-valuenow={Math.round(j.progress * 100)} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${j.progress * 100}%` }} /></div>
         <div><button className="btn small ghost" disabled={act.pending}

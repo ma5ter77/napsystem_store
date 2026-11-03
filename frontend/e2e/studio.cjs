@@ -88,6 +88,14 @@ function wav24(p, secs = 12, fs_ = 48000) {
   await qa.getByText("Из проекта студии").first().waitFor();
   await qa.getByText("пройдена при экспорте в студии").waitFor();
   await page.screenshot({ path: `${OUT}/studio-8-to-app.png`, fullPage: true });
+  // NAP-112: one click exports for all equipment of the 6-bus project and sends them to the app
+  await page.goBack();
+  const all = page.getByTestId("export-all");
+  await all.waitFor({ timeout: 30000 });
+  await all.getByLabel("Отправить в приложение").selectOption({ label: "Из студии" });
+  await all.getByRole("button", { name: "Экспортировать для всех устройств (3)" }).click();
+  await all.getByText("сеанс соберётся во вкладке").waitFor();
+  await page.waitForFunction(() => [...document.querySelectorAll(".studio-job")].filter((e) => e.textContent.includes("Отправлен в приложение")).length >= 3, null, { timeout: 120000 });
   // WCAG 2.1 AA on the populated editor (serious/critical issues fail the run, as in a11y.cjs)
   await page.addScriptTag({ content: fs.readFileSync(require.resolve("axe-core/axe.min.js", { paths: [process.cwd()] }), "utf8") });
   const axe = await page.evaluate(async () => (await window.axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] },

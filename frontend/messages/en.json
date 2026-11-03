@@ -670,7 +670,9 @@
   "speaker_test": "Test speakers",
   "speaker_now": "Playing: {ch}",
   "speaker_hint": "A tone plays in each channel in turn; the channel name shows here.",
-  "multi_note": "Each channel goes to its own speaker as it is: no mixing and no swapping."
+  "multi_note": "Each channel goes to its own speaker as it is: no mixing and no swapping.",
+  "volume": "Volume",
+  "volume_hint": "Start quiet and turn it up until the sound is comfortable. The volume changes equally in all channels, so the difference between them is kept."
  },
  "account": {
   "title": "Account",
@@ -1808,7 +1810,17 @@
   "to_app_sent": "Sent. The track is being prepared on the app's Audio tab.",
   "to_app_open": "Open the app",
   "to_app_no_apps": "To send the export to the store, create an app first.",
-  "to_app_unsupported": "The store has the 2.0, 3.0, 5.1 and 7.1 layouts; this export does not fit."
+  "to_app_unsupported": "The store has the 2.0, 3.0, 5.1 and 7.1 layouts; this export does not fit.",
+  "all_title": "For all equipment",
+  "all_lead": "One export per equipment the project's buses can feed: {list}. All use the same snapshot of the project, so the versions match in length.",
+  "all_send": "Send to app",
+  "all_no_app": "Do not send, export only",
+  "all_send_hint": "The finished exports become one session of the app by themselves: the headphones track and the speaker and chair versions.",
+  "all_button": "Export for all equipment ({n})",
+  "all_started": "The exports have started; they appear in the list on the right.",
+  "all_started_app": "The exports have started. When they are ready, the session is put together on the app's Audio tab.",
+  "will_send": "Goes to the app when ready.",
+  "sent_auto": "Sent to the app."
  },
  "render_state": {
   "queued": "queued",

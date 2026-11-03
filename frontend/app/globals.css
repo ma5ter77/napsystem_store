@@ -543,3 +543,6 @@ main .crumbs a:hover { text-decoration: underline; }
 .channel-map select { min-width: 14rem; }
 .ch-code { display: inline-block; min-width: 2.6em; font: 600 .75rem/1.6 var(--text); color: var(--action); background: var(--tint-action);
   border-radius: 6px; text-align: center; margin-right: 6px; }
+
+/* NAP-111: volume under the time */
+.player-volume input[type="range"] { flex: 1 1 200px; max-width: 360px; accent-color: var(--action); }
