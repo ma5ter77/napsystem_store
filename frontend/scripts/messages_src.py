@@ -1045,6 +1045,29 @@ M.update({  # NAP-108: versions for headphones 2.0, speakers 3.0 and the NAP cha
 "player.multi_note": ("Каждый канал выводится в свою колонку как есть: без сведения и перестановки.", "Each channel goes to its own speaker as it is: no mixing and no swapping."),
 })
 
+M.update({  # NAP-110: a studio export becomes an app track
+"studio.to_app": ("Отправить в приложение", "Send to app"),
+"studio.to_app_label": ("Приложение", "App"),
+"studio.to_app_hp": ("Стерео-экспорт станет треком для наушников: файл переносится как есть, без повторной обработки.",
+  "A stereo export becomes the headphones track: the file is taken as it is, without processing it again."),
+"studio.to_app_layout": ("Экспорт станет версией «{layout}» сеанса, собранного из этого проекта: файл переносится как есть, без повторной обработки.",
+  "The export becomes the {layout} version of the session made from this project: the file is taken as it is, without processing it again."),
+"studio.to_app_sent": ("Отправлено. Трек готовится на вкладке «Аудио» приложения.", "Sent. The track is being prepared on the app's Audio tab."),
+"studio.to_app_open": ("Открыть приложение", "Open the app"),
+"studio.to_app_no_apps": ("Чтобы отправить экспорт в магазин, сначала создайте приложение.", "To send the export to the store, create an app first."),
+"studio.to_app_unsupported": ("В магазине есть раскладки 2.0, 3.0, 5.1 и 7.1, этот экспорт туда не подходит.", "The store has the 2.0, 3.0, 5.1 and 7.1 layouts; this export does not fit."),
+"lay.from_studio": ("Из проекта студии", "From the studio project"),
+"lay.studio_short": ("аудиостудия, снимок {rev}", "audio studio, snapshot {rev}"),
+"lay.check_studio": ("пройдена при экспорте в студии", "passed at the studio export"),
+"lay.studio_note": ("Из аудиостудии: «{project}», снимок {rev}, профиль «{profile}». Звук перенесён как есть.",
+  "From the audio studio: “{project}”, snapshot {rev}, profile “{profile}”. The sound is taken as it is."),
+"job_errors.channel_count_mismatch": ("Число каналов файла не совпадает с раскладкой.", "The file's channel count does not match the layout."),
+"job_errors.decode_unstable": ("Файл декодируется нестабильно: повторите экспорт.", "The file decodes inconsistently: export it again."),
+"job_errors.unknown_stem": ("Свой файл указан для канала, которого нет в раскладке.", "An own file is set for a channel the layout does not have."),
+"job_errors.unknown_mode": ("Неизвестная раскладка.", "Unknown layout."),
+"job_errors.mode_verification_failed": ("Проверка каналов не пройдена: свяжитесь с поддержкой.", "The channel check failed: contact support."),
+})
+
 def nest(lang):
     out = {}
     for key, pair in M.items():

@@ -94,12 +94,14 @@ def probe(path: str, timeout: int = 60) -> ProbeResult:
 class Decoder:
     """Streams decoded 48 kHz float32 interleaved PCM from ffmpeg (original channel count)."""
 
-    def __init__(self, path: str, channels: int, cpu_seconds: int, memory_bytes: int):
+    def __init__(self, path: str, channels: int, cpu_seconds: int, memory_bytes: int, remix: bool = True):
+        # remix=False keeps the file's channels exactly as they are (no -ac: ffmpeg would otherwise re-map a
+        # 5.1(side) file to 5.1(back)); the caller checks the channel count
         self.channels = channels
         self.cmd = ["ffmpeg", "-nostdin", "-hide_banner", "-v", "error", "-xerror",
                     "-protocol_whitelist", "file,pipe", "-i", "file:" + path, "-map", "0:a:0", "-vn",
                     "-af", "aresample=48000:resampler=soxr:precision=28:dither_method=0",
-                    "-ac", str(channels), "-f", "f32le", "-acodec", "pcm_f32le", "pipe:1"]
+                    *(["-ac", str(channels)] if remix else []), "-f", "f32le", "-acodec", "pcm_f32le", "pipe:1"]
         self.proc = subprocess.Popen(self.cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                      preexec_fn=_limits(cpu_seconds, memory_bytes))
 

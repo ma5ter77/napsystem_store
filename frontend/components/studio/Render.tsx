@@ -88,6 +88,40 @@ export function RenderPanel({ project, profiles, state, unsaved, onClipChange }:
   );
 }
 
+// NAP-110: the verified export becomes a track of one of the author's apps as it is: a stereo export is the
+// headphones track, a 3.0 / 5.1 / 7.1 export the speaker or chair version of the session made from this project.
+const STORE_LAYOUT: Record<string, string> = { stereo: "headphones", "3.0": "acoustic_3_0", "5.1(side)": "surround_5_1", "7.1": "surround_7_1" };
+
+function ToApp({ j }: { j: any }) {
+  const { t, locale } = useApp();
+  const [apps, setApps] = useState<any[] | null>(null);
+  const [app, setApp] = useState("");
+  const [sent, setSent] = useState<any>(null);
+  const act = useAction();
+  const layout = STORE_LAYOUT[j.artifact.layout];
+  useEffect(() => { api<any>("/developer/apps").then((r) => setApps(r.items)).catch(() => setApps([])); }, []);
+  if (!layout) return <p className="hint" data-testid="to-app">{t("studio.to_app_unsupported")}</p>;
+  if (apps && !apps.length) return <p className="hint" data-testid="to-app">{t("studio.to_app_no_apps")} <a href={`/${locale}/developer`}>{t("dev.go_apps")}</a></p>;
+  const target = app || apps?.[0]?.id || "";
+  const send = async () => {
+    const r = await act.run(() => api<any>(`/audio/render-jobs/${j.id}/to-app`, { body: { app_id: target }, headers: { "Idempotency-Key": uid() } }));
+    if (r) setSent({ ...r, app: target });
+  };
+  return (
+    <div className="stack studio-to-app" data-testid="to-app">
+      <p className="hint">{t(layout === "headphones" ? "studio.to_app_hp" : "studio.to_app_layout", { layout: t(`layout.${layout}`) })}</p>
+      <div className="row">
+        <label className="field" style={{ flex: "1 1 220px" }}>{t("studio.to_app_label")}
+          <select value={target} onChange={(e) => setApp(e.target.value)} disabled={!apps}>
+            {(apps ?? []).map((a: any) => <option key={a.id} value={a.id}>{a.title}</option>)}</select></label>
+        <button className="btn small" style={{ alignSelf: "end" }} disabled={act.pending || !target} onClick={send}>{t("studio.to_app")}</button>
+      </div>
+      {sent && <p className="notice ok" role="status">{t("studio.to_app_sent")} <a href={`/${locale}/developer/apps/${sent.app}?tab=audio`}>{t("studio.to_app_open")}</a></p>}
+      <ErrorBox error={act.error} />
+    </div>
+  );
+}
+
 function Job({ j, locale, onChange }: { j: any; locale: "ru" | "en"; onChange: () => void }) {
   const { t } = useApp();
   const act = useAction();
@@ -128,6 +162,7 @@ function Job({ j, locale, onChange }: { j: any; locale: "ru" | "en"; onChange: (
         {a.report?.processing?.src && Object.keys(a.report.processing.src).length > 0 && <p className="hint">{t("studio.src_applied")}</p>}
         <div><button className="btn small" disabled={act.pending} onClick={() => act.run(async () => {
           const r = await api(`/audio/render-jobs/${j.id}/download`); window.location.href = r.url; })}>{a.format === "flac" ? t("studio.download_flac") : t("studio.download")}</button></div>
+        <ToApp j={j} />
       </>}
       <ErrorBox error={act.error} />
     </article>

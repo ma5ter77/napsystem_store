@@ -124,18 +124,20 @@ function LayoutQa({ job, detail }: { job: any; detail: any }) {
   return (
     <div className="stack" data-testid="layout-qa">
       <div><div className="hint">{t("dev.result")}</div><audio controls preload="none" src={detail.urls.delivery} style={{ width: "100%" }} /></div>
-      <p className="hint">{t("lay.listen_note", { n: detail.channels?.length ?? 0 })}</p>
+      {job.studio && <p className="hint">{t("lay.studio_note", { project: job.studio.project_title, rev: job.studio.revision, profile: job.studio.routing_profile_name })}</p>}
+      {(detail.channels?.length ?? 2) > 2 && <p className="hint">{t("lay.listen_note", { n: detail.channels?.length ?? 0 })}</p>}
       <div className="scroll-x"><table className="channel-map">
         <thead><tr><th>{t("lay.channel")}</th><th>{t("lay.source")}</th><th>{t("terms.true_peak.name")}<Term k="true_peak" /></th><th>RMS<Term k="dbfs" /></th></tr></thead>
         <tbody>{qa.channels.map((c: any) => (
           <tr key={c.channel}><th scope="row"><span className="ch-code">{c.channel}</span> {t(`ch.${c.channel}`)}</th>
-            <td>{c.uploaded ? t("lay.own_file", { name: stems[c.channel]?.name ?? "" }) : t(`lay.from_main.${c.channel}`)}</td>
-            <td>{String(c.true_peak_dbtp)} dBTP</td><td>{String(c.rms_dbfs)} dBFS</td></tr>))}</tbody></table></div>
+            <td>{c.source === "studio" ? t("lay.from_studio") : c.uploaded ? t("lay.own_file", { name: stems[c.channel]?.name ?? "" }) : t(`lay.from_main.${c.channel}`)}</td>
+            {typeof c.true_peak_dbtp === "number" ? <><td>{c.true_peak_dbtp} dBTP</td><td>{c.rms_dbfs} dBFS</td></>
+              : <><td>{t("studio.silent")}</td><td>—</td></>}</tr>))}</tbody></table></div>
       <dl className="kv">
         <dt>{t("lay.loudness")}<Term k="lufs" /></dt><dd>{String(qa.levels.output_integrated_lufs)} LUFS</dd>
         <dt>{t("qa.tp")}<Term k="true_peak" /></dt><dd>{String(qa.levels.true_peak_master_dbtp)} dBTP ({t("qa.ceiling", { c: qa.levels.true_peak_ceiling_dbtp, tol: qa.levels.true_peak_tolerance_db })})</dd>
         <dt>{t("lay.gain")}<Term k="gain" /></dt><dd>{qa.levels.common_gain_db} dB</dd>
-        <dt>{t("lay.check")}</dt><dd>{qa.verification?.passed ? t("lay.check_ok") : t("lay.check_bad")}</dd>
+        <dt>{t("lay.check")}</dt><dd>{!qa.verification?.passed ? t("lay.check_bad") : qa.origin === "studio" ? t("lay.check_studio") : t("lay.check_ok")}</dd>
         <dt>{t("qa.duration")}</dt><dd>{duration(detail.params.output.duration_seconds, locale)} · {detail.params.output.channels} ch · 48 kHz / 24 bit</dd>
       </dl>
       <details><summary>{t("dev.advanced")}</summary>
@@ -160,7 +162,7 @@ function JobCard({ job, onChange }: { job: any; onChange: () => void }) {
   return (
     <div className="panel flat stack">
       <div className="spread">
-        <div><strong>{job.source.name}</strong> <span className="badge gray">{t(`layout.${job.layout ?? "headphones"}`)}</span> <span className="hint">· {job.profile.slug} v{job.profile.version} · {date(job.created_at, locale, true)}</span></div>
+        <div><strong>{job.source.name}</strong> <span className="badge gray">{t(`layout.${job.layout ?? "headphones"}`)}</span> <span className="hint">· {job.studio ? t("lay.studio_short", { rev: job.studio.revision }) : `${job.profile.slug} v${job.profile.version}`} · {date(job.created_at, locale, true)}</span></div>
         <StatusBadge ns="job_state" value={job.state} />
       </div>
       <StatusTimeline value={conversionSteps(job)} ns="conversion" label={t("steps.conversion_progress")} />
@@ -171,8 +173,8 @@ function JobCard({ job, onChange }: { job: any; onChange: () => void }) {
       </>}
       {job.state === "failed" && <div className="notice bad">{t(`job_errors.${job.error_code}`)}</div>}
       {["failed", "canceled"].includes(job.state) && <div><button className="btn ghost small" onClick={async () => { if (await act.run(() => api(`/developer/conversions/${job.id}/retry`, { method: "POST" }))) onChange(); }}>{t("dev.retry")}</button></div>}
-      {job.state === "completed" && detail?.urls && job.layout && job.layout !== "headphones" && <LayoutQa job={job} detail={detail} />}
-      {job.state === "completed" && detail?.urls && (!job.layout || job.layout === "headphones") && (
+      {job.state === "completed" && detail?.urls && ((job.layout && job.layout !== "headphones") || job.studio) && <LayoutQa job={job} detail={detail} />}
+      {job.state === "completed" && detail?.urls && (!job.layout || job.layout === "headphones") && !job.studio && (
         <div className="stack">
           <div className="lr">
             <div><div className="hint">{t("dev.source")}</div><audio controls preload="none" src={detail.urls.source} style={{ width: "100%" }} /></div>

@@ -1072,7 +1072,12 @@
   "probe_timeout": "Inspection timed out.",
   "render_non_finite": "Numerical error.",
   "delivery_decode_failed": "Delivery file unreadable.",
-  "null": "Error."
+  "null": "Error.",
+  "channel_count_mismatch": "The file's channel count does not match the layout.",
+  "decode_unstable": "The file decodes inconsistently: export it again.",
+  "unknown_stem": "An own file is set for a channel the layout does not have.",
+  "unknown_mode": "Unknown layout.",
+  "mode_verification_failed": "The channel check failed: contact support."
  },
  "order_status": {
   "awaiting_quote": "awaiting quote",
@@ -1795,7 +1800,15 @@
    "LFE": "LFE",
    "BACK_LEFT": "Back L",
    "BACK_RIGHT": "Back R"
-  }
+  },
+  "to_app": "Send to app",
+  "to_app_label": "App",
+  "to_app_hp": "A stereo export becomes the headphones track: the file is taken as it is, without processing it again.",
+  "to_app_layout": "The export becomes the {layout} version of the session made from this project: the file is taken as it is, without processing it again.",
+  "to_app_sent": "Sent. The track is being prepared on the app's Audio tab.",
+  "to_app_open": "Open the app",
+  "to_app_no_apps": "To send the export to the store, create an app first.",
+  "to_app_unsupported": "The store has the 2.0, 3.0, 5.1 and 7.1 layouts; this export does not fit."
  },
  "render_state": {
   "queued": "queued",
@@ -1898,6 +1911,10 @@
   "check_ok": "passed: shift only in the front, own files only in their channels",
   "check_bad": "failed",
   "version_for": "{layout} version",
-  "none": "None"
+  "none": "None",
+  "from_studio": "From the studio project",
+  "studio_short": "audio studio, snapshot {rev}",
+  "check_studio": "passed at the studio export",
+  "studio_note": "From the audio studio: “{project}”, snapshot {rev}, profile “{profile}”. The sound is taken as it is."
  }
 }
