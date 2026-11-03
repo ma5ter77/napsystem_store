@@ -247,9 +247,15 @@ async function run(L) {
     await b.getByRole("slider", { name: t("player.seek") }).waitFor();
     await b.getByText(t("player.remaining", { time: "" }).trim()).first().waitFor();
     await b.getByRole("button", { name: t("player.back30") }).click();
-    // connection drops while the session runs: local stop must still work, events sync once afterwards
+    // NAP-109: the track streams; a verified copy is saved in the background, then the session survives going offline
+    await b.getByText(t("player.offline_ready")).waitFor({ timeout: 60000 });
+    const clock = async () => (await b.locator(".player-time").innerText()).split("/")[0].trim();
+    // connection drops while the session runs: playback continues from the copy, local stop works, events sync once afterwards
     await buyer.ctx.setOffline(true);
-    await b.waitForTimeout(800);
+    await b.evaluate(() => window.dispatchEvent(new Event("offline")));
+    const before = await clock();
+    await b.waitForTimeout(2500);
+    if ((await clock()) === before) throw new Error(`playback stopped offline at ${before}`);
     await b.getByRole("button", { name: t("player.stop") }).click();
     await b.getByRole("button", { name: t("player.q_skip") }).waitFor();
     await buyer.ctx.setOffline(false);
