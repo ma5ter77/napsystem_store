@@ -7,6 +7,7 @@ import { useApp } from "@/components/Providers";
 import { Empty, ErrorBox, Loading, RequireAuth, useAction, useLoad } from "@/components/ui";
 import { api, ApiError, uid } from "@/lib/api";
 import { detectOutput, Playback, type OfflineState } from "@/lib/playback";
+import { SpeakerTest } from "@/components/SpeakerTest";
 import { duration } from "@/lib/i18n";
 
 type Phase = "setup" | "precheck" | "pre" | "loading" | "player" | "post" | "done";
@@ -101,40 +102,6 @@ function LrTest({ onResult }: { onResult: (ok: boolean) => void }) {
         </div>
       )}
       <p className="hint">{t("player.lr_disclaimer")}</p>
-    </div>
-  );
-}
-
-// NAP-108/109: a short tone in each channel in turn, labelled, so the listener can check that every speaker plays
-// from where it should. Uses the browser output with exactly n discrete channels.
-function SpeakerTest({ order }: { order: string[] }) {
-  const { t } = useApp();
-  const [now, setNow] = useState<string | null>(null);
-  const run = async () => {
-    const Ctx = window.AudioContext || (window as any).webkitAudioContext;
-    const ctx: AudioContext = new Ctx();
-    const n = order.length;
-    ctx.destination.channelCount = Math.min(n, ctx.destination.maxChannelCount || 2);
-    ctx.destination.channelCountMode = "explicit";
-    ctx.destination.channelInterpretation = "discrete";
-    const merger = ctx.createChannelMerger(n);
-    merger.connect(ctx.destination);
-    for (let i = 0; i < n; i++) {
-      setNow(order[i]);
-      const osc = ctx.createOscillator(), g = ctx.createGain(), at = ctx.currentTime;
-      osc.frequency.value = order[i] === "LFE" ? 60 : 440;
-      g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(0.15, at + 0.05); g.gain.linearRampToValueAtTime(0, at + 0.9);
-      osc.connect(g).connect(merger, 0, i);
-      osc.start(at); osc.stop(at + 1);
-      await new Promise((r) => setTimeout(r, 1200));
-    }
-    setNow(null);
-    ctx.close().catch(() => {});
-  };
-  return (
-    <div className="row" data-testid="speaker-test">
-      <button type="button" className="btn ghost small" disabled={!!now} onClick={run}>{t("player.speaker_test")}</button>
-      <span role="status" className="hint">{now ? t("player.speaker_now", { ch: t(`ch.${now}`) }) : t("player.speaker_hint")}</span>
     </div>
   );
 }
@@ -344,7 +311,8 @@ function Player() {
           {output !== null && <p className="hint" data-testid="browser-output">{t("player.output", { n: output })}</p>}
           {session?.grant?.playback && <p data-testid="will-play">{t("player.will_play", { layout: t(`layout.${session.grant.playback.layout}`), n: session.grant.playback.channels })}</p>}
           {session?.grant?.playback && session.grant.playback.available.length > 1 && session.grant.playback.layout === "headphones" && device?.adapter !== "web_headphones" &&
-            <p className="hint">{t("player.more_layouts", { list: session.grant.playback.available.filter((l: string) => l !== "headphones").map((l: string) => t(`layout.${l}`)).join(", ") })}</p>}
+            <p className="hint">{t("player.more_layouts", { list: session.grant.playback.available.filter((l: string) => l !== "headphones").map((l: string) => t(`layout.${l}`)).join(", ") })}{" "}
+              <Link href={`/${locale}/help/playback`}>{t("help.how")}</Link></p>}
           {session?.grant?.playback && session.grant.playback.channels > 2 && <SpeakerTest order={session.grant.playback.channel_order} />}
           <button className="btn" disabled={act.pending || (needsHp && (!hp || !lr))} onClick={doPrecheck}>{t("player.continue")}</button>
         </div>
@@ -368,7 +336,7 @@ function Player() {
             <button className="btn ghost" onClick={() => seek(pos + 30)} aria-label={t("player.fwd30")}>+30 {t("player.sec")}</button>
             <button className="btn danger" onClick={() => finish(false)}>{t("player.stop")}</button>
           </div>
-          {fatal && <div className="notice bad" role="alert">{t(`player.fatal_${fatal}`)}</div>}
+          {fatal && <div className="notice bad" role="alert">{t(`player.fatal_${fatal}`)}{fatal === "decode" && <> <Link href={`/${locale}/help/playback`}>{t("help.how")}</Link></>}</div>}
           <p className="hint" role="status" data-testid="offline-copy">{offline.state === "saving" ? t("player.offline_saving", { pct: Math.round(offline.progress * 100) })
             : offline.state === "idle" ? t("player.offline_saving", { pct: 0 }) : t(`player.offline_${offline.state}`)}</p>
           <p className="hint">{t("player.seek_hint")}</p>

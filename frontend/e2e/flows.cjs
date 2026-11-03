@@ -252,7 +252,7 @@ async function run(L) {
     await b.getByText(t("mock.result_succeeded")).waitFor();
     await b.getByRole("button", { name: t("mock.continue") }).click();
     await b.waitForURL("**/library");
-    await b.getByRole("link", { name: t("library.play") }).first().click();
+    await b.getByRole("link", { name: t("library.play"), exact: true }).first().click();
   });
   await step("session: precheck, questionnaire, play, offline stop + sync", async () => {
     await b.getByRole("button", { name: t("player.add_sim") }).click();
@@ -261,6 +261,12 @@ async function run(L) {
     // NAP-108: a 2-channel browser output plays the headphones version and says that a 5.1 version exists
     await b.getByTestId("will-play").getByText(t("layout.headphones"), { exact: false }).waitFor();
     await b.getByText(t("layout.surround_5_1"), { exact: false }).first().waitFor();
+    // NAP-109: the hint leads to "How to listen", which checks this browser live
+    const help = await b.getByRole("link", { name: t("help.how") }).getAttribute("href");
+    const hp = await b.context().newPage();
+    await hp.goto(`${BASE}${help}`);
+    await hp.getByTestId("playback-check").getByText(t("help.verdict", { layout: t("layout.headphones") })).waitFor();
+    await hp.close();
     await b.getByRole("button", { name: t("player.continue") }).click();
     await b.getByRole("button", { name: t("player.q_skip") }).click();
     await b.getByRole("button", { name: t("player.play") }).click({ timeout: 30000 });

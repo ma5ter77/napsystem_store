@@ -60,7 +60,8 @@ export class Playback {
     this.opts = opts;
     this.cacheKey = `/__nap-offline/${opts.sha256}`;
     const Ctx = window.AudioContext || (window as any).webkitAudioContext;
-    this.ctx = new Ctx({ sampleRate: 48000 });
+    // 48 kHz like the delivery file; older Safari does not take options, then the device rate is used
+    try { this.ctx = new Ctx({ sampleRate: 48000 }); } catch { this.ctx = new Ctx(); }
     this.el = new Audio();
     this.el.preload = "auto";
     this.el.addEventListener("ended", () => this.opts.onEnded());
@@ -103,8 +104,10 @@ export class Playback {
 
   async play(from?: number) {
     if (from !== undefined) this.el.currentTime = from;
-    await this.ctx.resume();
-    await this.el.play();
+    // Safari / iOS allow playback only while the tap is being handled: start both without awaiting one first
+    const started = this.el.play();
+    const resumed = this.ctx.resume();
+    await Promise.all([started, resumed]);
   }
 
   pause() { this.el.pause(); }
