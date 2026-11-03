@@ -137,6 +137,9 @@ function Player() {
   const [fatal, setFatal] = useState<string | null>(null);
   const [output, setOutput] = useState<number | null>(null);
   const [playing, setPlaying] = useState<any>(null);
+  // NAP-111: volume is remembered in this browser; a moderate level is the default
+  const [volume, setVolumeState] = useState(() => { try { const v = Number(localStorage.getItem("nap-player-volume")); return v > 0 && v <= 100 ? v : 60; } catch { return 60; } });
+  const setVolume = (v: number) => { setVolumeState(v); audio.current?.setVolume(v / 100); try { localStorage.setItem("nap-player-volume", String(v)); } catch { /* private mode */ } };
   useEffect(() => { setOutput(detectOutput().maxChannels); }, []);
   useEffect(() => () => { audio.current?.close(); audio.current = null; }, []);
 
@@ -200,12 +203,13 @@ function Player() {
         onFatal: (code) => { audio.current?.pause(); setFatal(code); },
       });
       audio.current = pb;
+      pb.setVolume(volume / 100);
       try { setDur(await pb.load()); }
       catch (e: any) { throw new ApiError(0, e?.message === "channels" ? "channels" : "download_failed", e?.message === "channels" ? t("player.fatal_channels") : t("player.download_failed")); }
       return true;
     });
     if (ok) setPhase("player");
-  }, [session, act, t, maxChannels]);
+  }, [session, act, t, maxChannels, volume]);
 
   useEffect(() => {
     if (phase !== "player") return;
@@ -244,8 +248,9 @@ function Player() {
   }
   async function onPause() {
     const a = audio.current!;
-    a.pause();
+    const quiet = a.pause();             // soft stop
     const p = a.position;
+    await quiet;
     q.push("progress", { position_seconds: p });
     await command("pause", { position_seconds: p });
   }
@@ -253,11 +258,12 @@ function Player() {
   finishRef.current = (c) => { finish(c); };
   async function finish(completed: boolean) {
     const a = audio.current;
-    a?.pause(); // local stop always works, also offline
+    const quiet = a?.pause(); // local stop always works, also offline; the sound fades instead of cutting off
     const final = completed ? "completed" : "cancelled";
     q.push("state", { state: final, position_seconds: Math.round(posRef.current), listened_seconds: Math.round(listenedRef.current) });
     try { await command(completed ? "complete" : "stop", { position_seconds: posRef.current, listened_seconds: Math.round(listenedRef.current) }); } catch { /* reported by event */ }
     setState(final);
+    await quiet;
     a?.close(); audio.current = null;
     setPhase(session.post_status === "pending" ? "post" : "done");
   }
@@ -329,6 +335,11 @@ function Player() {
             onPointerDown={() => { dragRef.current = true; }}
             onChange={(e) => { setPos(Number(e.target.value)); if (!dragRef.current) seek(Number(e.target.value)); }}
             onPointerUp={(e) => { dragRef.current = false; seek(Number((e.target as HTMLInputElement).value)); }} />
+          <label className="field player-volume" htmlFor="player-volume">{t("player.volume")}
+            <span className="row"><input id="player-volume" type="range" min={0} max={100} step={1} value={volume}
+              aria-valuetext={`${volume} %`} onChange={(e) => setVolume(Number(e.target.value))} />
+              <span className="hint" aria-hidden="true">{volume} %</span></span>
+            <span className="hint">{t("player.volume_hint")}</span></label>
           <div className="row player-controls">
             <button className="btn ghost" onClick={() => seek(pos - 30)} aria-label={t("player.back30")}>−30 {t("player.sec")}</button>
             {state === "running" ? <button className="btn" onClick={onPause}>{t("player.pause")}</button>

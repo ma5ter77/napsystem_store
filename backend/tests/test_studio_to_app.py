@@ -89,3 +89,44 @@ def test_studio_exports_become_app_versions_and_play(tmp_path):
     exp, _ = read_pcm_bytes(tmp_path, dev.raw().get(ok(dev.get(f"/audio/render-jobs/{ch['id']}/download"))["url"]).content)
     if art["bit_depth"] == 24:                # 48 kHz / 24 bit export: the store file has exactly the same samples
         assert np.array_equal(exp, y)
+
+
+def test_export_for_all_equipment_builds_one_session():
+    """NAP-112: one click exports 2.0 / 3.0 / 5.1 for a 6-bus project and sends them to the app, where they become
+    one session (headphones track + speaker and chair versions), whatever order they finish in."""
+    dev = Client().register(developer=True)
+    a = ok(dev.post("/developer/apps", {"slug": "all-" + uuid.uuid4().hex[:8], "author_name": "All",
+                                        "metadata": {"ru": {"title": "Для всего"}}}), 201)
+    pid = _project(dev)
+    r = ok(dev.post(f"/audio/projects/{pid}/renders/all", {"app_id": a["id"]}, headers={"Idempotency-Key": "all-1"}), 201)
+    assert [j["profile"] for j in r["items"]] == ["HEADPHONES_2_0", "NAP_ACOUSTIC_3_0", "NAP_CHAIR_5_1"]
+    for j in r["items"]:
+        assert _wait(dev, j["id"])["state"] == "completed"
+    wait_inline_jobs()
+    jobs = ok(dev.get(f"/developer/conversions?app_id={a['id']}"))["items"]
+    assert sorted(j["layout"] for j in jobs) == ["acoustic_3_0", "headphones", "surround_5_1"]
+    assert all(j["state"] == "completed" for j in jobs)
+    v = ok(dev.get(f"/developer/apps/{a['id']}"))["versions"][0]
+    assert len(v["sessions"]) == 1 and set(v["sessions"][0]["variants"]) == {"acoustic_3_0", "surround_5_1"}
+    # someone else's app cannot be a target
+    other = Client().register(developer=True)
+    oa = ok(other.post("/developer/apps", {"slug": "o-" + uuid.uuid4().hex[:8], "author_name": "O",
+                                           "metadata": {"ru": {"title": "Чужое"}}}), 201)
+    assert dev.post(f"/audio/projects/{pid}/renders/all", {"app_id": oa["id"]}).status_code == 404
+
+
+def test_layout_version_finished_first_joins_the_session_later():
+    """The 5.1 version is imported before the headphones track: it joins when the headphones track fills session 1."""
+    dev = Client().register(developer=True)
+    a = ok(dev.post("/developer/apps", {"slug": "ord-" + uuid.uuid4().hex[:8], "author_name": "Ord",
+                                        "metadata": {"ru": {"title": "Порядок"}}}), 201)
+    pid = _project(dev)
+    ch = _export(dev, pid, "NAP_CHAIR_5_1")
+    hp = _export(dev, pid, "HEADPHONES_2_0")
+    ok(dev.post(f"/audio/render-jobs/{ch['id']}/to-app", {"app_id": a["id"]}), 202)
+    wait_inline_jobs()
+    assert ok(dev.get(f"/developer/apps/{a['id']}"))["versions"][0]["sessions"] == []
+    ok(dev.post(f"/audio/render-jobs/{hp['id']}/to-app", {"app_id": a["id"]}), 202)
+    wait_inline_jobs()
+    s = ok(dev.get(f"/developer/apps/{a['id']}"))["versions"][0]["sessions"]
+    assert len(s) == 1 and list(s[0]["variants"]) == ["surround_5_1"]

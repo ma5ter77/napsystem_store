@@ -77,6 +77,8 @@ class RenderJob(Base):
     profile_key: Mapped[str] = mapped_column(String(40))
     profile_version: Mapped[int] = mapped_column(Integer)
     format: Mapped[str] = mapped_column(String(8), default="wav", server_default="wav")   # wav (RIFF/RF64) | flac
+    # NAP-112: when set, the finished export goes to this app of the author by itself (studio import)
+    deliver_app_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("apps.id"))
     idempotency_key: Mapped[str | None] = mapped_column(String(128))
     state: Mapped[str] = mapped_column(String(16), default="queued")
     progress: Mapped[float] = mapped_column(Float, default=0.0)

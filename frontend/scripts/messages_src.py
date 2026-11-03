@@ -1113,6 +1113,27 @@ M.update({  # NAP-109: how to listen — browsers and equipment, with a live che
   "During the session the track is saved in the browser and checked against its checksum. Once the copy is ready, the session continues without a connection. In private mode the browser may not allow saving; then playback stops without a connection when the loaded part runs out."),
 })
 
+M.update({  # NAP-111: comfortable listening — volume, soft start and stop
+"player.volume": ("Громкость", "Volume"),
+"player.volume_hint": ("Начните с тихого уровня и прибавляйте, пока звук не станет комфортным. Громкость меняется во всех каналах одинаково, поэтому разница между ними сохраняется.",
+  "Start quiet and turn it up until the sound is comfortable. The volume changes equally in all channels, so the difference between them is kept."),
+})
+
+M.update({  # NAP-112: export for all equipment in one click
+"studio.all_title": ("Для всех устройств", "For all equipment"),
+"studio.all_lead": ("Один экспорт на каждое оборудование, которое могут питать шины проекта: {list}. Снимок проекта один для всех, поэтому версии совпадают по длительности.",
+  "One export per equipment the project's buses can feed: {list}. All use the same snapshot of the project, so the versions match in length."),
+"studio.all_send": ("Отправить в приложение", "Send to app"),
+"studio.all_no_app": ("Не отправлять, только экспорт", "Do not send, export only"),
+"studio.all_send_hint": ("Готовые экспорты сами станут одним сеансом приложения: трек для наушников и версии для колонок и кресла.",
+  "The finished exports become one session of the app by themselves: the headphones track and the speaker and chair versions."),
+"studio.all_button": ("Экспортировать для всех устройств ({n})", "Export for all equipment ({n})"),
+"studio.all_started": ("Экспорты запущены, они появятся в списке справа.", "The exports have started; they appear in the list on the right."),
+"studio.all_started_app": ("Экспорты запущены. Когда они будут готовы, сеанс соберётся во вкладке «Аудио» приложения.", "The exports have started. When they are ready, the session is put together on the app's Audio tab."),
+"studio.will_send": ("Отправится в приложение, когда будет готов.", "Goes to the app when ready."),
+"studio.sent_auto": ("Отправлен в приложение.", "Sent to the app."),
+})
+
 def nest(lang):
     out = {}
     for key, pair in M.items():

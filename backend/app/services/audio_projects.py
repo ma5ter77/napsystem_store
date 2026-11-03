@@ -326,7 +326,7 @@ EXPORT_FORMATS = ("wav", "flac")
 
 
 def start_render(db: Session, pr: AudioProject, actor_id: uuid.UUID, profile_key: str, idem: str | None,
-                 fmt: str = "wav") -> RenderJob:
+                 fmt: str = "wav", deliver_app_id: uuid.UUID | None = None) -> RenderJob:
     if idem:
         ex = db.scalar(select(RenderJob).where(RenderJob.owner_id == actor_id, RenderJob.idempotency_key == idem))
         if ex:
@@ -339,10 +339,15 @@ def start_render(db: Session, pr: AudioProject, actor_id: uuid.UUID, profile_key
     st = validate_state(db, actor_id, pr.state)
     if st.duration_frames() <= 0:
         raise ApiError("empty_project", 422)
+    if deliver_app_id is not None:
+        from ..models import App
+        app = db.get(App, deliver_app_id)
+        if not app or app.developer_id != actor_id:
+            raise ApiError("not_found", 404, entity="app")
     rev = snapshot(db, pr, actor_id, note=f"render {profile_key}")
     job = RenderJob(owner_id=actor_id, project_id=pr.id, revision_id=rev.id, profile_key=profile_key,
                     profile_version=prof.version, idempotency_key=idem, format=fmt,
-                    max_attempts=get_settings().job_max_attempts)
+                    max_attempts=get_settings().job_max_attempts, deliver_app_id=deliver_app_id)
     db.add(job)
     db.flush()
     audit(db, actor_id, "studio.render_started", "render_job", job.id, {"profile": profile_key, "revision": rev.number,
@@ -360,7 +365,8 @@ def job_view(db: Session, j: RenderJob) -> dict:
            "profile": j.profile_key, "profile_version": j.profile_version, "format": j.format, "state": j.state,
            "progress": round(j.progress, 3), "attempt": j.attempt, "error_code": j.error_code,
            "error_detail": j.error_detail, "logs": j.logs[-20:], "created_at": j.created_at.isoformat(),
-           "finished_at": j.finished_at.isoformat() if j.finished_at else None, "artifact": None}
+           "finished_at": j.finished_at.isoformat() if j.finished_at else None, "artifact": None,
+           "deliver_app_id": str(j.deliver_app_id) if j.deliver_app_id else None}
     if art:
         out["artifact"] = {"id": str(art.id), "sha256": art.sha256, "format": art.format, "layout": art.channel_layout,
                            "channel_order": art.channel_order, "sample_rate": art.sample_rate,
@@ -490,7 +496,10 @@ def run_render(job_id) -> str:
             _log(db, job, f"completed: {ext} {res.report['container'] if ext == 'wav' else ''} {res.frames} frames, "
                           f"sha256 {digest[:12]}…")
             audit(db, owner, "studio.render_completed", "render_job", job_id, {"sha256": digest, "format": ext})
+            deliver = job.deliver_app_id
             db.commit()
+        if deliver:
+            _deliver_to_app(job_id, owner, deliver)
         return "completed"
     except RenderError as e:
         _fail(job_id, e.code, {"message": e.detail, **e.data}, final=True)
@@ -500,6 +509,38 @@ def run_render(job_id) -> str:
         return _fail(job_id, "render_error", {"message": f"{type(e).__name__}: {str(e)[:300]}"}, final=False)
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
+
+
+def _deliver_to_app(job_id: uuid.UUID, owner: uuid.UUID, app_id: uuid.UUID) -> None:
+    """NAP-112: hand the verified export to the app (import job). A problem here never fails the export itself."""
+    from . import conversion
+    try:
+        with session_scope() as db:
+            imp, created = conversion.create_studio_import(db, owner, job_id, app_id, f"auto-render-{job_id}")
+            job = db.get(RenderJob, job_id)
+            _log(db, job, f"sent to app {app_id}: conversion {imp.id}")
+            db.commit()
+            imp_id = imp.id
+        if created:
+            from ..worker import dispatch_job
+            dispatch_job(imp_id)
+    except Exception as e:  # noqa: BLE001 — the export stays available, the author can send it by hand
+        log.warning("render %s: delivery to app failed: %s", job_id, e)
+        with session_scope() as db:
+            _log(db, db.get(RenderJob, job_id), f"not sent to the app: {getattr(e, 'code', type(e).__name__)}")
+            db.commit()
+
+
+# NAP-112: what "for all equipment" exports for a project with this many buses (built-in profiles)
+ALL_EQUIPMENT = {2: ["HEADPHONES_2_0"], 3: ["HEADPHONES_2_0", "NAP_ACOUSTIC_3_0"],
+                 6: ["HEADPHONES_2_0", "NAP_ACOUSTIC_3_0", "NAP_CHAIR_5_1"],
+                 8: ["HEADPHONES_2_0", "NAP_ACOUSTIC_3_0", "NAP_CHAIR_5_1", "NAP_PRO_7_1"]}
+
+
+def start_all_renders(db: Session, pr: AudioProject, actor_id: uuid.UUID, idem: str | None, fmt: str,
+                      deliver_app_id: uuid.UUID | None) -> list[RenderJob]:
+    return [start_render(db, pr, actor_id, key, f"{idem}:{key}" if idem else None, fmt, deliver_app_id)
+            for key in ALL_EQUIPMENT[pr.bus_count]]
 
 
 def _fail(job_id: uuid.UUID, code: str, detail: dict, final: bool) -> str:

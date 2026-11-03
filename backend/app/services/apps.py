@@ -220,13 +220,9 @@ def attach_layout(db: Session, job: ConversionJob) -> ProgramSession | None:
     v = latest_version(db, job.app_id)
     if v is None or v.state != "draft":
         return None
-    from .conversion import studio_info
-    mine = (studio_info(job) or {}).get("project_id")
     for ps in v.sessions:
         primary = db.get(ConversionJob, ps.conversion_job_id)
-        # same main file, or (NAP-110) exports of the same studio project
-        same = primary.source_asset_id == job.source_asset_id or (mine and (studio_info(primary) or {}).get("project_id") == mine)
-        if same and job.layout not in (ps.variants or {}) \
+        if _same_material(primary, job) and job.layout not in (ps.variants or {}) \
                 and abs(job.result["duration_seconds"] - ps.duration_seconds) <= VARIANT_DURATION_TOLERANCE_S:
             ps.variants = {**(ps.variants or {}), job.layout: _variant_entry(db, job)}
             audit(db, job.owner_id, "version.layout_attached", "app_version", v.id,
@@ -253,9 +249,25 @@ def autofill_program(db: Session, job: ConversionJob) -> AppVersion | None:
     if not titles:
         app = db.get(App, job.app_id)
         titles = {"ru": app.slug}
-    v.sessions.append(_session_from_job(db, job, 1, "s1", titles))
+    ps = _session_from_job(db, job, 1, "s1", titles)
+    v.sessions.append(ps)
     audit(db, job.owner_id, "version.program_autofilled", "app_version", v.id, {"conversion_job_id": str(job.id)})
+    # NAP-112: speaker / chair versions of the same material that finished before the headphones track join now
+    for other in db.scalars(select(ConversionJob).where(ConversionJob.app_id == job.app_id,
+                                                        ConversionJob.state == "completed",
+                                                        ConversionJob.layout != "headphones")
+                            .order_by(ConversionJob.finished_at)):
+        if other.layout not in (ps.variants or {}) and _same_material(job, other) \
+                and abs(other.result["duration_seconds"] - ps.duration_seconds) <= VARIANT_DURATION_TOLERANCE_S:
+            ps.variants = {**(ps.variants or {}), other.layout: _variant_entry(db, other)}
     return v
+
+
+def _same_material(a: ConversionJob, b: ConversionJob) -> bool:
+    """Same main file, or (NAP-110) exports of the same studio project."""
+    from .conversion import studio_info
+    pa, pb = (studio_info(a) or {}).get("project_id"), (studio_info(b) or {}).get("project_id")
+    return a.source_asset_id == b.source_asset_id or bool(pa and pa == pb)
 
 
 def build_manifest(db: Session, app: App, v: AppVersion) -> dict:

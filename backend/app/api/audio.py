@@ -120,6 +120,12 @@ def create_revision(project_id: str, body: RevisionIn, p=P, db=DB):
 class RenderIn(BaseModel):
     profile: str
     format: str = "wav"          # wav (RIFF, RF64 above 4 GiB) | flac (lossless, 16/24-bit)
+    app_id: str | None = None    # NAP-112: send the finished export to this app
+
+
+class RenderAllIn(BaseModel):
+    format: str = "wav"
+    app_id: str | None = None
 
 
 @router.post("/projects/{project_id}/renders", status_code=201)
@@ -127,12 +133,28 @@ def create_render(project_id: str, body: RenderIn, request: Request, p=P, db=DB,
     ratelimit.check(request, "conversion", p.id)
     u = author(p)
     pr = svc.own_project(db, u.id, project_id)
-    job = svc.start_render(db, pr, u.id, body.profile, key, body.format)
+    job = svc.start_render(db, pr, u.id, body.profile, key, body.format,
+                           as_uuid(body.app_id, "app") if body.app_id else None)
     db.commit()
     from ..worker import dispatch_render
     dispatch_render(job.id)
     db.refresh(job)
     return svc.job_view(db, job)
+
+
+@router.post("/projects/{project_id}/renders/all", status_code=201)
+def create_all_renders(project_id: str, body: RenderAllIn, request: Request, p=P, db=DB, key=Depends(idem)):
+    """NAP-112: one export per equipment the project's buses can feed (2.0, 3.0, 5.1, 7.1), optionally sent to an
+    app, where they become one session: the headphones track plus the speaker / chair versions."""
+    ratelimit.check(request, "conversion", p.id)
+    u = author(p)
+    pr = svc.own_project(db, u.id, project_id)
+    jobs = svc.start_all_renders(db, pr, u.id, key, body.format, as_uuid(body.app_id, "app") if body.app_id else None)
+    db.commit()
+    from ..worker import dispatch_render
+    for j in jobs:
+        dispatch_render(j.id)
+    return {"items": [svc.job_view(db, j) for j in jobs]}
 
 
 @router.get("/projects/{project_id}/renders")

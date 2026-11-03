@@ -276,6 +276,9 @@ async function run(L) {
     await b.getByRole("slider", { name: t("player.seek") }).waitFor();
     await b.getByText(t("player.remaining", { time: "" }).trim()).first().waitFor();
     await b.getByRole("button", { name: t("player.back30") }).click();
+    // NAP-111: volume slider, remembered in this browser
+    await b.getByLabel(t("player.volume")).fill("40");
+    if ((await b.evaluate(() => localStorage.getItem("nap-player-volume"))) !== "40") throw new Error("volume not remembered");
     // NAP-109: the track streams; a verified copy is saved in the background, then the session survives going offline
     await b.getByText(t("player.offline_ready")).waitFor({ timeout: 60000 });
     const clock = async () => (await b.locator(".player-time").innerText()).split("/")[0].trim();
