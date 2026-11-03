@@ -50,6 +50,7 @@ export default async function LocaleLayout({ children, params }: { children: Rea
                   <li><Link href={`/${locale}/kits`}>{t("nav.kits")}</Link></li></ul></div>
                 <div><h2>{t("footer.col_account")}</h2><ul>
                   <li><Link href={`/${locale}/library`}>{t("nav.library")}</Link></li>
+                  <li><Link href={`/${locale}/help/playback`}>{t("help.title")}</Link></li>
                   <li><Link href={`/${locale}/orders`}>{t("nav.orders")}</Link></li>
                   <li><Link href={`/${locale}/account`}>{t("nav.account")}</Link></li></ul></div>
                 <div><h2>{t("footer.col_authors")}</h2><ul>
