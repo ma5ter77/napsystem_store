@@ -64,6 +64,7 @@ export default async function AppPage({ params }: { params: P }) {
           <dt>{t("app.audio_lang")}</dt><dd>{langName(a.content_language, locale)}</dd>
           <dt>{t("app.version")}</dt><dd>{a.version}</dd>
           <dt>{t("app.compat")}</dt><dd>{caps.map((c) => t(`caps.${c}`)).join(", ") || "—"}</dd>
+          {a.layouts?.length > 0 && <><dt>{t("app.layouts")}</dt><dd data-testid="app-layouts">{a.layouts.map((l: string) => t(`layout.${l}`)).join(" · ")}</dd></>}
           <dt>{t("app.price")}</dt><dd><strong>{priceLabel(a.prices, t, locale)}</strong></dd>
         </dl>
         {price?.kind === "subscription" && <p className="hint">{t("app.sub_terms")}</p>}

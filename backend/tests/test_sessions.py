@@ -75,7 +75,8 @@ def test_web_headphones_lr_test_is_user_confirmation_not_measurement():
     assert v["channel_separation_source"] == "user_confirmed"
     assert "not a hardware isolation measurement" in v["precheck"]["note"]
     g = s["grant"]["playback"]
-    assert g == {"channels": 2, "sample_rate": 48000, "mono_downmix": False, "crossfeed": False, "channel_swap": False}
+    assert g == {"layout": "headphones", "channels": 2, "channel_order": ["FL", "FR"], "available": ["headphones"],
+                 "sample_rate": 48000, "mono_downmix": False, "crossfeed": False, "channel_swap": False}
 
 
 def test_offline_buffered_events_sync_once_and_local_stop():

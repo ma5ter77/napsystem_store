@@ -537,3 +537,9 @@ main .crumbs a:hover { text-decoration: underline; }
 }
 .first-steps ol { margin: 0; padding-left: 1.4em; display: grid; gap: 10px; }
 .first-steps li::marker { color: var(--action); font-weight: 600; }
+
+/* NAP-108: channel map of a speaker / chair version */
+.channel-map th[scope="row"] { font-weight: 500; white-space: nowrap; }
+.channel-map select { min-width: 14rem; }
+.ch-code { display: inline-block; min-width: 2.6em; font: 600 .75rem/1.6 var(--text); color: var(--action); background: var(--tint-action);
+  border-radius: 6px; text-align: center; margin-right: 6px; }

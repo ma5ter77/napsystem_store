@@ -19,10 +19,12 @@ from sqlalchemy.orm import Session
 from ..config import get_settings
 from ..db import session_scope, utcnow
 from ..dsp.media import MediaError
+from ..dsp.modes import LAYOUTS
 from ..dsp.pipeline import Cancelled, Limits, convert
+from ..dsp.variants import convert_variant
 from ..errors import ApiError
 from ..models import App, Asset, ConversionJob, DspProfile
-from ..models.content import JOB_TERMINAL
+from ..models.content import JOB_LAYOUTS, JOB_TERMINAL
 from ..storage import get_storage
 from .assets import store_generated
 from .common import audit
@@ -38,29 +40,53 @@ def profile_snapshot(p: DspProfile) -> dict:
     return {"slug": p.slug, "version": p.version, **p.params}
 
 
+def layout_channels(layout: str) -> list[str]:
+    """Channel order of a job layout (headphones = the 2.0 track)."""
+    return ["FL", "FR"] if layout == "headphones" else LAYOUTS[layout]
+
+
+def _own_source(db: Session, owner_id: uuid.UUID, app_id: uuid.UUID, asset_id: uuid.UUID) -> Asset:
+    asset = db.get(Asset, asset_id)
+    if not asset or asset.owner_id != owner_id or asset.kind != "source" or asset.app_id != app_id:
+        raise ApiError("not_found", 404, entity="asset")
+    if asset.status != "uploaded":
+        raise ApiError("asset_not_ready", 409)
+    return asset
+
+
 def create_job(db: Session, owner_id: uuid.UUID, app_id: uuid.UUID, source_asset_id: uuid.UUID,
-               profile_id: uuid.UUID, idempotency_key: str | None) -> tuple[ConversionJob, bool]:
+               profile_id: uuid.UUID, idempotency_key: str | None, layout: str = "headphones",
+               stems: dict[str, uuid.UUID] | None = None) -> tuple[ConversionJob, bool]:
+    # NAP-108: speakers 3.0 / NAP chair 5.1 and 7.1, each channel optionally from the author's own file
+    if layout not in JOB_LAYOUTS:
+        raise ApiError("validation_failed", 422, details={"field": "layout"})
+    stems = {k: v for k, v in (stems or {}).items() if v}
+    if stems and layout == "headphones":
+        raise ApiError("validation_failed", 422, details={"field": "stems"})
+    bad = sorted(set(stems) - set(layout_channels(layout)))
+    if bad:
+        raise ApiError("validation_failed", 422, details={"field": f"stems.{bad[0]}"})
+    stems_s = {k: str(v) for k, v in sorted(stems.items())}
     if idempotency_key:
         existing = db.scalar(select(ConversionJob).where(ConversionJob.owner_id == owner_id,
                                                          ConversionJob.idempotency_key == idempotency_key))
         if existing:
-            if existing.source_asset_id != source_asset_id or existing.profile_id != profile_id:
+            if existing.source_asset_id != source_asset_id or existing.profile_id != profile_id \
+                    or existing.layout != layout or (existing.stems or {}) != stems_s:
                 raise ApiError("idempotency_conflict", 409)
             return existing, False
     app = db.get(App, app_id)
     if not app or app.developer_id != owner_id:
         raise ApiError("not_found", 404, entity="app")
-    asset = db.get(Asset, source_asset_id)
-    if not asset or asset.owner_id != owner_id or asset.kind != "source" or asset.app_id != app_id:
-        raise ApiError("not_found", 404, entity="asset")
-    if asset.status != "uploaded":
-        raise ApiError("asset_not_ready", 409)
+    _own_source(db, owner_id, app_id, source_asset_id)
+    for ch, aid in stems.items():
+        _own_source(db, owner_id, app_id, aid)
     prof = db.get(DspProfile, profile_id)
     if not prof or prof.status != "active":
         raise ApiError("profile_unavailable", 422)
     job = ConversionJob(owner_id=owner_id, app_id=app_id, source_asset_id=source_asset_id, profile_id=prof.id,
                         profile_snapshot=profile_snapshot(prof), idempotency_key=idempotency_key,
-                        max_attempts=get_settings().job_max_attempts)
+                        max_attempts=get_settings().job_max_attempts, layout=layout, stems=stems_s)
     db.add(job)
     try:
         db.flush()
@@ -69,7 +95,8 @@ def create_job(db: Session, owner_id: uuid.UUID, app_id: uuid.UUID, source_asset
         existing = db.scalar(select(ConversionJob).where(ConversionJob.owner_id == owner_id,
                                                          ConversionJob.idempotency_key == idempotency_key))
         return existing, False
-    audit(db, owner_id, "conversion.created", "conversion_job", job.id, {"profile": prof.slug})
+    audit(db, owner_id, "conversion.created", "conversion_job", job.id,
+          {"profile": prof.slug, "layout": layout, "own_files": sorted(stems_s)})
     return job, True
 
 
@@ -174,6 +201,8 @@ def _complete(job_id: uuid.UUID, worker: str, out) -> str:
         from .assets import _ctype  # noqa
         from ..dsp.pipeline import sha256_file
         for kind, path, ext, sha in files:
+            if not path:      # layout jobs have no separate layer file
+                continue
             staged.append(store_generated(db, owner_id=owner, app_id=app_id, kind=kind, path=path, ext=ext,
                                           sha256=sha or sha256_file(path)))
         db.flush()
@@ -186,15 +215,20 @@ def _complete(job_id: uuid.UUID, worker: str, out) -> str:
         dur = o["duration_seconds"]
         job.result = {a.kind: str(a.id) for a in staged} | {"duration_seconds": dur, "frames": o["frames"],
                                                              "delivery_sha256": o["delivery_sha256"],
-                                                             "pcm_sha256": o["pcm_sha256"]}
+                                                             "pcm_sha256": o["pcm_sha256"],
+                                                             "layout": job.layout, "channels": o["channels"],
+                                                             "channel_order": o.get("channel_order") or ["FL", "FR"]}
         job.report = {"qa": out.report, "params": out.params}
         job.state = "completed"
         job.stage_progress = 1.0
         job.finished_at = utcnow()
         job.lease_owner = None
         audit(db, owner, "conversion.completed", "conversion_job", job.id, {"frames": o["frames"]})
-        from .apps import autofill_program  # local import: apps <-> conversion
-        autofill_program(db, job)
+        from .apps import attach_layout, autofill_program  # local import: apps <-> conversion
+        if job.layout == "headphones":
+            autofill_program(db, job)
+        else:
+            attach_layout(db, job)
         return "completed"
 
 
@@ -209,6 +243,8 @@ def run_job(job_id: uuid.UUID | str) -> str:
         snapshot = dict(job.profile_snapshot)
         src_asset = db.get(Asset, job.source_asset_id)
         src_key, attempt = src_asset.storage_key, job.attempt
+        layout = job.layout
+        stem_keys = {ch: db.get(Asset, uuid.UUID(aid)).storage_key for ch, aid in (job.stems or {}).items()}
     workdir = os.path.join(s.job_workdir, str(job_id), f"attempt-{attempt}")
     shutil.rmtree(workdir, ignore_errors=True)
     os.makedirs(workdir, exist_ok=True)
@@ -238,7 +274,14 @@ def run_job(job_id: uuid.UUID | str) -> str:
                         cpu_seconds=s.job_cpu_seconds, memory_bytes=s.job_memory_bytes,
                         disk_reserve=s.job_disk_reserve_bytes, timeout=s.job_timeout_seconds,
                         preview_seconds=s.preview_seconds)
-        out = convert(src_path, workdir, snapshot, limits, progress, check)
+        if layout == "headphones":
+            out = convert(src_path, workdir, snapshot, limits, progress, check)
+        else:
+            stem_paths = {}
+            for ch, key in stem_keys.items():
+                stem_paths[ch] = os.path.join(workdir, f"stem-{ch}.bin")
+                get_storage().get_to_file(key, stem_paths[ch])
+            out = convert_variant(src_path, workdir, snapshot, limits, layout, stem_paths, progress, check)
         return _complete(job_id, worker, out)
     except Cancelled:
         return "canceled"

@@ -39,7 +39,9 @@ def version_view(db, v: AppVersion, locale: str) -> dict:
             "rights_confirmed": v.rights_confirmed_at is not None, "manifest_sha256": v.manifest_sha256,
             "sessions": [{"key": s.key, "position": s.position, "titles": s.titles,
                           "conversion_job_id": str(s.conversion_job_id), "duration_seconds": s.duration_seconds,
-                          "sha256": s.sha256} for s in v.sessions],
+                          "sha256": s.sha256,
+                          "variants": {k: x["conversion_job_id"] for k, x in (s.variants or {}).items()}}
+                         for s in v.sessions],
             "moderation": [{"decision": d.decision, "comment": d.comment, "at": d.created_at.isoformat()}
                            for d in decisions],
             "auto_release": v.auto_release,
@@ -53,7 +55,10 @@ def version_view(db, v: AppVersion, locale: str) -> dict:
 def job_view(db, j: ConversionJob, with_urls: bool = False) -> dict:
     src = db.get(Asset, j.source_asset_id)
     out = {"id": str(j.id), "app_id": str(j.app_id), "state": j.state, "stage_progress": j.stage_progress,
-           "failed_stage": j.failed_stage,
+           "failed_stage": j.failed_stage, "layout": j.layout,
+           "channels": conversion.layout_channels(j.layout),
+           "stems": {ch: {"id": aid, "name": (db.get(Asset, uuid.UUID(aid)).original_name if aid else None)}
+                     for ch, aid in (j.stems or {}).items()},
            "attempt": j.attempt, "max_attempts": j.max_attempts, "error_code": j.error_code,
            "profile": j.profile_snapshot, "source": {"id": str(src.id), "name": src.original_name,
                                                      "probe": src.probe, "size_bytes": src.size_bytes},
@@ -300,6 +305,8 @@ class ConversionIn(BaseModel):
     app_id: str
     source_asset_id: str
     profile_id: str
+    layout: str = "headphones"   # NAP-108: headphones | acoustic_3_0 | surround_5_1 | surround_7_1
+    stems: dict[str, str] = {}   # {"FC": asset_id, ...}: the author's own file per channel
 
 
 @router.post("/conversions", status_code=202)
@@ -307,7 +314,8 @@ def create_conversion(body: ConversionIn, request: Request, p=P, db=DB, key=Depe
     u = dev(p, "conversions:write")
     ratelimit.check(request, "conversion", u.id)
     job, created = conversion.create_job(db, u.id, as_uuid(body.app_id), as_uuid(body.source_asset_id),
-                                         as_uuid(body.profile_id, "profile"), key)
+                                         as_uuid(body.profile_id, "profile"), key, body.layout,
+                                         {ch: as_uuid(a, "asset") for ch, a in body.stems.items() if a})
     db.commit()
     if created:
         from ..worker import dispatch_job

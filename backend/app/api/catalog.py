@@ -74,7 +74,12 @@ def app_card(db, app: App, locale: str, detail: bool = False, user_id=None, rati
         out["program"] = [{"key": s.key, "position": s.position,
                            "title": s.titles.get(locale) or next(iter(s.titles.values())),
                            "title_lang": locale if locale in s.titles else next(iter(s.titles)),
-                           "duration_seconds": s.duration_seconds} for s in (v.sessions if v else [])]
+                           "duration_seconds": s.duration_seconds,
+                           "layouts": ["headphones", *sorted((s.variants or {}).keys())]}
+                          for s in (v.sessions if v else [])]
+        # NAP-108: equipment this app has versions for (every session has the headphones track)
+        out["layouts"] = sorted({k for s in (v.sessions if v else []) for k in (s.variants or {})} | {"headphones"},
+                                key=["headphones", "acoustic_3_0", "surround_5_1", "surround_7_1"].index)
         out["questionnaires"] = {"pre": v.questionnaire_pre, "post": v.questionnaire_post} if v else None
         out["dsp_profile"] = (v.manifest or {}).get("dsp") if v else None
         out["recommended_kit"] = None

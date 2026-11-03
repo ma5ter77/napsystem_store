@@ -165,17 +165,70 @@ def set_program(db: Session, app: App, v: AppVersion, sessions: list[dict], acto
             job_id = uuid.UUID(str(s.get("conversion_job_id") or ""))
         except ValueError:
             raise ApiError("validation_failed", 422, details={"field": f"sessions.{i}.track"}) from None
-        job = db.get(ConversionJob, job_id)
-        if not job or job.app_id != app.id or job.owner_id != app.developer_id:
-            raise ApiError("not_found", 404, entity="conversion")
-        if job.state != "completed" or not job.result:
-            raise ApiError("conversion_not_completed", 409)
-        new.append(_session_from_job(db, job, i, key, titles))
+        job = _completed_job(db, app, job_id)
+        if job.layout != "headphones":  # NAP-108: the headphones track is what every listener can play
+            raise ApiError("validation_failed", 422, details={"field": f"sessions.{i}.track"})
+        ps = _session_from_job(db, job, i, key, titles)
+        raw = s.get("variants") or {}
+        if not isinstance(raw, dict):
+            raise ApiError("validation_failed", 422, details={"field": f"sessions.{i}.variants"})
+        for layout, vid in raw.items():
+            if not vid:
+                continue
+            field = f"sessions.{i}.variants.{layout}"
+            try:
+                vjob = _completed_job(db, app, uuid.UUID(str(vid)))
+            except ValueError:
+                raise ApiError("validation_failed", 422, details={"field": field}) from None
+            if vjob.layout != layout or layout == "headphones":
+                raise ApiError("validation_failed", 422, details={"field": field})
+            if abs(vjob.result["duration_seconds"] - ps.duration_seconds) > VARIANT_DURATION_TOLERANCE_S:
+                raise ApiError("variant_duration_mismatch", 422, details={"field": field})
+            ps.variants = {**(ps.variants or {}), layout: _variant_entry(db, vjob)}
+        new.append(ps)
     v.sessions.clear()
     db.flush()
     v.sessions.extend(new)
     audit(db, actor_id, "version.program_set", "app_version", v.id, {"sessions": len(new)})
     return v
+
+
+VARIANT_DURATION_TOLERANCE_S = 1.0
+
+
+def _completed_job(db: Session, app: App, job_id: uuid.UUID) -> ConversionJob:
+    job = db.get(ConversionJob, job_id)
+    if not job or job.app_id != app.id or job.owner_id != app.developer_id:
+        raise ApiError("not_found", 404, entity="conversion")
+    if job.state != "completed" or not job.result:
+        raise ApiError("conversion_not_completed", 409)
+    return job
+
+
+def _variant_entry(db: Session, job: ConversionJob) -> dict:
+    delivery = db.get(Asset, uuid.UUID(job.result["delivery"]))
+    return {"conversion_job_id": str(job.id), "delivery_asset_id": str(delivery.id),
+            "master_asset_id": job.result["master"], "sha256": delivery.sha256,
+            "duration_seconds": job.result["duration_seconds"], "channels": job.result["channels"],
+            "channel_order": job.result["channel_order"],
+            "own_files": sorted((job.stems or {}).keys())}
+
+
+def attach_layout(db: Session, job: ConversionJob) -> ProgramSession | None:
+    """NAP-108: a finished speaker / chair version of a track joins the draft session that plays the same main file,
+    if that session has no version for this layout yet. The author can change it on the Program tab."""
+    v = latest_version(db, job.app_id)
+    if v is None or v.state != "draft":
+        return None
+    for ps in v.sessions:
+        primary = db.get(ConversionJob, ps.conversion_job_id)
+        if primary.source_asset_id == job.source_asset_id and job.layout not in (ps.variants or {}) \
+                and abs(job.result["duration_seconds"] - ps.duration_seconds) <= VARIANT_DURATION_TOLERANCE_S:
+            ps.variants = {**(ps.variants or {}), job.layout: _variant_entry(db, job)}
+            audit(db, job.owner_id, "version.layout_attached", "app_version", v.id,
+                  {"session": ps.key, "layout": job.layout, "conversion_job_id": str(job.id)})
+            return ps
+    return None
 
 
 def _session_from_job(db: Session, job: ConversionJob, position: int, key: str, titles: dict) -> ProgramSession:
@@ -208,9 +261,15 @@ def build_manifest(db: Session, app: App, v: AppVersion) -> dict:
         job = db.get(ConversionJob, s.conversion_job_id)
         snap = job.profile_snapshot
         dsp = dsp or {"profile": snap["slug"], "profile_version": snap["version"], "engine_version": ENGINE_VERSION}
-        sessions.append({"id": s.key, "position": s.position, "title": s.titles, "asset_id": str(s.delivery_asset_id),
-                         "sha256": s.sha256, "duration_seconds": round(s.duration_seconds, 6),
-                         "dsp_profile": snap["slug"], "dsp_profile_version": snap["version"]})
+        entry = {"id": s.key, "position": s.position, "title": s.titles, "asset_id": str(s.delivery_asset_id),
+                 "sha256": s.sha256, "duration_seconds": round(s.duration_seconds, 6),
+                 "dsp_profile": snap["slug"], "dsp_profile_version": snap["version"]}
+        if s.variants:  # NAP-108; absent for older versions, so their frozen manifests keep the same hash
+            entry["layouts"] = [{"layout": k, "asset_id": x["delivery_asset_id"], "sha256": x["sha256"],
+                                 "channels": x["channels"], "channel_order": x["channel_order"],
+                                 "duration_seconds": round(x["duration_seconds"], 6)}
+                                for k, x in sorted(s.variants.items())]
+        sessions.append(entry)
     cat = db.get(Category, app.category_id) if app.category_id else None
     caps = v.requirements.get("required_capabilities", [])
     return {
@@ -258,15 +317,18 @@ def verify_integrity(db: Session, app: App, v: AppVersion, deep: bool = False) -
     if v.manifest is None or manifest_hash(current) != v.manifest_sha256 or manifest_hash(v.manifest) != v.manifest_sha256:
         problems.append("manifest_changed")
     for s in v.sessions:
-        a = db.get(Asset, s.delivery_asset_id)
-        if a.sha256 != s.sha256 or not a.immutable:
-            problems.append(f"asset_changed:{s.key}")
-        elif deep:
-            try:  # streams the object: works for the local volume and the S3 bucket alike
-                if get_storage().sha256(a.storage_key) != a.sha256:
-                    problems.append(f"object_changed:{s.key}")
-            except Exception:
-                problems.append(f"object_missing:{s.key}")
+        files = [(s.key, s.delivery_asset_id, s.sha256)] + [
+            (f"{s.key}/{k}", uuid.UUID(x["delivery_asset_id"]), x["sha256"]) for k, x in sorted((s.variants or {}).items())]
+        for label, aid, sha in files:
+            a = db.get(Asset, aid)
+            if a is None or a.sha256 != sha or not a.immutable:
+                problems.append(f"asset_changed:{label}")
+            elif deep:
+                try:  # streams the object: works for the local volume and the S3 bucket alike
+                    if get_storage().sha256(a.storage_key) != a.sha256:
+                        problems.append(f"object_changed:{label}")
+                except Exception:
+                    problems.append(f"object_missing:{label}")
     if v.cover_asset_id and deep:  # NAP-025: the cover object is checked like the audio
         c = db.get(Asset, v.cover_asset_id)
         try:
@@ -373,7 +435,8 @@ def new_version(db: Session, app: App, actor_id: uuid.UUID) -> AppVersion:
             v.sessions.append(ProgramSession(position=s.position, key=s.key, titles=s.titles,
                                              conversion_job_id=s.conversion_job_id,
                                              delivery_asset_id=s.delivery_asset_id, master_asset_id=s.master_asset_id,
-                                             duration_seconds=s.duration_seconds, sha256=s.sha256))
+                                             duration_seconds=s.duration_seconds, sha256=s.sha256,
+                                             variants=dict(s.variants or {})))
     audit(db, actor_id, "version.created", "app_version", v.id, {"number": v.number})
     return v
 

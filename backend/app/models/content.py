@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (BigInteger, Boolean, CheckConstraint, DateTime, Float, ForeignKey, Index, Integer,
-                        String, Text, UniqueConstraint)
+                        String, Text, UniqueConstraint, text)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,6 +13,7 @@ from ..db import Base, created_at, uuid_pk
 from .system import _in
 
 APP_VERSION_STATES = ("draft", "submitted", "approved", "published", "rejected", "withdrawn", "archived")
+JOB_LAYOUTS = ("headphones", "acoustic_3_0", "surround_5_1", "surround_7_1")
 JOB_STATES = ("queued", "validating", "decoding", "rendering", "quality_check", "packaging", "completed",
               "failed", "canceled")
 JOB_TERMINAL = ("completed", "failed", "canceled")
@@ -93,6 +94,9 @@ class ProgramSession(Base):
     master_asset_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("assets.id"))
     duration_seconds: Mapped[float] = mapped_column(Float)
     sha256: Mapped[str] = mapped_column(String(64))
+    # NAP-108: versions for speakers / the NAP chair next to the headphones track above:
+    # {"surround_5_1": {"conversion_job_id", "delivery_asset_id", "master_asset_id", "sha256", "channels", ...}}
+    variants: Mapped[dict] = mapped_column(JSONB, default=dict, server_default=text("'{}'::jsonb"))
     __table_args__ = (UniqueConstraint("version_id", "key"), UniqueConstraint("version_id", "position"))
 
 
@@ -172,6 +176,9 @@ class ConversionJob(Base):
     error_code: Mapped[str | None] = mapped_column(String(64))
     error_detail: Mapped[str | None] = mapped_column(Text)
     failed_stage: Mapped[str | None] = mapped_column(String(16))   # NAP-092: where a failed job stopped
+    # NAP-108: equipment layout and the author's own file per channel ({"FC": asset_id, ...}); headphones = 2.0 track
+    layout: Mapped[str] = mapped_column(String(16), default="headphones", server_default="headphones")
+    stems: Mapped[dict] = mapped_column(JSONB, default=dict, server_default=text("'{}'::jsonb"))
     result: Mapped[dict | None] = mapped_column(JSONB)  # asset ids, opened atomically on completion
     report: Mapped[dict | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = created_at()
@@ -179,6 +186,7 @@ class ConversionJob(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     __table_args__ = (CheckConstraint(_in("state", JOB_STATES), name="state"),
+                      CheckConstraint(_in("layout", JOB_LAYOUTS), name="layout"),
                       Index("uq_job_idem", "owner_id", "idempotency_key", unique=True,
                             postgresql_where="idempotency_key IS NOT NULL"),
                       CheckConstraint("(state = 'completed') = (result IS NOT NULL)", name="result_only_completed"))
