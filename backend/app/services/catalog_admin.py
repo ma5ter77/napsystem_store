@@ -260,6 +260,13 @@ def list_apps(db: Session, locale: str, q: str | None, status: str | None, limit
     return {"items": items, "total": total}
 
 
+def _live(db: Session, a: App) -> dict | None:
+    """NAP-116: the version buyers get now (the latest one may be a newer draft or an update under review)."""
+    lv = db.get(AppVersion, a.published_version_id) if a.published_version_id else None
+    return {"id": str(lv.id), "label": lv.version_label,
+            "published_at": lv.published_at.isoformat() if lv.published_at else None} if lv else None
+
+
 def app_view(db: Session, a: App, locale: str) -> dict:
     trs = get_translations(db, "app", [a.id]).get(a.id, {})
     v = _latest(db, a.id)
@@ -269,7 +276,7 @@ def app_view(db: Session, a: App, locale: str) -> dict:
     return {"id": str(a.id), "slug": a.slug, "author": a.author_name, "category": cat.slug if cat else None,
             "published": a.published_version_id is not None, "sales_status": a.sales_status,
             "latest": {"id": str(v.id), "state": v.state, "label": v.version_label} if v else None,
-            "texts": texts, "is_demo": a.is_demo,
+            "texts": texts, "is_demo": a.is_demo, "cover_hue": a.cover_hue, "live": _live(db, a),
             "deleted_at": a.deleted_at.isoformat() if a.deleted_at else None, "deleted_reason": a.deleted_reason,
             "restorable": _restorable(a.deleted_at), "audit": history(db, "app", a.id)}
 

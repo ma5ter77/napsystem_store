@@ -89,7 +89,12 @@ async function keyboard(p, url) {
       await q.locator("input[type=password]").fill("demo-password-1");
       await q.locator("form button[type=submit], form button").first().click();
       await q.waitForURL((x) => !x.pathname.endsWith("/login"));
-      for (const u of pages) { await audit(q, `/${L}${u}`, email.split("@")[0]); n++; }
+      const extra = [];
+      if (email.startsWith("moderator")) {   // NAP-116: a version review (version track, changes, store preview)
+        const qd = await q.request.get(`${BASE}/api/v1/moderation/queue`).then((x) => x.json()).catch(() => ({ items: [] }));
+        if (qd.items?.[0]) extra.push(`/moderation/${qd.items[0].version.id}`);
+      }
+      for (const u of [...pages, ...extra]) { await audit(q, `/${L}${u}`, email.split("@")[0]); n++; }
       await c.close();
     }
   }

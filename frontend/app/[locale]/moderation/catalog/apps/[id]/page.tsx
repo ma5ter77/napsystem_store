@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AuditList } from "@/components/ProductEditor";
+import { ChangeList, StorePreview, VersionTrack, textChanges } from "@/components/Changes";
 import { useApp } from "@/components/Providers";
 import { ErrorBox, Loading, RequireAuth, StatusBadge, useAction, useLoad } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -32,6 +33,12 @@ function AppManage() {
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} onRetry={reload} />;
   const a = data;
+  // NAP-116: what saving will change, word by word, and how the card will look after it
+  const orig = Object.fromEntries(["ru", "en"].map((l) => [l, { title: a.texts[l]?.title ?? "", subtitle: a.texts[l]?.subtitle ?? "", description: a.texts[l]?.description ?? "" }]));
+  const edits = [...textChanges(orig, texts), ...(category !== (a.category ?? "") ? [{ area: "category", kind: "changed" as const, before: a.category, after: category }] : [])];
+  const textEdits = edits.filter((c) => c.area === "text");
+  const catName = (slug: string | null) => (cats.data?.items ?? []).find((c: any) => c.slug === slug)?.name ?? slug ?? "—";
+  const reset = () => { setTexts({ ru: { ...(a.texts.ru ?? {}) }, en: { ...(a.texts.en ?? {}) } }); setCategory(a.category ?? ""); };
   const done = (x: any, m: string) => { setData(x); setReason(""); setFlash(m); };
   const save = async () => {
     const body = { data: { category, texts: Object.fromEntries(["ru", "en"].filter((l) => texts[l]?.title).map((l) => [l, { title: texts[l].title, subtitle: texts[l].subtitle ?? "", description: texts[l].description ?? "" }])) }, reason };
@@ -55,6 +62,9 @@ function AppManage() {
       </div>
       {a.published && !a.deleted_at && <Link href={`/${locale}/apps/${a.slug}`}>{t("mod.open_in_store")}</Link>}
       {a.deleted_at && <div className="notice bad">{t("mm.deleted_note", { date: date(a.deleted_at, locale, true), reason: a.deleted_reason ?? "—" })}{!a.restorable && ` ${t("mm.restore_expired")}`}</div>}
+      <VersionTrack sameAsLive={!!a.live && a.latest?.id === a.live.id}
+        live={a.live ? { label: a.live.label, at: a.live.published_at, note: t("chg.published") } : null}
+        next={a.latest ? { label: a.latest.label, at: null, note: t(`version_state.${a.latest.state}`) } : null} />
       {flash && <div className="notice ok" role="status">{flash}</div>}
       <p className="hint">{t("mm.app_scope_hint")}</p>
       <fieldset className="stack" disabled={!!a.deleted_at} style={{ border: 0, padding: 0, margin: 0 }}>
@@ -71,10 +81,17 @@ function AppManage() {
               </label>))}
           </fieldset>))}</div>
       </fieldset>
+      <StorePreview texts={texts} slug={a.slug} hue={a.cover_hue} author={a.author} />
+      <section className="panel stack" aria-labelledby="edits-h" data-testid="pending-edits">
+        <h2 id="edits-h">{t("chg.pending_title")} {edits.length > 0 && <span className="hint">{edits.length}</span>}</h2>
+        {(textEdits.length > 0 || !edits.length) && <ChangeList changes={textEdits} empty={t("chg.pending_none")} />}
+        {edits.some((c) => c.area === "category") && <p><span className="chg-kind is-changed">{t("chg.kind.changed")}</span><strong>{t("fields.category")}</strong> <span className="hint">{catName(a.category)} → {catName(category)}</span></p>}
+        {edits.length > 0 && <div className="row"><button type="button" className="btn ghost small" onClick={reset}>{t("chg.discard")}</button></div>}
+      </section>
       <div className="panel stack">
         <label className="field">{t("mm.reason")}<textarea rows={2} maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} /><span className="hint">{t("mm.reason_hint")}</span></label>
         <div className="row">
-          {!a.deleted_at && <button className="btn" disabled={act.pending || !reason.trim()} onClick={save}>{t("mm.save_changes")}</button>}
+          {!a.deleted_at && <button className="btn" disabled={act.pending || !reason.trim() || !edits.length} onClick={save}>{edits.length ? t("mm.save_n_changes", { count: edits.length }) : t("mm.save_changes")}</button>}
           {!a.deleted_at && (a.sales_status === "active"
             ? <button className="btn ghost" disabled={act.pending || !reason.trim()} onClick={() => action("stop-sales", t("mm.done_sales_stopped"))}>{t("dev.stop_sales")}</button>
             : <button className="btn ghost" disabled={act.pending} onClick={() => action("resume-sales", t("mm.done_sales_resumed"))}>{t("dev.resume_sales")}</button>)}
