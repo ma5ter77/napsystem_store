@@ -329,6 +329,46 @@ def create_conversion(body: ConversionIn, request: Request, p=P, db=DB, key=Depe
     return job_view(db, job) | {"created": created}
 
 
+class PreviewIn(BaseModel):
+    app_id: str
+    source_asset_id: str
+    profile_id: str
+    method: str = "shift"
+    beat: dict | None = None
+    start_seconds: float = 0.0
+    seconds: float = 20.0
+
+
+@router.post("/conversions/preview")
+def preview_conversion(body: PreviewIn, request: Request, p=P, db=DB):
+    """NAP-117: listen to a fragment with these beat settings before converting (nothing is stored)."""
+    import json as _json
+    import os as _os
+    import tempfile
+    from fastapi.responses import Response
+    from ..dsp.media import MediaError
+    from ..dsp.preview import preview_fragment
+    from ..storage import get_storage
+    u = dev(p, "conversions:write")
+    ratelimit.check(request, "conversion", u.id)
+    if body.method not in ("shift", "shift_layer", "layer"):
+        raise ApiError("validation_failed", 422, details={"field": "method"})
+    asset = conversion._own_source(db, u.id, as_uuid(body.app_id), as_uuid(body.source_asset_id))
+    prof = db.get(DspProfile, as_uuid(body.profile_id, "profile"))
+    if not prof or prof.status != "active":
+        raise ApiError("profile_unavailable", 422)
+    snap = conversion.edited_snapshot(conversion.profile_snapshot(prof), body.beat, body.method)
+    with tempfile.TemporaryDirectory() as tmp:
+        path = _os.path.join(tmp, "source.bin")
+        get_storage().get_to_file(asset.storage_key, path)
+        try:
+            wav, info = preview_fragment(path, snap, body.method, body.start_seconds, body.seconds)
+        except MediaError as e:
+            raise ApiError("preview_failed", 422, details={"reason": e.code}) from None
+    return Response(wav, media_type="audio/wav", headers={"Cache-Control": "no-store",
+                                                         "X-Preview": _json.dumps(info, separators=(",", ":"))})
+
+
 @router.get("/conversions")
 def list_conversions(app_id: str | None = None, p=P, db=DB):
     u = dev(p, "conversions:read")

@@ -1183,6 +1183,18 @@ M.update({  # NAP-117: the beat comes from the track itself; the carrier layer i
 "job_errors.layer_needs_level": ("Для слоя несущих нужен уровень слоя.", "The carrier layer needs a level."),
 })
 
+M.update({  # NAP-117: listen before converting
+"beat.preview": ("Прослушать 20 секунд", "Listen to 20 seconds"),
+"beat.preview_wait": ("Готовим фрагмент…", "Preparing the fragment…"),
+"beat.preview_file": ("Файл для прослушивания", "File to listen to"),
+"beat.preview_need_file": ("Загрузите файл в шаге 2 — здесь можно будет прослушать 20 секунд с этими настройками до конвертации.",
+  "Upload a file in step 2 — then you can listen to 20 seconds with these settings here before converting."),
+"beat.preview_note": ("Это начало трека, обработанное с текущими настройками. Ничего не сохраняется: настройки можно менять и слушать снова. Ритм слышен в наушниках.",
+  "This is the start of the track processed with the current settings. Nothing is stored: change the settings and listen again. The beat is heard on headphones."),
+"beat.quiet": ("Трек очень тихий: пик {db} dBFS. Ритм из такого трека будет слышен слабо. Поднимите уровень при сведении или выберите слой несущих.",
+  "The track is very quiet: peak {db} dBFS. A beat made from it will be faint. Raise the level in the mix or choose the carrier layer."),
+})
+
 def nest(lang):
     out = {}
     for key, pair in M.items():
