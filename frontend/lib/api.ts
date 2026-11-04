@@ -45,6 +45,23 @@ export async function api<T = any>(path: string, init: { method?: string; body?:
   return json as T;
 }
 
+/** NAP-117: POST JSON, get a binary answer (e.g. an audio fragment) and its headers. */
+export async function apiBlob(path: string, body: unknown): Promise<{ blob: Blob; headers: Headers }> {
+  let res: Response;
+  try {
+    res = await fetch(`/api/v1${path}`, { method: "POST", credentials: "same-origin",
+      headers: { "x-locale": locale(), "content-type": "application/json", "x-csrf-token": csrf() }, body: JSON.stringify(body) });
+  } catch {
+    throw new ApiError(0, "network_error", locale() === "ru" ? "Нет соединения с сервером." : "No connection to the server.");
+  }
+  if (!res.ok) {
+    let e: any = {};
+    try { e = (await res.json()).error ?? {}; } catch { /* non-json */ }
+    throw new ApiError(res.status, e.code ?? "http_error", e.message ?? res.statusText, e.request_id, e.details);
+  }
+  return { blob: await res.blob(), headers: res.headers };
+}
+
 /** NAP-047: send one small file (≤ 10 MB) as the raw request body, e.g. a product photo. */
 export async function postFile<T = any>(path: string, file: Blob): Promise<T> {
   let res: Response;

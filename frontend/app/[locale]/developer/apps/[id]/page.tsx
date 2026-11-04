@@ -11,7 +11,7 @@ import { AppCover } from "@/components/Art";
 import { Term } from "@/components/Term";
 import { ChannelDiagram } from "@/components/ChannelDiagram";
 import { ErrorBox, errorFields, Loading, Price, RequireAuth, StatusBadge, useAction, useLoad } from "@/components/ui";
-import { api, sha256File, uid, uploadWithProgress } from "@/lib/api";
+import { api, apiBlob, sha256File, uid, uploadWithProgress } from "@/lib/api";
 import { date, duration } from "@/lib/i18n";
 
 const TABS = ["details", "audio", "program", "price", "versions"] as const;
@@ -310,6 +310,39 @@ function BeatEditor({ b, set }: { b: Beat; set: (b: Beat) => void }) {
   );
 }
 
+// NAP-117: hear 20 s of an uploaded file with these settings before converting; a quiet source is flagged
+function BeatPreview({ app, files, profile, body }: { app: any; files: any[]; profile: string; body: () => any }) {
+  const { t } = useApp();
+  const ready = files.filter((a: any) => a.status === "uploaded");
+  const [file, setFile] = useState("");
+  const [url, setUrl] = useState<string | null>(null);
+  const [info, setInfo] = useState<any>(null);
+  const act = useAction();
+  useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
+  const target = file || ready[0]?.id || "";
+  if (!ready.length) return <p className="hint">{t("beat.preview_need_file")}</p>;
+  const listen = async () => {
+    const r = await act.run(() => apiBlob("/developer/conversions/preview", { app_id: app.id, source_asset_id: target, profile_id: profile, seconds: 20, ...body() }));
+    if (!r) return;
+    if (url) URL.revokeObjectURL(url);
+    setUrl(URL.createObjectURL(r.blob));
+    try { setInfo(JSON.parse(r.headers.get("x-preview") ?? "{}")); } catch { setInfo(null); }
+  };
+  return (
+    <div className="stack" data-testid="beat-preview">
+      <div className="row">
+        {ready.length > 1 && <label className="field" style={{ flex: "1 1 200px" }}>{t("beat.preview_file")}
+          <select value={target} onChange={(e) => setFile(e.target.value)}>{ready.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>}
+        <button type="button" className="btn ghost" style={{ alignSelf: "end" }} disabled={act.pending || !profile} onClick={listen}>{act.pending ? t("beat.preview_wait") : t("beat.preview")}</button>
+      </div>
+      {url && <audio controls autoPlay src={url} style={{ width: "100%" }} aria-label={t("beat.preview")} />}
+      {info && <p className="hint">{t("beat.preview_note")}</p>}
+      {info?.quiet && <div className="notice warn" role="alert">{t("beat.quiet", { db: info.source_peak_dbfs ?? "−∞" })}</div>}
+      <ErrorBox error={act.error} />
+    </div>
+  );
+}
+
 function Audio({ app, onTrackReady }: { app: any; onTrackReady?: () => void }) {
   const { t, locale } = useApp();
   const limits = useLoad<any>("/converter/limits");
@@ -383,7 +416,10 @@ function Audio({ app, onTrackReady }: { app: any; onTrackReady?: () => void }) {
         {prof && <p className="hint">{prof.description}</p>}
         <div className="layout-split">
           <ChannelDiagram layout="headphones" idPrefix="hp-track" />
-          <BeatEditor b={beat} set={setBeat} />
+          <div className="stack">
+            <BeatEditor b={beat} set={setBeat} />
+            <BeatPreview app={app} files={assets.data?.items ?? []} profile={profile} body={() => beatBody(beat, baseParams())} />
+          </div>
         </div>
         {prof && <details><summary>{t("dev.advanced")}</summary><dl className="kv hint">{Object.entries(prof.params).map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{String(v)}</dd></Fragment>)}</dl><p className="hint">{t("dev.profile_locked")}</p></details>}
       </div>

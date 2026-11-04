@@ -2004,6 +2004,12 @@
   "summary_layer": "Made by two added tones; the track is not shifted.",
   "measured": "Measured beat",
   "qa_shift": "from the track itself",
-  "qa_shift_layer": "from the track plus the carrier layer"
+  "qa_shift_layer": "from the track plus the carrier layer",
+  "preview": "Listen to 20 seconds",
+  "preview_wait": "Preparing the fragment…",
+  "preview_file": "File to listen to",
+  "preview_need_file": "Upload a file in step 2 — then you can listen to 20 seconds with these settings here before converting.",
+  "preview_note": "This is the start of the track processed with the current settings. Nothing is stored: change the settings and listen again. The beat is heard on headphones.",
+  "quiet": "The track is very quiet: peak {db} dBFS. A beat made from it will be faint. Raise the level in the mix or choose the carrier layer."
  }
 }

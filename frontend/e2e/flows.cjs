@@ -137,6 +137,11 @@ async function run(L) {
     await d.locator(".badge", { hasText: t("job_state.completed") }).first().waitFor({ timeout: 120000 });
     await d.getByTestId("layout-qa").first().getByText(t("beat.measured")).waitFor({ timeout: 15000 });
     await d.getByTestId("layout-qa").first().getByText(t("beat.qa_shift")).waitFor();
+    // NAP-117: listen to 20 s with the current settings before converting again; nothing is stored
+    const pv = d.getByTestId("beat-preview");
+    await pv.getByRole("button", { name: t("beat.preview") }).click();
+    await pv.locator("audio").waitFor({ timeout: 30000 });
+    await pv.getByText(t("beat.preview_note")).waitFor();
     // NAP-093: terms in the QA report explain themselves; keyboard opens, Esc closes and returns focus
     const what = d.getByRole("button", { name: t("terms.what_is", { term: t("terms.lufs.name") }) }).first();
     await what.focus();
