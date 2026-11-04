@@ -1,5 +1,6 @@
 """NAP-110: exports of one audio-studio project become the headphones track and the chair 5.1 version of an app
 session, imported as they are (no second binaural processing), and play in the store."""
+import time
 import uuid
 
 import numpy as np
@@ -110,8 +111,14 @@ def test_export_for_all_equipment_builds_one_session():
     assert [j["profile"] for j in r["items"]] == ["HEADPHONES_2_0", "NAP_ACOUSTIC_3_0", "NAP_CHAIR_5_1"]
     for j in r["items"]:
         assert _wait(dev, j["id"])["state"] == "completed"
-    wait_inline_jobs()
-    jobs = ok(dev.get(f"/developer/conversions?app_id={a['id']}"))["items"]
+    # an export is "completed" a moment before it hands itself to the app: wait for the three imports to finish
+    end = time.time() + 60
+    while True:
+        wait_inline_jobs()
+        jobs = ok(dev.get(f"/developer/conversions?app_id={a['id']}"))["items"]
+        if (len(jobs) == 3 and all(j["state"] in ("completed", "failed") for j in jobs)) or time.time() > end:
+            break
+        time.sleep(0.2)
     assert sorted(j["layout"] for j in jobs) == ["acoustic_3_0", "headphones", "surround_5_1"]
     assert all(j["state"] == "completed" for j in jobs)
     v = ok(dev.get(f"/developer/apps/{a['id']}"))["versions"][0]

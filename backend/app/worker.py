@@ -130,6 +130,14 @@ def dispatch_render(job_id) -> None:
 
 
 def wait_inline_jobs(timeout: float = 120) -> None:
-    for t in list(_threads):
-        t.join(timeout)
-    _threads.clear()
+    """Tests / demo: wait for every inline job, including jobs that finished jobs start meanwhile (a studio export
+    hands itself to the app as an import job)."""
+    import time
+    end = time.monotonic() + timeout
+    while True:
+        alive = [t for t in list(_threads) if t.is_alive()]
+        if not alive or time.monotonic() > end:
+            break
+        for t in alive:
+            t.join(max(0.0, end - time.monotonic()))
+    _threads[:] = [t for t in _threads if t.is_alive()]
