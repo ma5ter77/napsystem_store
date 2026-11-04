@@ -66,9 +66,14 @@ def mod_version(version_id: str, request: Request, p=P, db=DB):
                          "studio": studio_info(j), "layouts": layouts,
                          "source_url": signed_url(src, src.original_name or "source"),
                          "delivery_url": signed_url(db.get(Asset, s.delivery_asset_id), f"{s.key}.flac")})
-    return {"app": {"id": str(app.id), "slug": app.slug, "author": app.author_name,
+    # NAP-116: which version is in the store now and what this one changes compared with it
+    from ..services.version_diff import live_summary, version_changes
+    live = db.get(AppVersion, app.published_version_id) if app.published_version_id else None
+    return {"app": {"id": str(app.id), "slug": app.slug, "author": app.author_name, "cover_hue": app.cover_hue,
                     "title": appsvc.app_title(app, v, locale_of(request))},
             "version": version_view(db, v, locale_of(request)), "manifest": v.manifest, "sessions": sessions,
+            "live": live_summary(live), "is_live": bool(live and live.id == v.id),
+            "changes": version_changes(live, v),
             "integrity": appsvc.verify_integrity(db, app, v) if v.manifest else None}
 
 

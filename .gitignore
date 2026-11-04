@@ -10,5 +10,5 @@ backups/*.sha256
 backups/*.tar*
 backups/last-status.json*
 dump.rdb
-node_modules/
+node_modules
 sdk/dist/

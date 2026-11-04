@@ -229,6 +229,10 @@ async function run(L) {
     await m.p.goto(`${BASE}/${L}/moderation`);
     await m.p.getByText(t("mod.goes_live_on_approve")).first().waitFor();
     await m.p.getByText(slug).click();
+    // NAP-116: a first release: no version in the store yet, the review opens on the card as buyers will see it
+    await m.p.getByTestId("version-track").getByText(t("chg.none")).waitFor();
+    await m.p.getByTestId("store-preview").getByText(t("chg.preview_caption")).waitFor();
+    await m.p.getByRole("tab", { name: t("chg.tab.sound") }).click();
     // NAP-113: the chair 5.1 version is on the card, with its own file in the centre and a passed channel check
     const l51 = m.p.getByTestId("mod-layout-surround_5_1");
     await l51.locator("summary").click();
@@ -531,6 +535,17 @@ async function run(L) {
     await m.p.getByPlaceholder(t("mm.search")).fill(slug);
     await m.p.locator("table a").first().click();
     await m.p.waitForURL(/moderation\/catalog\/apps\//);
+    // NAP-116: an edit shows "before → after" and the store card at once; discarding restores the text
+    await m.p.getByTestId("version-track").getByText(t("chg.same_as_live")).waitFor();
+    const sub = m.p.getByLabel(t("mm.app_subtitle")).first();
+    const was = await sub.inputValue();
+    await sub.fill(`${was} subtitle-e2e`.trim());
+    await m.p.getByTestId("pending-edits").locator("ins", { hasText: "subtitle-e2e" }).waitFor();
+    const ruTab = m.p.getByTestId("store-preview").getByRole("button", { name: "RU", exact: true });
+    if (await ruTab.count()) await ruTab.click();     // the edited field is the Russian one
+    await m.p.getByTestId("store-preview").locator("p.muted", { hasText: "subtitle-e2e" }).waitFor();
+    await m.p.getByRole("button", { name: t("chg.discard") }).click();
+    await m.p.getByTestId("pending-edits").getByText(t("chg.pending_none")).waitFor();
     await m.p.locator(".panel label.field", { hasText: t("mm.reason_hint") }).locator("textarea").fill("E2E check");
     await m.p.getByRole("button", { name: t("dev.stop_sales") }).click();
     await m.p.getByText(t("mm.done_sales_stopped")).waitFor();

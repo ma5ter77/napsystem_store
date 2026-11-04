@@ -10,6 +10,7 @@ import { useApp } from "@/components/Providers";
 import { AppCover } from "@/components/Art";
 import { Term } from "@/components/Term";
 import { ChannelDiagram } from "@/components/ChannelDiagram";
+import { ChangeList, VersionTrack } from "@/components/Changes";
 import { ErrorBox, errorFields, Loading, Price, RequireAuth, StatusBadge, useAction, useLoad } from "@/components/ui";
 import { api, apiBlob, sha256File, uid, uploadWithProgress } from "@/lib/api";
 import { date, duration } from "@/lib/i18n";
@@ -576,6 +577,12 @@ function Versions({ app, reload, done, ready }: { app: any; reload: () => void; 
           <span>{t("dev.auto_release")}<span className="hint" style={{ display: "block" }}>{t("dev.auto_release_hint")}</span></span>
         </label>)}
       <ErrorBox error={act.error} />
+      {/* NAP-116: what the update changes in the store */}
+      {app.published_version_id && latest && latest.id !== app.published_version_id && (
+        <section className="panel stack" data-testid="author-changes">
+          <h3>{t("chg.author_title", { from: app.versions.find((x: any) => x.id === app.published_version_id)?.version_label ?? "", to: latest.version_label })}</h3>
+          <ChangeList changes={app.changes_vs_live ?? []} empty={t("chg.author_none")} />
+        </section>)}
       <div className="panel flat stack">
         <h3>{t("dev.public_preview")}</h3>
         <p className="hint">{t("dev.preview_hint")}</p>
@@ -653,6 +660,11 @@ function Editor() {
         <div><Breadcrumbs label={t("crumbs.label")} items={[{ href: `/${locale}`, label: t("crumbs.home") }, { href: `/${locale}/developer`, label: t("dev.title") }, { label: v.metadata?.[locale]?.title ?? v.metadata?.ru?.title ?? v.metadata?.en?.title ?? app.slug }]} /><h1>{v.metadata?.[locale]?.title ?? v.metadata?.ru?.title ?? v.metadata?.en?.title ?? app.slug}</h1></div>
         <div className="row"><StatusBadge ns="version_state" value={v.state} />{app.published_version_id && <Link href={`/${locale}/apps/${app.slug}`}>{t("dev.open_in_store")}</Link>}</div>
       </div>
+      {app.published_version_id && v.id !== app.published_version_id && (() => {
+        const live = app.versions.find((x: any) => x.id === app.published_version_id);
+        return <VersionTrack live={live ? { label: live.version_label, at: live.published_at, note: t("chg.published") } : null}
+          next={{ label: v.version_label, at: v.state === "submitted" ? v.submitted_at : null, note: v.state === "submitted" ? t("chg.submitted") : t(`version_state.${v.state}`) }} />;
+      })()}
       <StatusTimeline value={versionSteps(v, v.auto_release)} ns="version" label={t("steps.version_progress")} showNext={false} />
       <NextStep v={v} app={app} ready={ready} checks={checks} decision={lastDecision} goTab={goTab} />
       <div className="tabs" role="tablist">{TABS.map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => goTab(x)}>{t(`dev.tab_${x}`)}</button>)}</div>

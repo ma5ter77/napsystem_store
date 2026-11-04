@@ -289,7 +289,12 @@
   "lead": "The review queue for versions and products: open an item and decide with a comment. The app and product catalog and reviews are here too.",
   "layout_channels": "{n} channels",
   "layout_ok": "channel check passed",
-  "layout_bad": "channel check failed"
+  "layout_bad": "channel check failed",
+  "approve_update": "Approve the update v{from} → v{to}",
+  "approve_first": "Approve v{v}",
+  "approve_update_hint": "Until the decision buyers get v{from}. Rejecting does not touch the store version.",
+  "reject_needs_comment_app": "To reject, tell the author what to fix.",
+  "approve_first_hint": "This is the app's first version."
  },
  "qa": {
   "disclaimer": "Technical verification of signal parameters only. It does not verify or guarantee any brain state or therapeutic effect.",
@@ -1400,7 +1405,8 @@
   "cancel": "Cancel",
   "show": "Show",
   "hide": "Hide",
-  "reason_needed": "— required for this product"
+  "reason_needed": "— required for this product",
+  "save_n_changes": "Save {count, plural, one {# edit} other {# edits}}"
  },
  "ce": {
   "title": "Site content",
@@ -2011,5 +2017,55 @@
   "preview_need_file": "Upload a file in step 2 — then you can listen to 20 seconds with these settings here before converting.",
   "preview_note": "This is the start of the track processed with the current settings. Nothing is stored: change the settings and listen again. The beat is heard on headphones.",
   "quiet": "The track is very quiet: peak {db} dBFS. A beat made from it will be faint. Raise the level in the mix or choose the carrier layer."
+ },
+ "chg": {
+  "before": "Before",
+  "after": "After",
+  "empty": "empty",
+  "none": "none yet",
+  "track_label": "Versions: in the store and under review",
+  "in_store": "In the store now",
+  "reviewing": "New version",
+  "published": "published",
+  "submitted": "submitted for review",
+  "same_as_live": "This is the version in the store.",
+  "no_changes": "No differences from the store version: the texts, sound and program are the same.",
+  "first_release": "First release: there is no store version yet; buyers will see the card like this.",
+  "kind": {
+   "added": "added",
+   "removed": "removed",
+   "changed": "changed"
+  },
+  "group": {
+   "texts": "Store texts and cover",
+   "program": "Program and sound",
+   "other": "Questionnaires and equipment"
+  },
+  "cover": "Cover",
+  "session": "Session “{title}” ({key})",
+  "session_title": "Session {key} title",
+  "session_sound": "New sound in session {key}",
+  "length": "length {before} → {after} min",
+  "layout_added": "“{layout}” version in session {key}",
+  "layout_removed": "“{layout}” version in session {key}",
+  "layout_changed": "New sound of the “{layout}” version in session {key}",
+  "order": "Session order",
+  "questionnaire_pre": "Questionnaire before the session",
+  "questionnaire_post": "Questionnaire after the session",
+  "equipment": "Required equipment",
+  "tab": {
+   "changes": "What changed",
+   "store": "As in the store",
+   "sound": "Sound and layouts"
+  },
+  "manifest": "Version manifest",
+  "preview_caption": "This is how buyers will see the card",
+  "preview_lang": "Card language",
+  "no_title": "No title",
+  "pending_title": "What saving will change",
+  "pending_none": "No edits yet. Change a text or the category to see “before → after” here.",
+  "discard": "Discard edits",
+  "author_title": "What changes in the store: v{from} → v{to}",
+  "author_none": "So far this version is the same as the one in the store."
  }
 }

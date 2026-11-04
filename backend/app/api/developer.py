@@ -117,12 +117,16 @@ def create_app(body: AppIn, p=P, db=DB):
 def get_app(app_id: str, request: Request, p=P, db=DB):
     u = dev(p, "apps:read")
     app = appsvc.own_app(db, as_uuid(app_id), u.id)
-    versions = db.scalars(select(AppVersion).where(AppVersion.app_id == app.id).order_by(AppVersion.number.desc()))
+    versions = list(db.scalars(select(AppVersion).where(AppVersion.app_id == app.id).order_by(AppVersion.number.desc())))
     prices = db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True)))
+    # NAP-116: the newest version against the one in the store, so the author sees what the update changes
+    from ..services.version_diff import version_changes
+    live = next((x for x in versions if x.id == app.published_version_id), None)
     return {"id": str(app.id), "slug": app.slug, "author_name": app.author_name, "sales_status": app.sales_status,
             "published_version_id": str(app.published_version_id) if app.published_version_id else None,
             "public_preview": app.public_preview_asset_id is not None, "cover_hue": app.cover_hue,
             "versions": [version_view(db, v, locale_of(request)) for v in versions],
+            "changes_vs_live": version_changes(live, versions[0]) if versions else [],
             "prices": [{"kind": x.kind, "amount_minor": x.amount_minor, "currency": x.currency, "interval": x.interval}
                        for x in prices]}
 
