@@ -1270,6 +1270,20 @@ M.update({  # NAP-116 part 2: supplier product cards — "before → after" agai
 "chg.q_changes": ("{count, plural, one {# изменение} few {# изменения} many {# изменений} other {# изменения}}", "{count, plural, one {# change} other {# changes}}"),
 })
 
+M.update({  # NAP-101: output calibration of the listener's speakers / chair
+"cal.title": ("Калибровка колонок и кресла", "Calibrate speakers and chair"),
+"cal.lead": ("Сядьте туда, где слушаете. Включите шум в каждом канале и выровняйте громкость, чтобы все каналы звучали одинаково. Колонкам, которые стоят ближе остальных, добавьте задержку: 1 мс — это примерно 34 см. Калибровка сохраняется для этого устройства и применяется при каждом прослушивании; звук внутри каналов не меняется.",
+  "Sit where you listen. Play noise in each channel and even out the levels so every channel sounds equally loud. Add delay to speakers that are closer than the others: 1 ms is about 34 cm. The calibration is saved for this device and applied every time you listen; the sound inside each channel is not changed."),
+"cal.level": ("Громкость", "Level"), "cal.delay": ("Задержка", "Delay"),
+"cal.level_of": ("Громкость: {ch}", "Level: {ch}"), "cal.delay_of": ("Задержка: {ch}", "Delay: {ch}"),
+"cal.noise": ("Шум", "Noise"), "cal.noise_in": ("Шум в канале {ch}", "Noise in {ch}"),
+"cal.all": ("Все каналы по очереди", "All channels in turn"), "cal.stop": ("Остановить", "Stop"),
+"cal.save": ("Сохранить калибровку", "Save calibration"), "cal.reset": ("Сбросить", "Reset"),
+"cal.saved": ("Сохранено. Применяется при прослушивании в раскладке «{layout}».", "Saved. Applied when you listen in “{layout}”."),
+"cal.unsaved": ("Изменения не сохранены.", "Changes are not saved."),
+"cal.cm": ("см", "cm"),
+})
+
 def nest(lang):
     out = {}
     for key, pair in M.items():

@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (Boolean, CheckConstraint, DateTime, Float, ForeignKey, Index, Integer, String,
-                        UniqueConstraint)
+                        UniqueConstraint, text)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -25,6 +25,8 @@ class Device(Base):
     name: Mapped[str] = mapped_column(String(120))
     model_code: Mapped[str | None] = mapped_column(String(64))
     capabilities: Mapped[dict] = mapped_column(JSONB)
+    # NAP-101: {layout: {channel: {"gain_db": -6..6, "delay_ms": 0..20}}} — the listener's own speakers / chair
+    calibration: Mapped[dict] = mapped_column(JSONB, default=dict, server_default=text("'{}'::jsonb"))
     token_hash: Mapped[str | None] = mapped_column(String(64), unique=True)  # device-service credential
     status: Mapped[str] = mapped_column(String(16), default="active")
     created_at: Mapped[datetime] = created_at()

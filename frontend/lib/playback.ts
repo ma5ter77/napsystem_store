@@ -37,7 +37,32 @@ type Opts = {
   onOffline: (s: OfflineState) => void;
   onWaiting?: (waiting: boolean) => void;
   onFatal: (code: "decode" | "channels" | "network" | "checksum") => void;
+  /** NAP-101: the listener's calibration of their speakers / chair, in channel order (dB, ms) */
+  calibration?: { gain_db: number; delay_ms: number }[];
 };
+
+export type ChannelTrim = { gain_db: number; delay_ms: number };
+
+/** Calibration of a layout in channel order; null when every channel is untouched. */
+export function trimsFor(order: string[], cal: Record<string, Partial<ChannelTrim>> | undefined): ChannelTrim[] | undefined {
+  if (!cal) return undefined;
+  const xs = order.map((ch) => ({ gain_db: Number(cal[ch]?.gain_db ?? 0), delay_ms: Number(cal[ch]?.delay_ms ?? 0) }));
+  return xs.some((x) => x.gain_db || x.delay_ms) ? xs : undefined;
+}
+
+/** Per-channel level and delay between `from` and `to`, in discrete channel order. */
+export function connectTrims(ctx: BaseAudioContext, from: AudioNode, to: AudioNode, trims: ChannelTrim[]) {
+  const n = trims.length;
+  const split = ctx.createChannelSplitter(n), merge = ctx.createChannelMerger(n);
+  from.connect(split);
+  trims.forEach((x, i) => {
+    const g = ctx.createGain(), d = ctx.createDelay(0.05);
+    g.gain.value = Math.pow(10, x.gain_db / 20);
+    d.delayTime.value = x.delay_ms / 1000;
+    split.connect(g, i).connect(d).connect(merge, 0, i);
+  });
+  merge.connect(to);
+}
 
 // the offline copy is kept only while the session page is open; larger files play from the network
 export const OFFLINE_LIMIT_BYTES = 2 * 1024 ** 3;
@@ -103,7 +128,10 @@ export class Playback {
     this.gain.channelCount = this.opts.channels;
     this.gain.channelInterpretation = "discrete";
     this.gain.gain.value = 0;
-    this.node.connect(this.gain).connect(dst);
+    const trims = this.opts.calibration?.length === this.opts.channels ? this.opts.calibration : undefined;
+    if (trims) connectTrims(this.ctx, this.node, this.gain, trims);   // the listener's level / delay per channel
+    else this.node.connect(this.gain);
+    this.gain.connect(dst);
     this.saveOffline();
     return this.el.duration;
   }

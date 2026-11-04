@@ -634,3 +634,13 @@ main .crumbs a:hover { text-decoration: underline; }
 @media (min-width: 761px) and (min-height: 640px) { .decision-bar.is-sticky { position: sticky; bottom: 0; z-index: 10; box-shadow: 0 -8px 24px rgba(29,29,31,.06); } }
 .decision-bar textarea { min-height: 44px; }
 .chg-was { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+
+/* NAP-101: calibration — one row per channel, the slider and its value side by side */
+.cal-table td { vertical-align: middle; }
+.cal-body { display: grid; gap: 16px; }
+.cal-body .channel-diagram { max-width: 220px; }
+.cal-table th, .cal-table td { padding-left: 6px; padding-right: 6px; }
+.cal-ctl { display: flex; align-items: center; gap: 8px; min-width: 170px; }
+.cal-ctl input[type=range] { flex: 1; min-width: 80px; accent-color: var(--action); }
+.cal-ctl output .hint { display: block; }
+.cal-ctl output { min-width: 4.5em; font-variant-numeric: tabular-nums; font-size: var(--step--1); }

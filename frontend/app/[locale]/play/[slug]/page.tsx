@@ -6,8 +6,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "@/components/Providers";
 import { Empty, ErrorBox, Loading, RequireAuth, useAction, useLoad } from "@/components/ui";
 import { api, ApiError, uid } from "@/lib/api";
-import { detectOutput, Playback, type OfflineState } from "@/lib/playback";
-import { SpeakerTest } from "@/components/SpeakerTest";
+import { detectOutput, Playback, trimsFor, type OfflineState } from "@/lib/playback";
+import { Calibration } from "@/components/Calibration";
 import { duration } from "@/lib/i18n";
 
 type Phase = "setup" | "precheck" | "pre" | "loading" | "player" | "post" | "done";
@@ -201,6 +201,9 @@ function Player() {
         onOffline: setOffline,
         onWaiting: setWaiting,
         onFatal: (code) => { audio.current?.pause(); setFatal(code); },
+        // NAP-101: the listener's own level / delay per channel of this speaker or chair layout
+        calibration: grant.playback?.layout && grant.playback.layout !== "headphones"
+          ? trimsFor(grant.playback.channel_order ?? [], deviceRef.current?.calibration?.[grant.playback.layout]) : undefined,
       });
       audio.current = pb;
       pb.setVolume(volume / 100);
@@ -210,6 +213,8 @@ function Player() {
     });
     if (ok) setPhase("player");
   }, [session, act, t, maxChannels, volume]);
+  const deviceRef = useRef<any>(null);
+  deviceRef.current = device;
 
   useEffect(() => {
     if (phase !== "player") return;
@@ -319,7 +324,9 @@ function Player() {
           {session?.grant?.playback && session.grant.playback.available.length > 1 && session.grant.playback.layout === "headphones" && device?.adapter !== "web_headphones" &&
             <p className="hint">{t("player.more_layouts", { list: session.grant.playback.available.filter((l: string) => l !== "headphones").map((l: string) => t(`layout.${l}`)).join(", ") })}{" "}
               <Link href={`/${locale}/help/playback`}>{t("help.how")}</Link></p>}
-          {session?.grant?.playback && session.grant.playback.channels > 2 && <SpeakerTest order={session.grant.playback.channel_order} />}
+          {session?.grant?.playback && session.grant.playback.channels > 2 && device && (
+            <Calibration key={`${device.id}-${session.grant.playback.layout}`} deviceId={device.id} layout={session.grant.playback.layout}
+              order={session.grant.playback.channel_order} initial={device.calibration?.[session.grant.playback.layout]} onSaved={(d: any) => devices.setData({ ...devices.data, items: devices.data.items.map((x: any) => x.id === d.id ? d : x) })} />)}
           <button className="btn" disabled={act.pending || (needsHp && (!hp || !lr))} onClick={doPrecheck}>{t("player.continue")}</button>
         </div>
       )}
