@@ -324,6 +324,27 @@ async function run(L) {
     await b.getByRole("button", { name: t("player.q_skip") }).click();
     await b.getByText(t("player.end_cancelled")).waitFor();
   });
+  await step("chair calibration on a 5.1 output: level and delay per channel, saved to the device (NAP-101)", async () => {
+    // the cloud browser has a stereo output: this page reports a 6-channel output so the 5.1 version is chosen
+    const c = await buyer.ctx.newPage();
+    CUR = c;
+    await c.addInitScript(() => { Object.defineProperty(AudioDestinationNode.prototype, "maxChannelCount", { get: () => 6 }); });
+    await c.goto(`${BASE}/${L}/play/${slug}`);
+    await c.getByRole("button", { name: t("player.prepare") }).click();
+    await c.getByTestId("will-play").getByText(t("layout.surround_5_1"), { exact: false }).waitFor();
+    const cal = c.getByTestId("calibration");
+    await cal.getByLabel(t("cal.level_of", { ch: t("ch.FC") })).fill("-2");
+    await cal.getByLabel(t("cal.delay_of", { ch: t("ch.SL") })).fill("3.5");
+    await cal.getByText(t("cal.unsaved")).waitFor();
+    await c.screenshot({ path: `${out}/${L}-calibration.png`, fullPage: true });
+    await cal.getByRole("button", { name: t("cal.save") }).click();
+    await cal.getByText(t("cal.saved", { layout: t("layout.surround_5_1") })).waitFor();
+    const devs = await c.evaluate(async () => (await fetch("/api/v1/devices", { credentials: "include" })).json());
+    const got = devs.items.map((d) => d.calibration?.surround_5_1).find(Boolean);
+    if (!got || got.FC?.gain_db !== -2 || got.SL?.delay_ms !== 3.5) throw new Error("calibration not saved: " + JSON.stringify(got));
+    await c.close();
+    CUR = b;
+  });
   await step("language switch keeps page, session and cart", async () => {
     await b.goto(`${BASE}/${L}/devices/nap-cable-35`);
     await b.getByRole("button", { name: t("cart.add") }).click();

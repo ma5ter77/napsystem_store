@@ -14,7 +14,8 @@ router = APIRouter(tags=["devices/sessions/measurements"])
 
 def _device_view(d: Device) -> dict:
     return {"id": str(d.id), "adapter": d.adapter, "name": d.name, "model": d.model_code,
-            "capabilities": d.capabilities, "status": d.status, "simulated": bool(d.capabilities.get("simulated"))}
+            "capabilities": d.capabilities, "status": d.status, "simulated": bool(d.capabilities.get("simulated")),
+            "calibration": d.calibration or {}}
 
 
 class DeviceIn(BaseModel):
@@ -36,6 +37,50 @@ def register(body: DeviceIn, p=P, db=DB):
     d, token = svc.register_device(db, db.merge(u), body.adapter, body.name, body.profile)
     db.commit()
     return _device_view(d) | {"device_token": token, "note": "device-service credential, shown once"}
+
+
+# NAP-101: output calibration — the listener evens out their speakers / chair at the listening place.
+# Only level and arrival time change, per channel; the signal itself (and the binaural difference) is untouched.
+CAL_GAIN_DB = 6.0
+CAL_DELAY_MS = 20.0
+CAL_LAYOUTS = ("acoustic_3_0", "surround_5_1", "surround_7_1")
+
+
+class CalibrationIn(BaseModel):
+    layout: str
+    channels: dict[str, dict] = Field(default_factory=dict)   # {} = reset this layout
+
+
+@router.put("/devices/{device_id}/calibration")
+def set_calibration(device_id: str, body: CalibrationIn, p=P, db=DB):
+    u = p.require_user()
+    d = db.get(Device, as_uuid(device_id, "device"), with_for_update=True)
+    if not d or d.owner_id != u.id or d.status != "active":
+        raise ApiError("not_found", 404, entity="device")
+    if body.layout not in CAL_LAYOUTS:
+        raise ApiError("validation_failed", 422, details={"field": "layout"})
+    from ..services.conversion import layout_channels
+    allowed, out, bad = layout_channels(body.layout), {}, []
+    for ch, v in body.channels.items():
+        try:
+            g, dl = float(v.get("gain_db", 0)), float(v.get("delay_ms", 0))
+        except (TypeError, ValueError, AttributeError):
+            bad.append(f"channels.{ch}")
+            continue
+        if ch not in allowed or abs(g) > CAL_GAIN_DB or not 0 <= dl <= CAL_DELAY_MS:
+            bad.append(f"channels.{ch}")
+        elif g or dl:
+            out[ch] = {"gain_db": round(g, 1), "delay_ms": round(dl, 1)}
+    if bad:
+        raise ApiError("validation_failed", 422, details={"fields": bad})
+    cal = dict(d.calibration or {})
+    if out:
+        cal[body.layout] = out
+    else:
+        cal.pop(body.layout, None)
+    d.calibration = cal
+    db.commit()
+    return _device_view(d)
 
 
 @router.get("/devices/{device_id}/compatibility")

@@ -2092,5 +2092,22 @@
   "q_product_update": "Edit of a card on sale",
   "q_product_new": "New product",
   "q_changes": "{count, plural, one {# change} other {# changes}}"
+ },
+ "cal": {
+  "title": "Calibrate speakers and chair",
+  "lead": "Sit where you listen. Play noise in each channel and even out the levels so every channel sounds equally loud. Add delay to speakers that are closer than the others: 1 ms is about 34 cm. The calibration is saved for this device and applied every time you listen; the sound inside each channel is not changed.",
+  "level": "Level",
+  "delay": "Delay",
+  "level_of": "Level: {ch}",
+  "delay_of": "Delay: {ch}",
+  "noise": "Noise",
+  "noise_in": "Noise in {ch}",
+  "all": "All channels in turn",
+  "stop": "Stop",
+  "save": "Save calibration",
+  "reset": "Reset",
+  "saved": "Saved. Applied when you listen in “{layout}”.",
+  "unsaved": "Changes are not saved.",
+  "cm": "cm"
  }
 }
