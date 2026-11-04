@@ -633,3 +633,4 @@ main .crumbs a:hover { text-decoration: underline; }
 .decision-bar { background: var(--paper); border-top: 1px solid var(--hair); padding: 14px 0 16px; }
 @media (min-width: 761px) and (min-height: 640px) { .decision-bar.is-sticky { position: sticky; bottom: 0; z-index: 10; box-shadow: 0 -8px 24px rgba(29,29,31,.06); } }
 .decision-bar textarea { min-height: 44px; }
+.chg-was { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }

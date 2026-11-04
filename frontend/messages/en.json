@@ -2039,7 +2039,10 @@
   "group": {
    "texts": "Store texts and cover",
    "program": "Program and sound",
-   "other": "Questionnaires and equipment"
+   "other": "Questionnaires and equipment",
+   "ptexts": "Texts and photos",
+   "skus": "Variants and prices",
+   "terms": "Terms and specifications"
   },
   "cover": "Cover",
   "session": "Session “{title}” ({key})",
@@ -2066,6 +2069,28 @@
   "pending_none": "No edits yet. Change a text or the category to see “before → after” here.",
   "discard": "Discard edits",
   "author_title": "What changes in the store: v{from} → v{to}",
-  "author_none": "So far this version is the same as the one in the store."
+  "author_none": "So far this version is the same as the one in the store.",
+  "packages": "Packages",
+  "field": "Field",
+  "spec": "Specification “{key}”",
+  "photos": "Photos",
+  "photos_order": "new order",
+  "photos_counts": "{added} added, {removed} removed, {after} in total",
+  "sku": "Variant {code}",
+  "sku_price": "Price of variant {code}",
+  "card_live": "Card on sale",
+  "card_edited": "Edited card",
+  "card_new": "New product",
+  "approved_card": "approved",
+  "product_title": "What changed since the last approval",
+  "product_none": "No differences from the approved card.",
+  "product_new": "A new product: there is no approved card yet; check all of it.",
+  "seller_title": "What buyers will see after approval",
+  "seller_none": "So far the card is the same as the approved one.",
+  "q_update": "Update v{from} → v{to}",
+  "q_first": "First release",
+  "q_product_update": "Edit of a card on sale",
+  "q_product_new": "New product",
+  "q_changes": "{count, plural, one {# change} other {# changes}}"
  }
 }

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Fragment, useState } from "react";
 import { useApp } from "@/components/Providers";
+import { ChangeList, VersionTrack } from "@/components/Changes";
 import { ErrorBox, Loading, Price, RequireAuth, StatusBadge, useAction, useLoad } from "@/components/ui";
 import { api } from "@/lib/api";
 import { date } from "@/lib/i18n";
@@ -30,6 +31,16 @@ function ProductReview() {
     <div className="stack">
       <Breadcrumbs label={t("crumbs.label")} items={[{ href: `/${locale}`, label: t("crumbs.home") }, { href: `/${locale}/moderation`, label: t("mod.title") }, { label: `${p.brand} ${p.model}` }]} />
       <div className="spread"><div><h1>{p.brand} {p.model}</h1><div className="hint">{t("mod.supplier")}: {p.seller} · {p.category_name} · {p.slug}</div></div><StatusBadge ns="product_status" value={p.status} /></div>
+      {/* NAP-116: the card as buyers had it at the last approval, and what the supplier changed since */}
+      {(p.approved_at || p.status === "submitted") && <VersionTrack sameAsLive={p.status === "published"}
+        live={p.approved_at ? { name: t("chg.card_live"), at: p.approved_at, note: t("chg.approved_card") } : null}
+        next={p.status === "submitted" ? { name: p.approved_at ? t("chg.card_edited") : t("chg.card_new"), at: (p.history.find((h: any) => h.action === "submitted") ?? {}).at, note: t("chg.submitted") } : null} />}
+      {p.approved_at && p.status !== "published" && (
+        <section className="stack" aria-labelledby="pchg-h">
+          <h2 id="pchg-h">{t("chg.product_title")} <span className="hint">{p.changes.length}</span></h2>
+          <ChangeList changes={p.changes} empty={t("chg.product_none")} />
+        </section>)}
+      {!p.approved_at && p.status === "submitted" && <p className="hint">{t("chg.product_new")}</p>}
       <div className="panel flat stack">
         <ul className="checklist">{p.checks.map((c: any) => (
           <li key={c.key} className={c.ok ? "ok" : c.optional ? "warn" : "bad"}><span aria-hidden="true">{c.ok ? "✓" : c.optional ? "!" : "✗"}</span><span>{t(`sp.check.${c.key}`)}</span></li>))}</ul>

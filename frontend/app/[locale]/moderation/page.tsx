@@ -21,6 +21,10 @@ function Queue() {
       {!data.items.length ? <Empty>{t("mod.empty")}</Empty> : data.items.map((x: any) => (
         <Link key={x.version.id} href={`/${locale}/moderation/${x.version.id}`} className="panel flat card">
           <div className="spread"><strong>{x.app.title} <span className="hint">v{x.version.version_label}</span></strong><span className="hint">{x.app.author} · {date(x.version.submitted_at, locale, true)}</span></div>
+          {/* NAP-116: an update of an app on sale, or its first release */}
+          <div>{x.live_label
+            ? <span className="badge">{t("chg.q_update", { from: x.live_label, to: x.version.version_label })} · {t("chg.q_changes", { count: x.changes })}</span>
+            : <span className="badge r">{t("chg.q_first")}</span>}</div>
           <div className="hint">{x.app.slug} · {t("dev.sessions_count", { count: x.version.sessions.length })} · {!x.app.price_set ? t("mod.no_price_yet") : x.app.auto_release ? t("mod.goes_live_on_approve") : t("mod.author_publishes")}</div>
         </Link>
       ))}
@@ -40,6 +44,9 @@ function ProductQueue() {
       {!data.items.length ? <Empty>{t("mod.products_empty")}</Empty> : data.items.map((x: any) => (
         <Link key={x.id} href={`/${locale}/moderation/products/${x.id}`} className="panel flat card">
           <div className="spread"><strong>{x.title ?? `${x.brand} ${x.model}`}</strong><span className="hint">{x.seller}{x.submitted_at ? ` · ${date(x.submitted_at, locale, true)}` : ""}</span></div>
+          <div>{x.update
+            ? <span className="badge">{t("chg.q_product_update")} · {t("chg.q_changes", { count: x.changes })}</span>
+            : <span className="badge r">{t("chg.q_product_new")}</span>}</div>
           <div className="hint">{x.slug} · {t("sp.col_skus")}: {x.skus} · {x.languages.map((l: string) => l.toUpperCase()).join(", ")}</div>
         </Link>
       ))}

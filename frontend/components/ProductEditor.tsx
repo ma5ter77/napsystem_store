@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useApp } from "@/components/Providers";
+import { ChangeList } from "@/components/Changes";
 import { ErrorBox, Loading, Price, StatusBadge, useAction, useLoad } from "@/components/ui";
 import { api, ApiError, postFile } from "@/lib/api";
 import { date } from "@/lib/i18n";
@@ -197,6 +198,12 @@ function Submit({ p, onSaved, goTab }: { p: any; onSaved: (x: any, m: string) =>
   return (
     <div className="stack">
       {p.editable && <Checklist p={p} goTab={goTab} />}
+      {/* NAP-116: what buyers will see differently once the moderator approves the edited card */}
+      {p.approved_at && p.status !== "published" && (
+        <section className="panel flat stack" data-testid="seller-changes">
+          <h3>{t("chg.seller_title")}</h3>
+          <ChangeList changes={p.changes ?? []} empty={t("chg.seller_none")} />
+        </section>)}
       <div className="panel stack">
         {p.editable && <><p className="hint">{t("sp.submit_hint")}</p>
           <div><button type="button" className="btn" disabled={act.pending || !p.ready} onClick={() => run("submit", t("sp.done_submitted"))}>{t("sp.submit")}</button></div></>}

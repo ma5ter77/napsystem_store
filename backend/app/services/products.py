@@ -15,10 +15,12 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from ..db import utcnow
 from ..errors import ApiError
 from ..models import (AuditLog, Category, Inventory, Product, Seller, SellerMember, Sku, Translation, User,
                       Warehouse)
 from .common import audit, get_translations, notify, upsert_translation
+from .version_diff import product_changes
 
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{2,79}$")
 SKU_RE = re.compile(r"^[A-Z0-9][A-Z0-9-]{2,63}$")
@@ -336,6 +338,10 @@ def view(db: Session, p: Product, locale: str) -> dict:
         "photos": photos_view(db, p),
         "checks": cs, "ready": all(c["ok"] for c in cs if not c.get("optional")),
         "history": history(db, p), "created_at": p.created_at.isoformat(),
+        # NAP-116: the card as last approved and what has changed since (empty while the card is that state)
+        "approved_at": p.approved_at.isoformat() if p.approved_at else None,
+        "changes": (product_changes(p.approved_snapshot, snapshot(db, p))
+                    if p.approved_snapshot and p.status != "published" else []),
     }
 
 
@@ -366,8 +372,27 @@ def moderation_queue(db: Session, locale: str) -> list[dict]:
         out.append({"id": v["id"], "slug": p.slug, "brand": p.brand, "model": p.model,
                     "seller": db.get(Seller, p.seller_id).name, "skus": len(p.skus),
                     "languages": sorted(v["texts"]), "submitted_at": sub["at"] if sub else None,
+                    "update": p.approved_snapshot is not None, "changes": len(v["changes"]),
                     "title": (v["texts"].get(locale) or v["texts"].get("ru") or v["texts"].get("en") or {}).get("title")})
     return out
+
+
+SKU_FIELDS = ("variant", "price_minor", "currency", "weight_g", "length_mm", "width_mm", "height_mm", "package_count",
+              "origin_country", "hs_code", "contains_battery", "active")
+
+
+def snapshot(db: Session, p: Product) -> dict:
+    """NAP-116: the card in one comparable shape (the same shape the 0019 migration back-filled)."""
+    trs = get_translations(db, "product", [p.id]).get(p.id, {})
+    cat = db.get(Category, p.category_id)
+    return {"texts": {loc: dict(tr.data) for loc, tr in trs.items()},
+            "fields": {"category": cat.slug if cat else None, "warranty_months": p.warranty_months,
+                       "assembly_included": p.assembly_included, "made_to_order": p.made_to_order,
+                       "lead_time_days": p.lead_time_days, "prep_days": p.prep_days,
+                       "freight_mode": p.freight_mode, "destinations": list(p.destinations or [])},
+            "specs": dict(p.specs or {}),
+            "skus": {s.code: {k: getattr(s, k) for k in SKU_FIELDS} for s in p.skus},
+            "photos": list(p.photos or [])}
 
 
 def decide(db: Session, moderator: User, p: Product, decision: str, comment: str) -> Product:
@@ -382,6 +407,8 @@ def decide(db: Session, moderator: User, p: Product, decision: str, comment: str
         for tr in db.scalars(select(Translation).where(Translation.entity_type == "product",
                                                        Translation.entity_id == p.id)):
             tr.status = "published"
+        db.flush()
+        p.approved_snapshot, p.approved_at = snapshot(db, p), utcnow()
     audit(db, moderator.id, f"product.{p.status}", "product", p.id, {"comment": comment.strip()[:500]})
     n = db.scalar(select(func.count()).select_from(AuditLog).where(
         AuditLog.entity_type == "product", AuditLog.entity_id == str(p.id), AuditLog.action == "product.submitted"))

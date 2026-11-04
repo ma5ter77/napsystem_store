@@ -435,6 +435,12 @@ def run() -> None:
                       capabilities=chair.to_dict() | {"provides": sorted(chair.provides())}))
         seed_reviews(db)
         seed_usd_prices(db)
+        # NAP-116: cards on sale are their own approved state ("before" for a later edit)
+        from .db import utcnow
+        from .services.products import snapshot
+        db.flush()
+        for p in db.scalars(select(Product).where(Product.status == "published")):
+            p.approved_snapshot, p.approved_at = snapshot(db, p), utcnow()
     seed_multi_parcel_order()
     print("demo data created")
 

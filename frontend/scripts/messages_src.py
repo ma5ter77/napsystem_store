@@ -1242,6 +1242,34 @@ M.update({  # NAP-116: which version is where, and "было → стало"
 "mm.save_n_changes": ("Сохранить {count, plural, one {# правку} few {# правки} many {# правок} other {# правки}}", "Save {count, plural, one {# edit} other {# edits}}"),
 })
 
+M.update({  # NAP-116 part 2: supplier product cards — "before → after" against the last approved card
+"chg.group.ptexts": ("Тексты и фото", "Texts and photos"),
+"chg.group.skus": ("Варианты и цены", "Variants and prices"),
+"chg.group.terms": ("Условия и характеристики", "Terms and specifications"),
+"chg.packages": ("Число мест", "Packages"),
+"chg.field": ("Поле", "Field"),
+"chg.spec": ("Характеристика «{key}»", "Specification “{key}”"),
+"chg.photos": ("Фото", "Photos"),
+"chg.photos_order": ("изменён порядок", "new order"),
+"chg.photos_counts": ("добавлено {added}, удалено {removed}, всего {after}", "{added} added, {removed} removed, {after} in total"),
+"chg.sku": ("Вариант {code}", "Variant {code}"),
+"chg.sku_price": ("Цена варианта {code}", "Price of variant {code}"),
+"chg.card_live": ("Карточка в продаже", "Card on sale"),
+"chg.card_edited": ("Изменённая карточка", "Edited card"),
+"chg.card_new": ("Новый товар", "New product"),
+"chg.approved_card": ("одобрена", "approved"),
+"chg.product_title": ("Что изменилось с последнего одобрения", "What changed since the last approval"),
+"chg.product_none": ("Отличий от одобренной карточки нет.", "No differences from the approved card."),
+"chg.product_new": ("Новый товар: одобренной карточки ещё нет, проверьте её целиком.", "A new product: there is no approved card yet; check all of it."),
+"chg.seller_title": ("Что увидят покупатели после одобрения", "What buyers will see after approval"),
+"chg.seller_none": ("Пока карточка совпадает с одобренной.", "So far the card is the same as the approved one."),
+"chg.q_update": ("Обновление v{from} → v{to}", "Update v{from} → v{to}"),
+"chg.q_first": ("Первая публикация", "First release"),
+"chg.q_product_update": ("Изменение карточки в продаже", "Edit of a card on sale"),
+"chg.q_product_new": ("Новый товар", "New product"),
+"chg.q_changes": ("{count, plural, one {# изменение} few {# изменения} many {# изменений} other {# изменения}}", "{count, plural, one {# change} other {# changes}}"),
+})
+
 def nest(lang):
     out = {}
     for key, pair in M.items():

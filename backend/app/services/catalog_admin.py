@@ -154,6 +154,9 @@ def edit_product(db: Session, moderator: User, p: Product, kind: str, d: dict, r
         raise ApiError("validation_failed", 422)
     audit(db, moderator.id, "product.mod_edited", "product", p.id,
           {"reason": r, "fields": [kind] + sorted(d.keys())[:15], **({"locale": locale} if locale else {})})
+    if p.status == "published":   # NAP-116: a live card edited by a moderator is the new approved state
+        db.flush()
+        p.approved_snapshot = prod.snapshot(db, p)
     if someone_elses_live:
         _notify_seller(db, p, "edited", r)
 
@@ -168,6 +171,8 @@ def publish_product(db: Session, moderator: User, p: Product, reason: str | None
     for tr in db.scalars(select(Translation).where(Translation.entity_type == "product", Translation.entity_id == p.id)):
         tr.status = "published"
     r = _reason(reason, required=False)
+    db.flush()
+    p.approved_snapshot, p.approved_at = prod.snapshot(db, p), utcnow()
     audit(db, moderator.id, "product.published", "product", p.id, {"reason": r, "by": "moderator"})
     _notify_seller(db, p, "published", r)
     return p
