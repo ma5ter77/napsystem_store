@@ -83,6 +83,9 @@ class Product(Base):
     specs: Mapped[dict] = mapped_column(JSONB, default=dict)  # language-neutral specs
     hue: Mapped[int] = mapped_column(Integer, default=30)
     photos: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")  # NAP-047: asset ids, in order
+    # NAP-116: the card as last approved (texts, fields, SKUs, photos) — the "before" of a resubmitted card
+    approved_snapshot: Mapped[dict | None] = mapped_column(JSONB)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_demo: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = created_at()
     # NAP-084: soft delete by a moderator (status "deleted"); restorable for 30 days to the previous status

@@ -70,3 +70,57 @@ def live_summary(live: AppVersion | None) -> dict | None:
     return {"id": str(live.id), "version_label": live.version_label, "number": live.number,
             "published_at": live.published_at.isoformat() if live.published_at else None,
             "metadata": live.metadata_, "sessions": len(live.sessions)}
+
+
+# ------------------------------------------------------------------ supplier products (NAP-116 part 2)
+
+PRODUCT_TEXTS = ("title", "summary", "description", "in_box", "return_terms", "delivery_terms")
+
+
+def _text(v) -> str:
+    return "\n".join(v) if isinstance(v, list) else (v or "").strip()
+
+
+def _kind(b, a) -> str:
+    return "added" if b in (None, "", [], {}) else "removed" if a in (None, "", [], {}) else "changed"
+
+
+def product_changes(before: dict | None, after: dict) -> list[dict]:
+    """Differences of the card now (`after`, products.snapshot) against the card as last approved (`before`)."""
+    if not before:
+        return []
+    out: list[dict] = []
+    bt, at = before.get("texts") or {}, after.get("texts") or {}
+    for loc in sorted(set(bt) | set(at)):
+        for f in PRODUCT_TEXTS:
+            b, a = _text((bt.get(loc) or {}).get(f)), _text((at.get(loc) or {}).get(f))
+            if b != a:
+                out.append({"area": "ptext", "key": f, "locale": loc, "kind": _kind(b, a), "before": b, "after": a})
+    bf, af = before.get("fields") or {}, after.get("fields") or {}
+    for k in sorted(set(bf) | set(af)):
+        if bf.get(k) != af.get(k):
+            out.append({"area": "pfield", "key": k, "kind": "changed", "before": bf.get(k), "after": af.get(k)})
+    bs, as_ = before.get("specs") or {}, after.get("specs") or {}
+    for k in sorted(set(bs) | set(as_)):
+        if bs.get(k) != as_.get(k):
+            out.append({"area": "spec", "key": k, "kind": _kind(bs.get(k), as_.get(k)), "before": bs.get(k), "after": as_.get(k)})
+    bk, ak = before.get("skus") or {}, after.get("skus") or {}
+    for code in sorted(set(ak) - set(bk)):
+        out.append({"area": "sku", "key": code, "kind": "added", "before": None, "after": ak[code]})
+    for code in sorted(set(bk) - set(ak)):
+        out.append({"area": "sku", "key": code, "kind": "removed", "before": bk[code], "after": None})
+    for code in sorted(set(bk) & set(ak)):
+        b, a = bk[code], ak[code]
+        if (b.get("price_minor"), b.get("currency")) != (a.get("price_minor"), a.get("currency")):
+            out.append({"area": "sku_price", "key": code, "kind": "changed",
+                        "before": {"price_minor": b.get("price_minor"), "currency": b.get("currency")},
+                        "after": {"price_minor": a.get("price_minor"), "currency": a.get("currency")}})
+        for f in [f for f in b.keys() | a.keys() if f not in ("price_minor", "currency")]:
+            if b.get(f) != a.get(f):
+                out.append({"area": "sku_field", "key": code, "field": f, "kind": "changed", "before": b.get(f), "after": a.get(f)})
+    bp, ap = list(before.get("photos") or []), list(after.get("photos") or [])
+    added, removed = [x for x in ap if x not in bp], [x for x in bp if x not in ap]
+    if added or removed or bp != ap:
+        out.append({"area": "photos", "kind": "changed", "before": len(bp), "after": len(ap),
+                    "added": len(added), "removed": len(removed), "reordered": not added and not removed})
+    return out

@@ -526,6 +526,29 @@ async function run(L) {
     await gallery.getByText("2 / 2").waitFor();
     await s.p.reload();
     await s.p.getByText(t("sp.next_published")).waitFor();
+    // NAP-116: the supplier edits the card on sale; both sides see "before → after" against the approved card
+    await s.p.getByRole("tab", { name: t("sp.tab_submit") }).click();
+    await s.p.getByRole("button", { name: t("sp.withdraw_live") }).click();
+    await s.p.getByText(t("sp.done_withdrawn")).waitFor();
+    await s.p.getByRole("tab", { name: t("sp.tab_texts") }).click();
+    await s.p.locator(`fieldset[lang=${L}]`).getByLabel(t("sp.title")).fill(`${title} v2`);
+    await s.p.locator(`fieldset[lang=${L}]`).getByRole("button", { name: t("common.save") }).click();
+    await s.p.getByText(t("sp.saved")).waitFor();
+    await s.p.getByRole("tab", { name: t("sp.tab_submit") }).click();
+    await s.p.getByTestId("seller-changes").locator("ins", { hasText: "v2" }).waitFor();
+    await s.p.getByRole("button", { name: t("sp.submit") }).click();
+    await s.p.getByText(t("sp.done_submitted")).waitFor();
+    const m2 = await login(browser, L, t, "moderator@nap.demo");
+    CUR = m2.p;
+    await m2.p.goto(`${BASE}/${L}/moderation`);
+    const card = m2.p.locator("a.card", { hasText: `${title} v2` });
+    await card.getByText(t("chg.q_product_update"), { exact: false }).waitFor();
+    await card.click();
+    await m2.p.getByRole("heading", { name: t("chg.product_title") }).waitFor();
+    await m2.p.getByTestId("changes").locator("ins", { hasText: "v2" }).waitFor();
+    await m2.p.getByRole("button", { name: t("mod.approve") }).click();
+    await m2.p.getByText(t("mod.product_done_approve")).waitFor();
+    await m2.ctx.close();
     await s.ctx.close();
   });
   await step("moderator manages the catalog: stop and resume sales with a reason (NAP-084)", async () => {

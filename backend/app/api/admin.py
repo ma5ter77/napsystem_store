@@ -30,13 +30,18 @@ router = APIRouter(tags=["moderation/admin"])
 @router.get("/moderation/queue")
 def queue(request: Request, p=P, db=DB):
     p.require_role("moderator", "admin")
+    from ..services.version_diff import version_changes
     out = []
     for v in appsvc.moderation_queue(db):
         app = db.get(App, v.app_id)
+        live = db.get(AppVersion, app.published_version_id) if app.published_version_id else None
         out.append({"app": {"id": str(app.id), "slug": app.slug, "author": app.author_name,
                             "title": appsvc.app_title(app, v, locale_of(request)),
                             "price_set": "price" not in appsvc.release_blockers(db, app, v),
                             "auto_release": v.auto_release},
+                    # NAP-116: an update of an app on sale, or its first release
+                    "live_label": live.version_label if live else None,
+                    "changes": len(version_changes(live, v)),
                     "version": version_view(db, v, locale_of(request))})
     return {"items": out}
 

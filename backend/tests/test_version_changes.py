@@ -50,3 +50,45 @@ def test_update_lists_what_changes_against_the_store():
     assert {(c["area"], c.get("key"), c["kind"]) for c in mine} == {(c["area"], c.get("key"), c["kind"]) for c in r["changes"]}
     # the store keeps v1.0 until the update is approved
     assert ok(Client().get(f"/catalog/apps/{r['app']['slug']}"))["title"] == "Покой"
+
+
+def test_resubmitted_product_lists_what_changes_against_the_approved_card():
+    """NAP-116 part 2: a supplier takes a card on sale back to edit it; the moderator sees "before → after"."""
+    from .test_seller_products import _new_product
+    seller = Client().login("seller2@nap.demo")
+    mod = Client().login("moderator@nap.demo")
+    p = _new_product(seller)
+    pid = p["id"]
+    ok(seller.put(f"/seller/products/{pid}", {"destinations": ["de"], "warranty_months": 12, "specs": {"driver_mm": 40}}))
+    p = ok(seller.post(f"/seller/products/{pid}/skus", {"price_minor": 12900, "currency": "EUR", "weight_g": 380,
+                                                        "length_mm": 220, "width_mm": 190, "height_mm": 90,
+                                                        "origin_country": "de"}), 201)
+    sku = p["skus"][0]
+    ok(seller.put(f"/seller/products/{pid}/texts/ru", {"title": "Наушники Aurora", "description": "Мягкие амбушюры.",
+                                                       "in_box": ["Наушники", "Кабель"]}))
+    ok(seller.post(f"/seller/products/{pid}/submit"))
+    first = ok(mod.get(f"/moderation/products/{pid}"))
+    assert first["changes"] == [] and first["approved_at"] is None          # a new card: nothing to compare with
+    assert not next(x for x in ok(mod.get("/moderation/products"))["items"] if x["id"] == pid)["update"]
+    ok(mod.post(f"/moderation/products/{pid}/decision", {"decision": "approve", "comment": ""}))
+    assert ok(seller.get(f"/seller/products/{pid}"))["changes"] == []        # on sale = the approved card
+
+    ok(seller.post(f"/seller/products/{pid}/withdraw"))
+    ok(seller.put(f"/seller/products/{pid}/skus/{sku['id']}", {"price_minor": 11900}))
+    ok(seller.put(f"/seller/products/{pid}/texts/ru", {"title": "Наушники Aurora HX", "description": "Мягкие амбушюры.",
+                                                       "in_box": ["Наушники", "Кабель", "Чехол"]}))
+    ok(seller.put(f"/seller/products/{pid}", {"warranty_months": 24, "specs": {"driver_mm": 40, "impedance_ohm": 32}}))
+    mine = ok(seller.get(f"/seller/products/{pid}"))["changes"]
+    ok(seller.post(f"/seller/products/{pid}/submit"))
+    q = next(x for x in ok(mod.get("/moderation/products"))["items"] if x["id"] == pid)
+    m = ok(mod.get(f"/moderation/products/{pid}"))
+    got = {(c["area"], c.get("key"), c.get("locale"), c["kind"]) for c in m["changes"]}
+    assert q["update"] and q["changes"] == len(m["changes"]) and m["approved_at"]
+    assert ("ptext", "title", "ru", "changed") in got and ("ptext", "in_box", "ru", "changed") in got
+    assert ("ptext", "description", "ru", "changed") not in got
+    assert ("pfield", "warranty_months", None, "changed") in got and ("spec", "impedance_ohm", None, "added") in got
+    price = next(c for c in m["changes"] if c["area"] == "sku_price")
+    assert price["key"] == sku["code"] and price["before"]["price_minor"] == 12900 and price["after"]["price_minor"] == 11900
+    assert len(mine) == len(m["changes"])
+    ok(mod.post(f"/moderation/products/{pid}/decision", {"decision": "approve", "comment": ""}))
+    assert ok(mod.get(f"/moderation/products/{pid}"))["changes"] == []
