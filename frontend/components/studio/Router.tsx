@@ -13,8 +13,12 @@ import type { Profile } from "./Render";
 const LAYOUTS: Record<string, string[]> = {
   stereo: ["FL", "FR"], "3.0": ["FL", "FR", "FC"], "5.1(side)": ["FL", "FR", "FC", "LFE", "SL", "SR"],
   "7.1": ["FL", "FR", "FC", "LFE", "BL", "BR", "SL", "SR"],
+  // NAP-101: height speakers (studio export; FLAC holds at most 8 channels, so 7.1.4 exports as WAV)
+  "5.1.2": ["FL", "FR", "FC", "LFE", "SL", "SR", "TFL", "TFR"],
+  "7.1.4": ["FL", "FR", "FC", "LFE", "BL", "BR", "SL", "SR", "TFL", "TFR", "TBL", "TBR"],
 };
-const BASE_FOR_LAYOUT: Record<string, string> = { stereo: "HEADPHONES_2_0", "3.0": "NAP_ACOUSTIC_3_0", "5.1(side)": "NAP_CHAIR_5_1", "7.1": "NAP_PRO_7_1" };
+const BASE_FOR_LAYOUT: Record<string, string> = { stereo: "HEADPHONES_2_0", "3.0": "NAP_ACOUSTIC_3_0", "5.1(side)": "NAP_CHAIR_5_1", "7.1": "NAP_PRO_7_1",
+  "5.1.2": "NAP_CHAIR_5_1", "7.1.4": "NAP_PRO_7_1" };   // the height rows start empty
 const MAX_DB = 12;
 
 type Opt = { mute: boolean; invert: boolean; delay_ms: number };
@@ -64,7 +68,11 @@ function Editor({ draft, builtins, onSaved, onCancel }: { draft: Draft; builtins
   const setOpt = (i: number, patch: Partial<Opt>) => setD({ ...d, options: d.options.map((o, a) => (a === i ? { ...o, ...patch } : o)) });
   const changeLayout = (layout: string) => {
     const base = builtins.find((b) => b.key === BASE_FOR_LAYOUT[layout]);
-    if (base) setD({ ...draftFrom(base, true, t), key: d.key, name: d.name, note: d.note, layout });
+    if (!base) return;
+    const x = draftFrom(base, true, t), n = LAYOUTS[layout].length;
+    const cells = Array.from({ length: n }, (_, i) => x.cells[i] ?? BUSES.map(() => ""));
+    const options = Array.from({ length: n }, (_, i) => x.options[i] ?? { mute: false, invert: false, delay_ms: 0 });
+    setD({ ...x, cells, options, key: d.key, name: d.name, note: d.note, layout });
   };
   const save = () => act.run(async () => {
     const body = {

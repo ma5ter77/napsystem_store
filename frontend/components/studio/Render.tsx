@@ -63,7 +63,8 @@ export function RenderPanel({ project, profiles, state, unsaved, onClipChange }:
   const { t, locale } = useApp();
   const [profile, setProfile] = useState(DEFAULT_FOR_BUSES[project.bus_count] ?? "HEADPHONES_2_0");
   const [format, setFormat] = useState<"wav" | "flac">("wav");
-  const flacOk = project.bit_depth !== 32;
+  const tooWide = (profiles.find((p) => p.key === profile)?.channels.length ?? 0) > 8;   // FLAC: at most 8 channels
+  const flacOk = project.bit_depth !== 32 && !tooWide;
   const [jobs, setJobs] = useState<any[]>([]);
   const act = useAction();
   const load = useCallback(() => api(`/audio/projects/${project.id}/renders`).then((r) => setJobs(r.items)).catch(() => {}), [project.id]);
@@ -102,7 +103,7 @@ export function RenderPanel({ project, profiles, state, unsaved, onClipChange }:
             <legend>{t("studio.format")}</legend>
             <label className="studio-check"><input type="radio" name="fmt" checked={format === "wav"} onChange={() => setFormat("wav")} />{t("studio.fmt_wav")}</label>
             <label className="studio-check"><input type="radio" name="fmt" checked={format === "flac"} disabled={!flacOk} onChange={() => setFormat("flac")} />{t("studio.fmt_flac")}</label>
-            <span className="hint">{flacOk ? t("studio.fmt_hint") : t("studio.fmt_flac_float")}</span>
+            <span className="hint">{flacOk ? t("studio.fmt_hint") : tooWide ? t("studio.fmt_flac_wide") : t("studio.fmt_flac_float")}</span>
           </fieldset>
           {dropped.length > 0 && <div className="notice warn">{t("studio.profile_drops", { buses: dropped.map((b) => t(`studio.bus.${b}`)).join(", ") })}</div>}
           <label className="studio-check"><input type="checkbox" checked={state.output.on_clip === "hard_clip"}

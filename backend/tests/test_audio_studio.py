@@ -1,5 +1,6 @@
 """NAP Audio Studio M1 (spec v2.1): acceptance tests T01–T09 with real ffmpeg decoding and independent readers."""
 import hashlib
+import json
 import os
 import struct
 import subprocess
@@ -556,3 +557,30 @@ def test_carrier_ramp_saved_through_api_is_rendered(tmp_path):
     assert abs(fl - 296) < 0.01 and abs(fr - 304) < 0.01
     amp = 10 ** (-12 / 20)
     assert np.max(np.abs(np.diff(x[:, 0]))) <= 2 * np.pi * 305 * amp / FS * 1.02   # no clicks across the ramp
+
+
+def test_height_layouts_for_own_profiles(tmp_path):
+    """NAP-101: an author's own profile can target 5.1.2 / 7.1.4 (height speakers); the export carries the
+    height bits in the WAVE channel mask; FLAC (at most 8 channels) is refused for 7.1.4 with a clear code."""
+    dev = Client().register(developer=True)
+    rows = [{"MUSIC_LEFT": 1.0}, {"MUSIC_RIGHT": 1.0}, {"VOICE_CENTER": 1.0}, {"LFE": 1.0}, {"BACK_LEFT": 1.0},
+            {"BACK_RIGHT": 1.0}, {"NEURO_LEFT": 1.0}, {"NEURO_RIGHT": 1.0},
+            {"MUSIC_LEFT": 0.5}, {"MUSIC_RIGHT": 0.5}, {"BACK_LEFT": 0.5}, {"BACK_RIGHT": 0.5}]
+    p = ok(dev.post("/audio/routing-profiles", {"name": "Комната 7.1.4", "layout": "7.1.4", "matrix": rows}), 201)
+    assert p["channels"][-4:] == ["TFL", "TFR", "TBL", "TBR"]
+    assert dev.post("/audio/routing-profiles", {"name": "x", "layout": "5.1.2", "matrix": rows[:6]}).status_code == 422
+    pr = ok(dev.post("/audio/projects", {"title": "Heights", "bus_count": 8}), 201)
+    st = pr["state"]
+    st["generators"] = [{"id": "g1", "type": "binaural", "params": {"carrier_hz": 200, "delta_hz": 8, "amplitude_dbfs": -18}}]
+    st["tracks"][0]["clips"] = [{"id": "c1", "generator_id": "g1", "generator_output": "left", "start_frame": 0, "duration_frames": FS // 2}]
+    ok(dev.patch(f"/audio/projects/{pr['id']}", {"base_revision": pr["revision"], "state": st}))
+    r = dev.post(f"/audio/projects/{pr['id']}/renders", {"profile": p["key"], "format": "flac"})
+    assert r.status_code == 422 and r.json()["error"]["code"] == "flac_max_channels"
+    j = _wait(dev, ok(dev.post(f"/audio/projects/{pr['id']}/renders", {"profile": p["key"]}), 201)["id"])
+    assert j["state"] == "completed", (j["error_code"], j["error_detail"])
+    x, info = read_pcm_bytes(tmp_path, dev.raw().get(ok(dev.get(f"/audio/render-jobs/{j['id']}/download"))["url"]).content)
+    assert x.shape[1] == 12
+    with open(tmp_path / "h.wav", "wb") as fh:
+        fh.write(dev.raw().get(ok(dev.get(f"/audio/render-jobs/{j['id']}/download"))["url"]).content)
+    pr_ = subprocess.run(["ffprobe", "-v", "error", "-show_streams", "-of", "json", str(tmp_path / "h.wav")], capture_output=True, text=True)
+    assert json.loads(pr_.stdout)["streams"][0]["channel_layout"] == "7.1.4"

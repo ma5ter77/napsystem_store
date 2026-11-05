@@ -19,7 +19,8 @@ MAX_TRACKS = 64
 MAX_CLIPS = 2000
 
 # WAVE_FORMAT_EXTENSIBLE speaker bits; PCM order inside the file follows the bit order of the mask
-SPEAKER = {"FL": 0x1, "FR": 0x2, "FC": 0x4, "LFE": 0x8, "BL": 0x10, "BR": 0x20, "SL": 0x200, "SR": 0x400}
+SPEAKER = {"FL": 0x1, "FR": 0x2, "FC": 0x4, "LFE": 0x8, "BL": 0x10, "BR": 0x20, "SL": 0x200, "SR": 0x400,
+           "TFL": 0x1000, "TFR": 0x4000, "TBL": 0x8000, "TBR": 0x20000}   # NAP-101: height channels (x.y.2 / x.y.4)
 G3DB = 0.7071067811865476
 
 # Built-in profiles, version 1. Rows = output channels in file order, values = {bus: linear gain}.
@@ -46,7 +47,11 @@ PROFILES: dict[str, dict] = {
 }
 # Layouts a custom profile may use: the channel order is fixed by the WAVE_FORMAT_EXTENSIBLE bit order.
 LAYOUTS = {"stereo": ["FL", "FR"], "3.0": ["FL", "FR", "FC"], "5.1(side)": ["FL", "FR", "FC", "LFE", "SL", "SR"],
-           "7.1": ["FL", "FR", "FC", "LFE", "BL", "BR", "SL", "SR"]}
+           "7.1": ["FL", "FR", "FC", "LFE", "BL", "BR", "SL", "SR"],
+           # NAP-101: immersive layouts with height speakers, for the author's own profiles (studio export)
+           "5.1.2": ["FL", "FR", "FC", "LFE", "SL", "SR", "TFL", "TFR"],
+           "7.1.4": ["FL", "FR", "FC", "LFE", "BL", "BR", "SL", "SR", "TFL", "TFR", "TBL", "TBR"]}
+FLAC_MAX_CHANNELS = 8
 MAX_GAIN = 3.981071705534973       # +12 dB
 MAX_DELAY_MS = 100.0
 
@@ -63,7 +68,7 @@ class RoutingSpec(BaseModel):
     """A routing profile: matrix rows are the output channels in file order, values {bus: linear gain}."""
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1, max_length=80)
-    layout: Literal["stereo", "3.0", "5.1(side)", "7.1"]
+    layout: Literal["stereo", "3.0", "5.1(side)", "7.1", "5.1.2", "7.1.4"]
     matrix: list[dict[str, float]]
     options: list[ChannelOptions] = Field(default_factory=list)
     note: str = Field(default="", max_length=500)

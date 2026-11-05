@@ -113,7 +113,8 @@
     "builtin_profile": "Built-in profiles cannot be changed — create your own based on one.",
     "variant_duration_mismatch": "The speaker or chair version differs in length from the headphones track by more than 1 second. Build it from the same main file.",
     "layout_not_supported": "This export cannot go to an app: the store has the 2.0, 3.0, 5.1 and 7.1 layouts.",
-    "preview_failed": "Could not prepare the fragment: check the file or choose another one."
+    "preview_failed": "Could not prepare the fragment: check the file or choose another one.",
+    "flac_max_channels": "FLAC holds at most 8 channels. Choose WAV for this layout."
   },
   "jobs": {
     "decode_failed": "The file could not be fully decoded.",
