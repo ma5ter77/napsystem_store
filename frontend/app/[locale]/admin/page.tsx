@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useState } from "react";
 import { useApp } from "@/components/Providers";
+import { NewsAdmin } from "@/components/NewsTelegram";
 import { Empty, ErrorBox, Loading, Price, RequireAuth, StatusBadge, useAction, useLoad } from "@/components/ui";
 import { api, uid } from "@/lib/api";
 import { date } from "@/lib/i18n";
 
-const TABS = ["users", "profiles", "finance", "refunds", "orders", "audit", "ops"] as const;
+const TABS = ["users", "profiles", "finance", "refunds", "orders", "news", "audit", "ops"] as const;
 
 function Users() {
   const { t } = useApp();
@@ -182,7 +183,7 @@ function Admin() {
       <PageHead title={t("admin.title")} lead={t("admin.lead")} />
       <div className="tabs" role="tablist">{TABS.map((x) => <button key={x} role="tab" aria-selected={tab === x} onClick={() => router.replace(`/${locale}/admin?tab=${x}`)}>{t(`admin.tab_${x}`)}</button>)}</div>
       {tab === "users" && <Users />}{tab === "profiles" && <Profiles />}{tab === "finance" && <Finance />}{tab === "refunds" && <Refunds />}
-      {tab === "orders" && <Orders />}{tab === "audit" && <Audit />}{tab === "ops" && <Ops />}
+      {tab === "orders" && <Orders />}{tab === "news" && <NewsAdmin />}{tab === "audit" && <Audit />}{tab === "ops" && <Ops />}
     </div>
   );
 }

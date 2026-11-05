@@ -644,3 +644,21 @@ main .crumbs a:hover { text-decoration: underline; }
 .cal-ctl input[type=range] { flex: 1; min-width: 80px; accent-color: var(--action); }
 .cal-ctl output .hint { display: block; }
 .cal-ctl output { min-width: 4.5em; font-variant-numeric: tabular-nums; font-size: var(--step--1); }
+
+/* NAP-118: news -> Telegram. The preview mirrors a channel post: avatar in the brand's two carriers, a white
+   bubble on a soft backdrop, links live, time in the corner. */
+.tg-split { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 860px) { .tg-split { grid-template-columns: 1fr; } }
+.tg-preview { margin: 0; background: #dfe7ee; border-radius: var(--r-lg); padding: 14px; position: sticky; top: 72px; }
+.tg-head { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+.tg-head > span:last-child { display: grid; line-height: 1.25; }
+.tg-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--left) 50%, var(--right) 50%); flex: none; }
+.tg-bubble { background: var(--paper); border-radius: 14px 14px 14px 4px; padding: 10px 12px 18px; position: relative; max-width: 460px;
+  box-shadow: 0 1px 1px rgba(16, 35, 47, .12); overflow: hidden; }
+.tg-photo { display: block; width: calc(100% + 24px); max-width: none; margin: -10px -12px 10px; aspect-ratio: 16 / 9; object-fit: cover; background: var(--fog); }
+.tg-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .95rem; line-height: 1.4; }
+.tg-time { position: absolute; right: 10px; bottom: 4px; font-size: .72rem; color: var(--muted); }
+.bad-text { color: var(--bad); }
+.news-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.news-body { margin: 6px 0 10px; white-space: pre-line; }
+.tg-editor { scroll-margin-top: 72px; }

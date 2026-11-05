@@ -6,3 +6,4 @@ from .devices import *  # noqa: F401,F403
 from .reviews import *  # noqa: F401,F403
 from ..db import Base  # noqa: F401
 from .audio import *  # noqa: F401,F403
+from .news import *  # noqa: F401,F403

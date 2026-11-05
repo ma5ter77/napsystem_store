@@ -64,6 +64,14 @@ class Settings(BaseSettings):
     smtp_password: str | None = None
     smtp_security: Literal["starttls", "ssl", "none"] = "starttls"
 
+    # NAP-118: posts to the Telegram channel; the explanation is written by a language model when a key is set
+    telegram_bot_token: str | None = None
+    telegram_channel: str | None = None          # @channel or numeric id
+    telegram_api_base: str = "https://api.telegram.org"
+    anthropic_api_key: str | None = None
+    anthropic_model: str = "claude-haiku-5-5"
+    anthropic_api_base: str = "https://api.anthropic.com"
+
     # backups (NAP-006): status file written by ops/backup-loop.sh
     backup_status_file: str = "/backups/last-status.json"
     backup_max_age_hours: int = 26

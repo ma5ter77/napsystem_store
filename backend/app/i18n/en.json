@@ -114,7 +114,18 @@
     "variant_duration_mismatch": "The speaker or chair version differs in length from the headphones track by more than 1 second. Build it from the same main file.",
     "layout_not_supported": "This export cannot go to an app: the store has the 2.0, 3.0, 5.1 and 7.1 layouts.",
     "preview_failed": "Could not prepare the fragment: check the file or choose another one.",
-    "flac_max_channels": "FLAC holds at most 8 channels. Choose WAV for this layout."
+    "flac_max_channels": "FLAC holds at most 8 channels. Choose WAV for this layout.",
+    "telegram_not_configured": "Telegram posting is not connected: the bot or the channel is not set on the server.",
+    "telegram_bad_token": "Telegram did not accept the bot token. Check NAP_TELEGRAM_BOT_TOKEN on the server.",
+    "telegram_channel_not_found": "Channel not found. Check NAP_TELEGRAM_CHANNEL (for example @sdslab) and that the bot is in the channel.",
+    "telegram_no_rights": "The bot may not post in the channel. Make it a channel administrator with the right to post.",
+    "telegram_bad_photo": "Telegram could not load the picture from the link. Use a direct https link to an image.",
+    "telegram_too_long": "The text is longer than Telegram allows. Shorten it.",
+    "telegram_rate_limited": "Telegram is limiting sending for a moment. Try again in a minute.",
+    "telegram_failed": "Telegram did not accept the post. See the details in the post history.",
+    "telegram_unreachable": "Could not reach Telegram. Try again later.",
+    "post_already_sent": "The post has been sent and can no longer be changed.",
+    "model_failed": "Could not get the text from the language model; the draft was made from a template."
   },
   "jobs": {
     "decode_failed": "The file could not be fully decoded.",

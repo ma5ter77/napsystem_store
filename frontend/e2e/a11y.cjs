@@ -13,7 +13,7 @@ const ROLES = {
   "dev1@nap.demo": ["/developer?tab=apps", "/developer/studio", "/developer?tab=reviews", "/developer?tab=finance", "/developer?tab=analytics"],
   "seller@nap.demo": ["/seller?tab=orders", "/seller?tab=products", "/seller?tab=inventory"],
   "moderator@nap.demo": ["/moderation", "/moderation?tab=apps", "/moderation?tab=products", "/moderation?tab=reviews"],
-  "admin@nap.demo": ["/admin?tab=users", "/admin?tab=refunds", "/admin?tab=ops", "/content", "/content?tab=categories"],
+  "admin@nap.demo": ["/admin?tab=users", "/admin?tab=refunds", "/admin?tab=news", "/admin?tab=ops", "/content", "/content?tab=categories"],
 };
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 const found = new Map(); // rule id -> {impact, help, pages:Set, nodes:[...]}
