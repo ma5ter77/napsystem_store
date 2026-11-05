@@ -232,6 +232,9 @@ async function run(L) {
     // NAP-116: a first release: no version in the store yet, the review opens on the card as buyers will see it
     await m.p.getByTestId("version-track").getByText(t("chg.none")).waitFor();
     await m.p.getByTestId("store-preview").getByText(t("chg.preview_caption")).waitFor();
+    const rc = m.p.getByTestId("review-checklist");
+    await rc.locator("li.ok", { hasText: t("rc.rights") }).waitFor();
+    await rc.locator("li.ok", { hasText: t("rc.layouts_ok", { list: t("layout.surround_5_1") }) }).waitFor();
     await m.p.getByRole("tab", { name: t("chg.tab.sound") }).click();
     // NAP-113: the chair 5.1 version is on the card, with its own file in the centre and a passed channel check
     const l51 = m.p.getByTestId("mod-layout-surround_5_1");

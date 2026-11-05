@@ -24,6 +24,19 @@ function Review() {
   // an update opens on what it changes; a first release on how the card will look
   const tabs = data.live && !data.is_live ? ["changes", "store", "sound"] : ["store", "sound", "changes"];
   const cur = tab ?? tabs[0];
+  const soundOk = data.sessions.every((s: any) => s.qa?.status === "passed");
+  const lays = data.sessions.flatMap((s: any) => s.layouts ?? []);
+  const laysOk = lays.every((l: any) => l.qa?.verification?.passed ?? l.qa?.status === "passed");
+  const langs = ["ru", "en"].filter((l) => v.metadata?.[l]?.title);
+  type Check = { key: string; state: "ok" | "warn" | "bad"; tab?: string; args?: Record<string, any> };
+  const checks: Check[] = [
+    { key: "rights", state: v.rights_confirmed ? "ok" : "bad" },
+    { key: soundOk ? "sound_ok" : "sound_bad", state: soundOk ? "ok" : "bad", tab: "sound", args: { count: data.sessions.length } },
+    ...(lays.length ? [{ key: laysOk ? "layouts_ok" : "layouts_bad", state: laysOk ? "ok" as const : "bad" as const, tab: "sound", args: { list: Array.from(new Set(lays.map((l: any) => t(`layout.${l.layout}`)))).join(", ") } }] : []),
+    { key: langs.length === 2 ? "texts_both" : "texts_one", state: langs.length === 2 ? "ok" : "warn", tab: "store", args: { list: langs.map((l) => l.toUpperCase()).join(", ") } },
+    { key: v.cover ? "cover_own" : "cover_generated", state: v.cover ? "ok" : "warn", tab: "store" },
+    ...(data.integrity ? [{ key: data.integrity.length ? "integrity_bad" : "integrity_ok", state: data.integrity.length ? "bad" as const : "ok" as const }] : []),
+  ];
   // NAP-082: confirm the decision and offer the next version waiting in the queue
   const decide = async (decision: string) => {
     const r = await act.run(() => api<any>(`/moderation/versions/${id}/decision`, { body: { decision, comment } }));
@@ -42,6 +55,14 @@ function Review() {
         live={data.live ? { label: data.live.version_label, at: data.live.published_at, note: t("chg.published") } : null}
         next={{ label: v.version_label, at: v.submitted_at, note: t("chg.submitted") }} />
       {data.integrity && data.integrity.length > 0 && <div className="notice bad">{t("mod.integrity")}: {data.integrity.join(", ")}</div>}
+      {/* NAP-116: what to check before deciding, each line leads to where it is checked */}
+      <ul className="checklist review-checklist" data-testid="review-checklist" aria-label={t("rc.label")}>
+        {checks.map((c) => (
+          <li key={c.key} className={c.state}>
+            <span aria-hidden="true">{c.state === "ok" ? "✓" : c.state === "warn" ? "!" : "✗"}</span>
+            <span>{t(`rc.${c.key}`, c.args)}{c.tab && c.state !== "ok" && <> <button type="button" className="linklike" onClick={() => setTab(c.tab!)}>{t("rc.open")}</button></>}</span>
+          </li>))}
+      </ul>
       <div className="tabs" role="tablist">{tabs.map((x) => (
         <button key={x} role="tab" aria-selected={cur === x} aria-controls={`rv-${x}`} id={`rv-tab-${x}`} onClick={() => setTab(x)}>
           {t(`chg.tab.${x}`)}{x === "changes" && data.live && !data.is_live ? ` (${data.changes.length})` : ""}</button>))}</div>

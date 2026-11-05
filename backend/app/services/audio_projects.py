@@ -336,6 +336,9 @@ def start_render(db: Session, pr: AudioProject, actor_id: uuid.UUID, profile_key
         raise ApiError("validation_failed", 422, details={"field": "format"})
     if fmt == "flac" and pr.bit_depth not in (16, 24):
         raise ApiError("flac_needs_integer", 422)
+    from ..audio.schema import FLAC_MAX_CHANNELS
+    if fmt == "flac" and len(prof.channels) > FLAC_MAX_CHANNELS:   # FLAC stores at most 8 channels (7.1.4 has 12)
+        raise ApiError("flac_max_channels", 422, details={"channels": len(prof.channels), "max": FLAC_MAX_CHANNELS})
     st = validate_state(db, actor_id, pr.state)
     if st.duration_frames() <= 0:
         raise ApiError("empty_project", 422)

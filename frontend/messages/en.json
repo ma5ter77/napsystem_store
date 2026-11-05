@@ -1813,6 +1813,7 @@
    "BACK_LEFT": "Back L",
    "BACK_RIGHT": "Back R"
   },
+  "fmt_flac_wide": "FLAC holds at most 8 channels, so a 7.1.4 layout exports as WAV.",
   "to_app": "Send to app",
   "to_app_label": "App",
   "to_app_hp": "A stereo export becomes the headphones track: the file is taken as it is, without processing it again.",
@@ -1901,7 +1902,11 @@
   "SL": "side left",
   "SR": "side right",
   "BL": "back left",
-  "BR": "back right"
+  "BR": "back right",
+  "TFL": "top front left",
+  "TFR": "top front right",
+  "TBL": "top back left",
+  "TBR": "top back right"
  },
  "lay": {
   "title": "Versions for speakers and the chair",
@@ -2109,5 +2114,25 @@
   "saved": "Saved. Applied when you listen in “{layout}”.",
   "unsaved": "Changes are not saved.",
   "cm": "cm"
+ },
+ "mq": {
+  "waited_new": "waiting under an hour",
+  "waited_h": "waiting {count, plural, one {# hour} other {# hours}}",
+  "waited_d": "waiting {count, plural, one {# day} other {# days}}"
+ },
+ "rc": {
+  "label": "What to check before deciding",
+  "open": "Open",
+  "rights": "The author confirmed the rights to the sound and texts",
+  "sound_ok": "The sound passed the quality check: {count, plural, one {# session} other {# sessions}}",
+  "sound_bad": "Not every session passed the quality check",
+  "layouts_ok": "Channel check passed: {list}",
+  "layouts_bad": "Some speaker or chair versions did not pass the channel check: {list}",
+  "texts_both": "Texts in both languages: {list}",
+  "texts_one": "Texts in one language only: {list}. Buyers in the other language see them marked as the original",
+  "cover_own": "Own cover",
+  "cover_generated": "No cover: the store shows a generated one",
+  "integrity_ok": "The version's files match the manifest",
+  "integrity_bad": "The version's files do not match the manifest"
  }
 }

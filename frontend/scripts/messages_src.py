@@ -1004,6 +1004,9 @@ M.update({  # NAP-108: versions for headphones 2.0, speakers 3.0 and the NAP cha
 "ch.FL": ("фронт левый", "front left"), "ch.FR": ("фронт правый", "front right"), "ch.FC": ("центр", "centre"),
 "ch.LFE": ("сабвуфер", "subwoofer"), "ch.SL": ("боковой левый", "side left"), "ch.SR": ("боковой правый", "side right"),
 "ch.BL": ("тыловой левый", "back left"), "ch.BR": ("тыловой правый", "back right"),
+"studio.fmt_flac_wide": ("FLAC хранит не больше 8 каналов, поэтому раскладка 7.1.4 экспортируется в WAV.", "FLAC holds at most 8 channels, so a 7.1.4 layout exports as WAV."),
+"ch.TFL": ("верхний фронтальный левый", "top front left"), "ch.TFR": ("верхний фронтальный правый", "top front right"),
+"ch.TBL": ("верхний тыловой левый", "top back left"), "ch.TBR": ("верхний тыловой правый", "top back right"),
 "lay.title": ("Версии для колонок и кресла", "Versions for speakers and the chair"),
 "lay.lead": ("Каждый канал раскладки — отдельная дорожка. На любую можно поставить свой файл, например голос в центр. Канал без своего файла строится из основного файла. Готовая версия сама добавится к сеансу, который играет тот же основной файл.",
   "Each channel of the layout is a separate track. Any of them can take a file of its own, for example a voice in the centre. A channel without its own file is built from the main file. A finished version joins the session that plays the same main file by itself."),
@@ -1282,6 +1285,25 @@ M.update({  # NAP-101: output calibration of the listener's speakers / chair
 "cal.saved": ("Сохранено. Применяется при прослушивании в раскладке «{layout}».", "Saved. Applied when you listen in “{layout}”."),
 "cal.unsaved": ("Изменения не сохранены.", "Changes are not saved."),
 "cal.cm": ("см", "cm"),
+})
+
+M.update({  # NAP-116: review checklist on the moderator's app card
+"mq.waited_new": ("ждёт меньше часа", "waiting under an hour"),
+"mq.waited_h": ("ждёт {count, plural, one {# час} few {# часа} many {# часов} other {# часа}}", "waiting {count, plural, one {# hour} other {# hours}}"),
+"mq.waited_d": ("ждёт {count, plural, one {# день} few {# дня} many {# дней} other {# дня}}", "waiting {count, plural, one {# day} other {# days}}"),
+"rc.label": ("Что проверить перед решением", "What to check before deciding"),
+"rc.open": ("Открыть", "Open"),
+"rc.rights": ("Автор подтвердил права на звук и тексты", "The author confirmed the rights to the sound and texts"),
+"rc.sound_ok": ("Звук прошёл проверку качества: {count, plural, one {# сеанс} few {# сеанса} many {# сеансов} other {# сеанса}}", "The sound passed the quality check: {count, plural, one {# session} other {# sessions}}"),
+"rc.sound_bad": ("Не все сеансы прошли проверку качества", "Not every session passed the quality check"),
+"rc.layouts_ok": ("Проверка каналов пройдена: {list}", "Channel check passed: {list}"),
+"rc.layouts_bad": ("Есть версии для колонок или кресла без пройденной проверки каналов: {list}", "Some speaker or chair versions did not pass the channel check: {list}"),
+"rc.texts_both": ("Тексты на двух языках: {list}", "Texts in both languages: {list}"),
+"rc.texts_one": ("Тексты только на одном языке: {list}. Покупатели на другом языке увидят их с пометкой оригинала", "Texts in one language only: {list}. Buyers in the other language see them marked as the original"),
+"rc.cover_own": ("Своя обложка", "Own cover"),
+"rc.cover_generated": ("Обложки нет: в магазине будет созданная автоматически", "No cover: the store shows a generated one"),
+"rc.integrity_ok": ("Файлы версии совпадают с манифестом", "The version's files match the manifest"),
+"rc.integrity_bad": ("Файлы версии не совпадают с манифестом", "The version's files do not match the manifest"),
 })
 
 def nest(lang):

@@ -10,6 +10,15 @@ import { ModerationReviews } from "@/components/Reviews";
 import { Empty, ErrorBox, Loading, RequireAuth, useLoad } from "@/components/ui";
 import { date } from "@/lib/i18n";
 
+// NAP-116: how long an item has waited; over two days it is marked so it is handled first
+function Waited({ at }: { at?: string | null }) {
+  const { t } = useApp();
+  if (!at) return null;
+  const h = Math.max(0, (Date.now() - new Date(at).getTime()) / 3.6e6);
+  const label = h < 1 ? t("mq.waited_new") : h < 48 ? t("mq.waited_h", { count: Math.floor(h) }) : t("mq.waited_d", { count: Math.floor(h / 24) });
+  return <span className={`badge ${h >= 48 ? "warn" : "gray"}`}>{label}</span>;
+}
+
 function Queue() {
   const { t, locale } = useApp();
   const { data, error, loading, reload } = useLoad<any>("/moderation/queue");
@@ -24,7 +33,7 @@ function Queue() {
           {/* NAP-116: an update of an app on sale, or its first release */}
           <div>{x.live_label
             ? <span className="badge">{t("chg.q_update", { from: x.live_label, to: x.version.version_label })} · {t("chg.q_changes", { count: x.changes })}</span>
-            : <span className="badge r">{t("chg.q_first")}</span>}</div>
+            : <span className="badge r">{t("chg.q_first")}</span>} <Waited at={x.version.submitted_at} /></div>
           <div className="hint">{x.app.slug} · {t("dev.sessions_count", { count: x.version.sessions.length })} · {!x.app.price_set ? t("mod.no_price_yet") : x.app.auto_release ? t("mod.goes_live_on_approve") : t("mod.author_publishes")}</div>
         </Link>
       ))}
@@ -46,7 +55,7 @@ function ProductQueue() {
           <div className="spread"><strong>{x.title ?? `${x.brand} ${x.model}`}</strong><span className="hint">{x.seller}{x.submitted_at ? ` · ${date(x.submitted_at, locale, true)}` : ""}</span></div>
           <div>{x.update
             ? <span className="badge">{t("chg.q_product_update")} · {t("chg.q_changes", { count: x.changes })}</span>
-            : <span className="badge r">{t("chg.q_product_new")}</span>}</div>
+            : <span className="badge r">{t("chg.q_product_new")}</span>} <Waited at={x.submitted_at} /></div>
           <div className="hint">{x.slug} · {t("sp.col_skus")}: {x.skus} · {x.languages.map((l: string) => l.toUpperCase()).join(", ")}</div>
         </Link>
       ))}
