@@ -127,7 +127,8 @@ def get_app(app_id: str, request: Request, p=P, db=DB):
             "public_preview": app.public_preview_asset_id is not None, "cover_hue": app.cover_hue,
             "versions": [version_view(db, v, locale_of(request)) for v in versions],
             "changes_vs_live": version_changes(live, versions[0]) if versions else [],
-            "prices": [{"kind": x.kind, "amount_minor": x.amount_minor, "currency": x.currency, "interval": x.interval}
+            "prices": [{"kind": x.kind, "amount_minor": x.amount_minor, "currency": x.currency, "interval": x.interval,
+                        "trial_days": x.trial_days}
                        for x in prices]}
 
 
@@ -240,16 +241,17 @@ class PriceIn(BaseModel):
     amount_minor: int = 0
     currency: str = "EUR"
     interval: str | None = None
+    trial_days: int = 0          # NAP-064: free days before the first charge (subscriptions)
 
 
 @router.put("/apps/{app_id}/price")
 def set_price(app_id: str, body: PriceIn, p=P, db=DB):
     u = dev(p, "apps:write")
     app = appsvc.own_app(db, as_uuid(app_id), u.id)
-    pr = appsvc.set_price(db, app, body.kind, body.amount_minor, body.currency, body.interval, u.id)
+    pr = appsvc.set_price(db, app, body.kind, body.amount_minor, body.currency, body.interval, u.id, body.trial_days)
     db.commit()
     return {"id": str(pr.id), "kind": pr.kind, "amount_minor": pr.amount_minor, "currency": pr.currency,
-            "interval": pr.interval}
+            "interval": pr.interval, "trial_days": pr.trial_days}
 
 
 class SalesIn(BaseModel):

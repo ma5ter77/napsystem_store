@@ -80,7 +80,7 @@ class YooKassaProvider:
     # ------------------------------------------------------------------ protocol
     def create_checkout(self, *, context, order_id, amount_minor, currency, description, mode, interval,
                         subscription_id, success_url, cancel_url, idempotency_key, customer_email, lines=None,
-                        customer_ref=None):
+                        customer_ref=None, trial_days=0):
         if mode == "subscription":
             raise ProviderUnavailable("yookassa_subscriptions_not_supported_yet")
         lines = lines or [{"name": description, "amount_minor": amount_minor,

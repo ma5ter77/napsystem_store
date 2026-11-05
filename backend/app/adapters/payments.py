@@ -58,7 +58,8 @@ class PaymentProvider(Protocol):
     def create_checkout(self, *, context: str, order_id: str, amount_minor: int, currency: str, description: str,
                         mode: str, interval: str | None, subscription_id: str | None, success_url: str,
                         cancel_url: str, idempotency_key: str, customer_email: str | None,
-                        lines: list[dict] | None = None, customer_ref: str | None = None) -> CheckoutSession: ...
+                        lines: list[dict] | None = None, customer_ref: str | None = None,
+                        trial_days: int = 0) -> CheckoutSession: ...
 
     def retrieve(self, provider_ref: str) -> PaymentStatus: ...
 
@@ -112,7 +113,7 @@ class MockPaymentProvider:
 
     def create_checkout(self, *, context, order_id, amount_minor, currency, description, mode, interval,
                         subscription_id, success_url, cancel_url, idempotency_key, customer_email, lines=None,
-                        customer_ref=None):
+                        customer_ref=None, trial_days=0):
         ref = "mock_cs_" + hashlib.sha256(idempotency_key.encode()).hexdigest()[:24]
         return CheckoutSession(ref, f"/mock-checkout/{ref}", True)
 
@@ -255,7 +256,7 @@ class StripeProvider:
 
     def create_checkout(self, *, context, order_id, amount_minor, currency, description, mode, interval,
                         subscription_id, success_url, cancel_url, idempotency_key, customer_email, lines=None,
-                        customer_ref=None):
+                        customer_ref=None, trial_days=0):
         # lines: [{name, amount_minor, kind: digital|goods|shipping}] — summing to amount_minor; default one line
         lines = lines or [{"name": description, "amount_minor": amount_minor,
                            "kind": "goods" if context == "hardware" else "digital"}]
@@ -294,6 +295,8 @@ class StripeProvider:
                 params["customer_update"] = {"name": "auto"}
         if mode == "subscription":
             params["subscription_data"] = {"metadata": {"nap_subscription_id": subscription_id or ""}}
+            if trial_days:  # NAP-064: Stripe invoices the trial at 0 and charges the price from its end
+                params["subscription_data"]["trial_period_days"] = int(trial_days)
         else:
             params["payment_intent_data"] = {"metadata": {"nap_order_id": order_id, "nap_context": context}}
         cs = self._client().v1.checkout.sessions.create(params=params, options={"idempotency_key": idempotency_key})

@@ -1306,6 +1306,20 @@ M.update({  # NAP-116: review checklist on the moderator's app card
 "rc.integrity_bad": ("Файлы версии не совпадают с манифестом", "The version's files do not match the manifest"),
 })
 
+M.update({  # NAP-064: free trial before a subscription
+"dev.trial_days": ("Бесплатных дней в начале", "Free days at the start"),
+"dev.trial_hint_on": ("Покупатель получает {count, plural, one {# день} few {# дня} many {# дней} other {# дня}} бесплатно один раз; первое списание — в конце пробного периода, если он не отключит автопродление.",
+  "A buyer gets {count, plural, one {# free day} other {# free days}} once; the first charge comes at the end of the trial unless they turn off auto-renewal."),
+"dev.trial_hint_off": ("0 — без пробного периода: первое списание сразу.", "0 — no trial: the first charge is immediate."),
+"app.trial_days": ("{count, plural, one {# день бесплатно} few {# дня бесплатно} many {# дней бесплатно} other {# дня бесплатно}}", "{count, plural, one {# day free} other {# days free}}"),
+"app.trial_then": ("{count, plural, one {# день бесплатно} few {# дня бесплатно} many {# дней бесплатно} other {# дня бесплатно}}, затем {price}", "{count, plural, one {# day free} other {# days free}}, then {price}"),
+"app.start_trial": ("Попробовать бесплатно — {count, plural, one {# день} few {# дня} many {# дней} other {# дня}}", "Try free for {count, plural, one {# day} other {# days}}"),
+"app.trial_note": ("Пробный период даётся один раз. Сейчас ничего не списывается; подписка начнётся в конце периода, если вы не отключите автопродление в библиотеке.",
+  "The trial is given once. Nothing is charged now; the subscription starts at the end of the trial unless you turn off auto-renewal in your library."),
+"app.trial_used": ("Пробный период для этого приложения вы уже использовали: подписка начнётся сразу.", "You have already used the trial for this app: the subscription starts at once."),
+"account.in_trial": ("Пробный период до {date}", "Free trial until {date}"),
+})
+
 def nest(lang):
     out = {}
     for key, pair in M.items():

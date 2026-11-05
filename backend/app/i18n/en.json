@@ -248,6 +248,14 @@
     "refund_request_rejected": {
       "subject": "Refund request declined",
       "body": "Your refund request for “{app}” was declined. Reason: {note}"
+    },
+    "subscription_trial_started": {
+      "subject": "Your free trial has started",
+      "body": "Free until {until}. After that the subscription renews for {amount}. You can turn off auto-renewal in your library any time before that date."
+    },
+    "subscription_trial_ending": {
+      "subject": "Your free trial ends soon: {app}",
+      "body": "The free period ends on {until}. After that the subscription renews for {amount}. If you do not need it, turn off auto-renewal in your library before that date."
     }
   },
   "plural": {

@@ -465,8 +465,11 @@ def withdraw_version(db: Session, app: App, v: AppVersion, actor_id: uuid.UUID) 
     return v
 
 
+TRIAL_MAX_DAYS = 90
+
+
 def set_price(db: Session, app: App, kind: str, amount_minor: int, currency: str, interval: str | None,
-              actor_id: uuid.UUID) -> Price:
+              actor_id: uuid.UUID, trial_days: int = 0) -> Price:
     if kind not in ("one_time", "subscription", "free"):
         raise ApiError("validation_failed", 422, details={"field": "kind"})
     from .currency import supported
@@ -479,7 +482,9 @@ def set_price(db: Session, app: App, kind: str, amount_minor: int, currency: str
     if kind == "subscription" and interval not in ("month", "year"):
         raise ApiError("validation_failed", 422, details={"field": "interval"})
     if kind != "subscription":
-        interval = None
+        interval, trial_days = None, 0
+    if not 0 <= int(trial_days or 0) <= TRIAL_MAX_DAYS:
+        raise ApiError("validation_failed", 422, details={"field": "trial_days"})
     # NAP-012: one active price per kind and currency — a USD price does not replace the EUR one
     for p in db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True), Price.kind == kind,
                                             Price.currency == currency)):
@@ -494,9 +499,14 @@ def set_price(db: Session, app: App, kind: str, amount_minor: int, currency: str
     else:
         for p in db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True), Price.kind == "free")):
             p.active = False
-    price = Price(app_id=app.id, kind=kind, amount_minor=amount_minor, currency=currency, interval=interval)
+    price = Price(app_id=app.id, kind=kind, amount_minor=amount_minor, currency=currency, interval=interval,
+                  trial_days=int(trial_days or 0))
+    if kind == "subscription":  # NAP-064: one trial for the app, whatever currency the buyer pays in
+        for p in db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True), Price.kind == kind)):
+            p.trial_days = price.trial_days
     db.add(price)
-    audit(db, actor_id, "price.set", "app", app.id, {"kind": kind, "amount_minor": amount_minor, "currency": currency})
+    audit(db, actor_id, "price.set", "app", app.id, {"kind": kind, "amount_minor": amount_minor, "currency": currency,
+                                                      **({"trial_days": price.trial_days} if price.trial_days else {})})
     db.flush()
     # NAP-083: an approved version that was only waiting for a price goes to the store now
     waiting = latest_version(db, app.id)

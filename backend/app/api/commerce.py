@@ -6,6 +6,7 @@ from sqlalchemy import select
 
 from .. import ratelimit
 from ..config import get_settings
+from ..db import utcnow
 from ..errors import ApiError
 from ..models import (App, DigitalOrder, Entitlement, HardwareOrder, PaymentAttempt, Price, Subscription)
 from ..services import billing
@@ -19,6 +20,16 @@ router = APIRouter(tags=["purchases/subscriptions/entitlements"])
 class CheckoutIn(BaseModel):
     app_id: str
     kind: str  # one_time / subscription / free  (price itself is defined by the server)
+
+
+@router.get("/checkout/trial/{app_id}")
+def trial_for_me(app_id: str, p=P, db=DB):
+    """NAP-064: the free days this buyer would get if they subscribe now (0 after an earlier trial or subscription)."""
+    u = p.require_user()
+    from ..services import currency as cur
+    prices = cur.choose(list(db.scalars(select(Price).where(Price.app_id == as_uuid(app_id, "app"), Price.active.is_(True),
+                                                            Price.kind == "subscription"))))
+    return {"trial_days": billing.trial_offer(db, u, as_uuid(app_id, "app"), prices[0]) if prices else 0}
 
 
 @router.post("/checkout/digital", status_code=201)
@@ -149,6 +160,9 @@ def subscriptions(p=P, db=DB):
         out.append({"id": str(s.id), "app_slug": db.get(App, s.app_id).slug, "status": s.status, "provider": s.provider,
                     "cancel_at_period_end": s.cancel_at_period_end,
                     "paid_until": s.paid_until.isoformat() if s.paid_until else None,
+                    # NAP-064: in the free trial now (no charge yet) and until when
+                    "trial_end": s.trial_end.isoformat() if s.trial_end else None,
+                    "in_trial": bool(s.trial_end and utcnow() < s.trial_end),
                     "price": {"amount_minor": price.amount_minor, "currency": price.currency, "interval": price.interval},
                     "periods": [{"start": x.period_start.isoformat(), "end": x.period_end.isoformat(),
                                  "status": x.status} for x in s.periods],

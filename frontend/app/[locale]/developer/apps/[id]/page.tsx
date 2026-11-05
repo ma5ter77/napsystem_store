@@ -531,19 +531,24 @@ function PriceTab({ app, reload, done }: { app: any; reload: () => void; done: (
   const [amount, setAmount] = useState(cur ? cur.amount_minor / 100 : 4.99);
   const [currency, setCurrency] = useState(cur?.currency ?? "EUR");
   const [interval, setInterval] = useState(cur?.interval ?? "month");
+  const [trial, setTrial] = useState<number>(cur?.kind === "subscription" ? cur.trial_days ?? 0 : 0);
   const act = useAction();
   return (
     <form className="panel stack" onSubmit={async (e) => {
       e.preventDefault();
-      if (await act.run(() => api(`/developer/apps/${app.id}/price`, { method: "PUT", body: { kind, amount_minor: Math.round(amount * 100), currency, interval: kind === "subscription" ? interval : null } }))) { const before = app.versions[0]?.state; const fresh = await api<any>(`/developer/apps/${app.id}`).catch(() => null); reload(); done(before === "approved" && fresh?.versions?.[0]?.state === "published" ? t("dev.saved_price_published") : t("dev.saved_price")); }
+      if (await act.run(() => api(`/developer/apps/${app.id}/price`, { method: "PUT", body: { kind, amount_minor: Math.round(amount * 100), currency, interval: kind === "subscription" ? interval : null, trial_days: kind === "subscription" ? trial : 0 } }))) { const before = app.versions[0]?.state; const fresh = await api<any>(`/developer/apps/${app.id}`).catch(() => null); reload(); done(before === "approved" && fresh?.versions?.[0]?.state === "published" ? t("dev.saved_price_published") : t("dev.saved_price")); }
     }}>
-      {cur && <p>{t("dev.current_price")}: {app.prices.map((p: any, i: number) => <span key={p.currency + p.kind}>{i > 0 && " · "}<Price minor={p.amount_minor} currency={p.currency} /> ({t(`kinds.${p.kind}`)}{p.interval ? `, ${t(`interval.${p.interval}`)}` : ""})</span>)}</p>}
+      {cur && <p>{t("dev.current_price")}: {app.prices.map((p: any, i: number) => <span key={p.currency + p.kind}>{i > 0 && " · "}<Price minor={p.amount_minor} currency={p.currency} /> ({t(`kinds.${p.kind}`)}{p.interval ? `, ${t(`interval.${p.interval}`)}` : ""}{p.trial_days ? `, ${t("app.trial_days", { count: p.trial_days })}` : ""})</span>)}</p>}
       <div className="form wide">
         <label className="field">{t("dev.price_kind")}<select value={kind} onChange={(e) => setKind(e.target.value)}><option value="one_time">{t("kinds.one_time")}</option><option value="subscription">{t("kinds.subscription")}</option><option value="free">{t("app.free")}</option></select></label>
         {kind !== "free" && <label className="field">{t("account.amount")}<input type="number" step="0.01" min="0.5" value={amount} onChange={(e) => setAmount(Number(e.target.value))} /></label>}
         {kind !== "free" && <label className="field">{t("dev.currency")}<select value={currency} onChange={(e) => { setCurrency(e.target.value); const same = app.prices.find((p: any) => p.currency === e.target.value && p.kind === kind); if (same) setAmount(same.amount_minor / 100); }}><option>EUR</option><option>USD</option></select></label>}
         {kind === "subscription" && <label className="field">{t("dev.interval")}<select value={interval} onChange={(e) => setInterval(e.target.value)}><option value="month">{t("interval.month")}</option><option value="year">{t("interval.year")}</option></select></label>}
+        {/* NAP-064: free days before the first charge, once per buyer */}
+        {kind === "subscription" && <label className="field">{t("dev.trial_days")}<input type="number" min={0} max={90} step={1} value={trial}
+          onChange={(e) => setTrial(Math.max(0, Math.min(90, Math.round(Number(e.target.value) || 0))))} aria-describedby="trial-hint" /></label>}
       </div>
+      {kind === "subscription" && <p className="hint" id="trial-hint">{trial ? t("dev.trial_hint_on", { count: trial }) : t("dev.trial_hint_off")}</p>}
       <p className="hint">{t("dev.price_note")}</p>
       <p className="hint">{t("dev.price_currencies")}</p>
       <ErrorBox error={act.error} />

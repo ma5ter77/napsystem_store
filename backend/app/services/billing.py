@@ -89,7 +89,9 @@ def start_checkout(db: Session, user: User, app_id: uuid.UUID, kind: str, locale
         raise ApiError("payment_provider_unavailable", 503, reason=str(e))
     sub = None
     if kind == "subscription":
-        sub = Subscription(user_id=user.id, app_id=app.id, price_id=price.id, provider=provider.name)
+        # NAP-064: the author's free trial, once per buyer and app (an earlier paid or trial period uses it up)
+        trial = price.trial_days if price.trial_days and not had_subscription(db, user.id, app.id) else 0
+        sub = Subscription(user_id=user.id, app_id=app.id, price_id=price.id, provider=provider.name, trial_days=trial)
         db.add(sub)
         db.flush()
     order = DigitalOrder(buyer_id=user.id, app_id=app.id, developer_id=app.developer_id, price_id=price.id, kind=kind,
@@ -106,6 +108,7 @@ def start_checkout(db: Session, user: User, app_id: uuid.UUID, kind: str, locale
             context="digital", order_id=str(order.id), amount_minor=order.amount_minor, currency=order.currency,
             description=f"NAP Store: {title}", mode="subscription" if kind == "subscription" else "payment",
             interval=price.interval, subscription_id=str(sub.id) if sub else None,
+            trial_days=sub.trial_days if sub else 0,
             success_url=f"{s.public_base_url}/{locale}/library?order={order.id}",
             cancel_url=f"{s.public_base_url}/{locale}/apps/{app.slug}", idempotency_key=f"digital:{order.id}",
             customer_email=user.email, customer_ref=customer_ref)
@@ -118,6 +121,44 @@ def start_checkout(db: Session, user: User, app_id: uuid.UUID, kind: str, locale
     audit(db, user.id, "checkout.started", "digital_order", order.id, {"kind": kind, "provider": provider.name})
     db.commit()
     return {"order_id": str(order.id), "status": order.status, "checkout_url": cs.url, "test_mode": cs.test_mode}
+
+
+def had_subscription(db: Session, user_id: uuid.UUID, app_id: uuid.UUID) -> bool:
+    """A period was ever granted for this app (paid or trial): no second free trial."""
+    return bool(db.scalar(select(func.count()).select_from(SubscriptionPeriod).join(
+        Subscription, Subscription.id == SubscriptionPeriod.subscription_id).where(
+        Subscription.user_id == user_id, Subscription.app_id == app_id)))
+
+
+def trial_offer(db: Session, user: User | None, app_id: uuid.UUID, price: Price) -> int:
+    """Free days this buyer would get with this subscription price now."""
+    if price.kind != "subscription" or not price.trial_days:
+        return 0
+    return 0 if user is not None and had_subscription(db, user.id, app_id) else price.trial_days
+
+
+TRIAL_REMINDER_DAYS = 3
+
+
+def remind_trials_ending(now: datetime | None = None) -> int:
+    """NAP-064: a reminder a few days before a free trial turns into a paid subscription (terms 5.8).
+    Once per subscription (the notification key), only while auto-renewal is on."""
+    now = now or utcnow()
+    n = 0
+    with session_scope() as db:
+        rows = db.scalars(select(Subscription).where(
+            Subscription.trial_end.is_not(None), Subscription.trial_end > now,
+            Subscription.trial_end <= now + timedelta(days=TRIAL_REMINDER_DAYS),
+            Subscription.cancel_at_period_end.is_(False), Subscription.status.in_(("active", "past_due")))).all()
+        for sub in rows:
+            owner = db.get(User, sub.user_id)
+            price = db.get(Price, sub.price_id)
+            app = db.get(App, sub.app_id)
+            notify(db, owner.id, owner.locale, "subscription_trial_ending", f"trialend:{sub.id}",
+                   app=app.slug, until=sub.trial_end.date().isoformat(), amount=_fmt(price.amount_minor, price.currency))
+            n += 1
+        db.commit()
+    return n
 
 
 def cancel_autorenew(db: Session, user: User, sub_id: uuid.UUID) -> Subscription:
@@ -277,6 +318,8 @@ def _mark_paid(db: Session, order: DigitalOrder, provider: str, payment_ref: str
     order.status = "paid"
     order.paid_at = utcnow()
     gross = order.amount_minor
+    if gross == 0 and order.tax_minor == 0:   # NAP-064: a free trial period — nothing to book or share
+        return
     p, d = money.split(gross, order.commission_bps)
     money.post(db, f"sale:{order.id}", "digital_sale", order.currency, [
         (f"cash:{provider}", gross + order.tax_minor), ("platform:revenue", -p),
@@ -353,6 +396,12 @@ def _on_invoice_paid(db: Session, provider: str, d: dict) -> None:
     db.execute(insert(Entitlement).values(id=uuid.uuid4(), user_id=sub.user_id, app_id=sub.app_id,
                                           source="subscription", subscription_id=sub.id, status="active")
                .on_conflict_do_nothing(index_elements=["subscription_id"]))
+    if amount == 0 and tax == 0 and sub.trial_days and len(sub.periods) == 1:
+        # NAP-064: the free trial period — nothing is charged now; the price applies from its end
+        sub.trial_end = end
+        notify(db, sub.user_id, order.locale, "subscription_trial_started", f"trial:{sub.id}",
+               until=end.date().isoformat(), amount=_fmt(price.amount_minor, price.currency))
+        return
     notify(db, sub.user_id, order.locale, "subscription_paid", f"inv:{d['invoice_ref']}",
            until=end.date().isoformat(), amount=_fmt(amount, currency))
 
@@ -768,6 +817,9 @@ def mock_invoice_event(db: Session, sub_id: uuid.UUID, first: bool = False, fail
     price = db.get(Price, sub.price_id)
     start = sub.paid_until if (sub.paid_until and not first) else utcnow()
     end = start + (relativedelta(months=1) if price.interval == "month" else relativedelta(years=1))
+    trial = first and sub.trial_days > 0           # NAP-064: like Stripe, the trial is a period invoiced at 0
+    if trial:
+        end = start + timedelta(days=sub.trial_days)
     n = len(sub.periods) + 1
     inv = f"mock_in_{str(sub.id)[:8]}_{n}"
     if fail:
@@ -777,7 +829,7 @@ def mock_invoice_event(db: Session, sub_id: uuid.UUID, first: bool = False, fail
     return MockPaymentProvider.event("invoice.paid", {
         "subscription_id": str(sub.id), "provider_subscription_ref": f"mock_sub_{sub.id}", "invoice_ref": inv,
         "payment_ref": f"mock_pi_{inv}", "period_start": start.isoformat(), "period_end": end.isoformat(),
-        "amount_minor": price.amount_minor, "currency": price.currency}, key=f"inv:{inv}")
+        "amount_minor": 0 if trial else price.amount_minor, "currency": price.currency}, key=f"inv:{inv}")
 
 
 def reconcile_attempts(older_than_minutes: int = 15) -> int:
