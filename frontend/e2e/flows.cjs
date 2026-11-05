@@ -5,6 +5,19 @@ const fs = require("fs");
 const path = require("path");
 const BASE = process.env.BASE || "http://localhost:3000";
 const out = process.env.SHOTS || "/tmp/e2e-shots";
+// NAP-118: a stand-in for the Telegram Bot API. When the stand's API is started with NAP_TELEGRAM_API_BASE pointing
+// here (FAKE_TELEGRAM_PORT), publishing is checked end to end; otherwise the "not connected" path is checked.
+const FAKE_TG = [];
+if (process.env.FAKE_TELEGRAM_PORT) {
+  require("http").createServer((req, res) => {
+    let b = ""; req.on("data", (c) => { b += c; });
+    req.on("end", () => {
+      FAKE_TG.push({ path: req.url, body: JSON.parse(b || "{}") });
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ ok: true, result: { message_id: FAKE_TG.length, chat: { username: "nap_e2e" } } }));
+    });
+  }).listen(Number(process.env.FAKE_TELEGRAM_PORT), "127.0.0.1").unref();
+}
 fs.mkdirSync(out, { recursive: true });
 
 function wav(seconds = 4, fs_ = 48000) {
@@ -437,6 +450,39 @@ async function run(L) {
     await b.reload();
     await b.getByText(t("steps.refund_next.rejected")).first().waitFor();
     await b.getByText("E2E decline").waitFor();
+  });
+  await step("news: an announcement becomes a Telegram post in one click, previewed, published once (NAP-118)", async () => {
+    const a = await login(browser, L, t, "admin@nap.demo");
+    CUR = a.p;
+    await a.p.goto(`${BASE}/${L}/admin?tab=news`);
+    const title = `E2E news ${L} ${Date.now().toString(36)}`;
+    await a.p.getByLabel(t("tg.ann_title")).fill(title);
+    await a.p.getByLabel(t("tg.ann_body")).fill("Теперь можно выровнять каналы кресла по громкости.");
+    await a.p.getByRole("button", { name: t("tg.add_announcement") }).click();
+    const item = a.p.getByTestId("news-item").filter({ hasText: title });
+    await item.getByRole("button", { name: t("tg.make_post") }).click();
+    const ed = a.p.getByTestId("tg-editor");
+    await ed.getByText(t("tg.by_template")).waitFor();
+    await ed.getByLabel(t("tg.text")).fill(`${title}: короткий пост.`);
+    await ed.getByLabel(t("tg.link"), { exact: true }).fill("https://store.napsystem.com/ru/help/playback");
+    // the preview shows exactly what the channel will show: the text, then the link on its own line
+    await ed.getByTestId("tg-preview").getByText(`${title}: короткий пост.`, { exact: false }).waitFor();
+    await ed.getByTestId("tg-preview").getByRole("link", { name: "https://store.napsystem.com/ru/help/playback" }).waitFor();
+    await ed.getByRole("button", { name: t("common.save") }).click();
+    await ed.getByText(t("tg.done_saved")).waitFor();
+    const st = await a.p.evaluate(async () => (await fetch("/api/v1/admin/news", { credentials: "include" })).json());
+    if (st.status.ready && process.env.FAKE_TELEGRAM_PORT) {
+      await ed.getByRole("button", { name: t("tg.publish_now") }).click();
+      await ed.getByTestId("tg-sent").waitFor();
+      const got = FAKE_TG.filter((x) => (x.body.text || "").startsWith(title));
+      if (got.length !== 1 || !got[0].body.text.endsWith("\n\nhttps://store.napsystem.com/ru/help/playback")) throw new Error("telegram got: " + JSON.stringify(got));
+      await item.locator(".badge", { hasText: t("tg.state.sent") }).waitFor();
+    } else {
+      await ed.getByText(t("tg.not_ready")).waitFor();
+      if (!(await ed.getByRole("button", { name: t("tg.publish_now") }).isDisabled())) throw new Error("publish must wait for the server setup");
+    }
+    await a.ctx.close();
+    CUR = b;
   });
   await step("developer analytics: funnel with page views, small groups hidden (NAP-027)", async () => {
     await d.goto(`${BASE}/${L}/developer?tab=analytics`);
