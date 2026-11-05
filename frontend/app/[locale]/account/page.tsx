@@ -74,7 +74,7 @@ function Subs() {
       {data.items.map((s: any) => (
         <div key={s.id} className="panel flat stack">
           <div className="spread"><strong>{s.app_slug}</strong><StatusBadge ns="sub_status" value={s.status} /></div>
-          <div><Price minor={s.price.amount_minor} currency={s.price.currency} /> / {t(`interval.${s.price.interval}`)} · {t("app.paid_until", { date: date(s.paid_until, locale) })}</div>
+          <div><Price minor={s.price.amount_minor} currency={s.price.currency} /> / {t(`interval.${s.price.interval}`)} · {s.in_trial ? <span className="badge ok">{t("account.in_trial", { date: date(s.trial_end, locale) })}</span> : t("app.paid_until", { date: date(s.paid_until, locale) })}</div>
           <div className="hint">{s.periods.map((p: any) => `${date(p.start, locale)} – ${date(p.end, locale)} (${t(`period.${p.status}`)})`).join("; ")}</div>
           <div className="row">
             {s.cancel_at_period_end ? <span className="hint">{t("account.autorenew_off")}</span> :

@@ -87,6 +87,9 @@ class Subscription(Base):
     provider_ref: Mapped[str | None] = mapped_column(String(128), unique=True)
     status: Mapped[str] = mapped_column(String(16), default="incomplete")
     cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, default=False)
+    # NAP-064: the free trial this buyer got (0 = none; a buyer gets one trial per app)
+    trial_days: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    trial_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     paid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = created_at()
     periods: Mapped[list["SubscriptionPeriod"]] = relationship(order_by="SubscriptionPeriod.period_start",

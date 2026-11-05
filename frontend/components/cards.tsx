@@ -6,7 +6,10 @@ export function priceLabel(prices: any[], t: T, locale: Locale): string {
   if (!prices?.length) return t("app.not_for_sale");
   const p = prices[0];
   if (p.kind === "free") return t("app.free");
-  if (p.kind === "subscription") return t(`app.per_${p.interval}`, { price: money(p.amount_minor, p.currency, locale) });
+  if (p.kind === "subscription") {
+    const per = t(`app.per_${p.interval}`, { price: money(p.amount_minor, p.currency, locale) });
+    return p.trial_days ? t("app.trial_then", { count: p.trial_days, price: per }) : per;   // NAP-064
+  }
   return money(p.amount_minor, p.currency, locale);
 }
 

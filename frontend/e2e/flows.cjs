@@ -35,8 +35,15 @@ function png(w = 900, h = 675) {
 
 function dict(l) {
   const d = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "messages", `${l}.json`), "utf8"));
+  const pr = new Intl.PluralRules(l);
+  // ICU plural: {count, plural, one {# день} few {# дня} ... other {...}} -> the form for this count
+  const plural = (s, params) => s.replace(/\{(\w+), plural, ((?:\w+ \{[^{}]*\}\s*)+)\}/g, (_, name, forms) => {
+    const n = Number(params[name]);
+    const map = Object.fromEntries([...forms.matchAll(/(\w+) \{([^{}]*)\}/g)].map((m) => [m[1], m[2]]));
+    return (map[pr.select(n)] ?? map.other ?? "").split("#").join(String(n));
+  });
   return (k, params = {}) => {
-    let s = k.split(".").reduce((o, x) => o[x], d);
+    let s = plural(k.split(".").reduce((o, x) => o[x], d), params);
     for (const [a, v] of Object.entries(params)) s = s.split(`{${a}}`).join(v);
     return s;
   };
@@ -346,6 +353,30 @@ async function run(L) {
     const got = devs.items.map((d) => d.calibration?.surround_5_1).find(Boolean);
     if (!got || got.FC?.gain_db !== -2 || got.SL?.delay_ms !== 3.5) throw new Error("calibration not saved: " + JSON.stringify(got));
     await c.close();
+    CUR = b;
+  });
+  await step("free trial: the author sets 7 days, a new buyer starts it without a charge (NAP-064)", async () => {
+    const a = await login(browser, L, t, "dev1@nap.demo");
+    CUR = a.p;
+    const apps = await a.p.evaluate(async () => (await fetch("/api/v1/developer/apps", { credentials: "include" })).json());
+    const fc = apps.items.find((x) => x.slug === "focus-course");
+    await a.p.goto(`${BASE}/${L}/developer/apps/${fc.id}?tab=price`);
+    await a.p.getByLabel(t("dev.trial_days")).fill("7");
+    await a.p.getByText(t("dev.trial_hint_on", { count: 7 })).waitFor();
+    await a.p.getByRole("button", { name: t("common.save") }).click();
+    await a.p.getByText(t("dev.saved_price"), { exact: false }).first().waitFor();
+    await a.ctx.close();
+    const nb = await register(browser, L, t, false);
+    CUR = nb.p;
+    await nb.p.goto(`${BASE}/${L}/apps/focus-course`);
+    await nb.p.getByTestId("trial-note").getByText(t("app.trial_note", { count: 7 })).waitFor();
+    await nb.p.getByRole("button", { name: t("app.start_trial", { count: 7 }) }).click();
+    await nb.p.waitForURL("**/mock-checkout/**");
+    await nb.p.getByRole("button", { name: t("mock.pay") }).click();
+    await nb.p.getByText(t("mock.result_succeeded")).waitFor();
+    await nb.p.goto(`${BASE}/${L}/account?tab=subscriptions`);
+    await nb.p.locator(".badge.ok", { hasText: t("account.in_trial", { date: "" }).replace(/\s+$/, "") }).first().waitFor();
+    await nb.ctx.close();
     CUR = b;
   });
   await step("language switch keeps page, session and cart", async () => {

@@ -103,6 +103,9 @@ def test_subscription_lines_are_recurring(stripe_rec):
     assert params["mode"] == "subscription"
     assert params["line_items"][0]["price_data"]["recurring"] == {"interval": "month"}
     assert params["subscription_data"]["metadata"]["nap_subscription_id"] == "s1"
+    assert "trial_period_days" not in params["subscription_data"]
+    _co(p, mode="subscription", interval="month", subscription_id="s2", trial_days=7)   # NAP-064
+    assert rec.calls[-1][2]["subscription_data"]["trial_period_days"] == 7
 
 
 def test_tax_off_keeps_the_simple_session(monkeypatch):

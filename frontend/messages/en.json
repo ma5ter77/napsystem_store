@@ -254,7 +254,10 @@
   "cover_removed": "The generated cover will be used.",
   "price_currencies": "You can price in several currencies: buyers see and pay in theirs, or in the one you set if theirs is missing.",
   "lead": "Your apps, reviews, revenue and analytics. Start a new app with “New app”; build session audio in the Audio Studio.",
-  "go_apps": "Go to apps"
+  "go_apps": "Go to apps",
+  "trial_days": "Free days at the start",
+  "trial_hint_on": "A buyer gets {count, plural, one {# free day} other {# free days}} once; the first charge comes at the end of the trial unless they turn off auto-renewal.",
+  "trial_hint_off": "0 — no trial: the first charge is immediate."
  },
  "mod": {
   "done_approve": "Version approved.",
@@ -435,7 +438,12 @@
   "buy": "Buy",
   "listen_preview": "Play preview",
   "preview_note": "Public preview, up to 30 seconds. The full file is available after purchase.",
-  "layouts": "Equipment"
+  "layouts": "Equipment",
+  "trial_days": "{count, plural, one {# day free} other {# days free}}",
+  "trial_then": "{count, plural, one {# day free} other {# days free}}, then {price}",
+  "start_trial": "Try free for {count, plural, one {# day} other {# days}}",
+  "trial_note": "The trial is given once. Nothing is charged now; the subscription starts at the end of the trial unless you turn off auto-renewal in your library.",
+  "trial_used": "You have already used the trial for this app: the subscription starts at once."
  },
  "auth": {
   "login_title": "Sign in",
@@ -717,7 +725,8 @@
   "tab_addresses": "Addresses",
   "no_addresses": "No saved addresses yet. An address is saved when you enter it for a hardware order.",
   "lead": "Purchases, subscriptions, devices, notifications and your data. Refund requests start here too.",
-  "to_library": "Open library"
+  "to_library": "Open library",
+  "in_trial": "Free trial until {date}"
  },
  "fin": {
   "sales": "One-time sales",

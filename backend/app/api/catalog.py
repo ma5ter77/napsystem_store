@@ -23,7 +23,7 @@ router = APIRouter(tags=["catalog"])
 
 def price_view(p: Price) -> dict:
     return {"id": str(p.id), "kind": p.kind, "amount_minor": p.amount_minor, "currency": p.currency,
-            "interval": p.interval}
+            "interval": p.interval, "trial_days": p.trial_days if p.kind == "subscription" else 0}
 
 
 def preload_cards(db, apps: list[App]) -> dict:

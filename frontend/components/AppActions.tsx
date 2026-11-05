@@ -14,10 +14,14 @@ export function AppActions({ app }: { app: any }) {
   const router = useRouter();
   const [access, setAccess] = useState<any>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  // NAP-064: free days this buyer gets with the subscription (a guest sees the author's offer)
+  const offered = app.prices?.find((p: any) => p.kind === "subscription")?.trial_days ?? 0;
+  const [trial, setTrial] = useState<number>(offered);
   const act = useAction();
   useEffect(() => {
     if (me) api(`/entitlements/${app.id}`).then(setAccess).catch(() => setAccess(null));
-  }, [me, app.id]);
+    if (me && offered) api<any>(`/checkout/trial/${app.id}`).then((r) => setTrial(r.trial_days)).catch(() => {});
+  }, [me, app.id, offered]);
 
   async function buy(kind: string) {
     if (me === null) { router.push(`/${locale}/login?next=/${locale}/apps/${app.slug}`); return; }
@@ -45,11 +49,13 @@ export function AppActions({ app }: { app: any }) {
         <div className="row">
           {app.prices.map((p: any) => (
             <button key={p.id} className="btn" disabled={act.pending || me === undefined} onClick={() => buy(p.kind)}>
-              {p.kind === "free" ? t("app.get_free") : p.kind === "subscription" ? t("app.subscribe") : t("app.buy")}
+              {p.kind === "free" ? t("app.get_free") : p.kind === "subscription" ? (trial ? t("app.start_trial", { count: trial }) : t("app.subscribe")) : t("app.buy")}
             </button>
           ))}
         </div>
       ) : <p className="muted">{t("app.not_for_sale")}</p>}
+      {!access?.has_access && forSale && offered > 0 && (
+        <p className="hint" data-testid="trial-note">{trial ? t("app.trial_note", { count: trial }) : t("app.trial_used")}</p>)}
       {!access?.has_access && forSale && app.prices.some((p: any) => p.kind !== "free") && (
         <p className="hint"><LegalText text={t("legal.buy_note")} locale={locale} labels={{ terms: t("legal.terms") }} /> {t("vat.note")}</p>)}
       {app.has_public_preview && !preview && <button className="btn ghost" onClick={loadPreview}>{t("app.listen_preview")}</button>}

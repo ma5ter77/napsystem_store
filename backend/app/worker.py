@@ -24,6 +24,7 @@ celery.conf.update(beat_schedule_filename=os.path.join("var", "celerybeat-schedu
                        "expire-reservations": {"task": "nap.expire_reservations", "schedule": 60.0},
                        "reconcile-payments": {"task": "nap.reconcile", "schedule": 600.0},
                        "purge-measurements": {"task": "nap.purge_measurements", "schedule": 86400.0},
+                       "trial-reminders": {"task": "nap.trial_reminders", "schedule": 3600.0},
                    })
 
 
@@ -79,6 +80,12 @@ def expire_reservations():
 def reconcile():
     from .services.billing import reconcile_attempts
     return reconcile_attempts()
+
+
+@celery.task(name="nap.trial_reminders")
+def trial_reminders():
+    from .services.billing import remind_trials_ending
+    return remind_trials_ending()
 
 
 @celery.task(name="nap.purge_measurements")
