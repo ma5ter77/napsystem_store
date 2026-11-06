@@ -72,6 +72,13 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-haiku-5-5"
     anthropic_api_base: str = "https://api.anthropic.com"
 
+    # NAP-104 Secure Player: protected .napx packages and offline leases (keys: python -m app.tools.secure_keys;
+    # unset = derived from secret_key)
+    content_master_key: str | None = None
+    license_signing_key: str | None = None
+    license_offline_days: int = 30       # how long a downloaded program plays without going online
+    license_max_devices: int = 5         # devices with offline copies per account
+
     # backups (NAP-006): status file written by ops/backup-loop.sh
     backup_status_file: str = "/backups/last-status.json"
     backup_max_age_hours: int = 26
