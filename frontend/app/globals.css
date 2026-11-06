@@ -307,6 +307,26 @@ ul.plain { list-style: none; padding: 0; margin: 0; }
 .sw-started { background: var(--tint-left); border: 1px solid var(--left); }
 .sw-completed { background: var(--left); }
 .chart-readout { min-height: 1.5em; }
+/* NAP-094: infographics */
+.chart-svg .grid { stroke: var(--hair); stroke-width: 1; }
+.chart-svg .line-l, .chart-svg .line-r, .chart-svg .line-b { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart-svg .line-l { stroke: var(--left); }
+.chart-svg .line-r { stroke: var(--right); }
+.chart-svg .line-b { stroke: var(--slate); }
+.chart-svg .dot-b { fill: var(--slate); stroke: var(--paper); stroke-width: 2; }
+.chart-svg .crosshair { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.sw-l { background: var(--left); } .sw-r { background: var(--right); }
+.meter-track { position: relative; height: 12px; border-radius: 6px; background: var(--fog); border: 1px solid var(--line); overflow: hidden; }
+.meter-zone { position: absolute; top: 0; bottom: 0; }
+.meter-zone.z-ok { background: color-mix(in srgb, var(--ok) 22%, transparent); }
+.meter-zone.z-warn { background: color-mix(in srgb, var(--warn) 30%, transparent); }
+.meter-zone.z-bad { background: color-mix(in srgb, var(--bad) 28%, transparent); }
+.meter-mark { position: absolute; top: -1px; bottom: -1px; width: 4px; margin-left: -2px; border-radius: 2px; background: var(--slate); box-shadow: 0 0 0 2px var(--paper); }
+.meter-from { position: absolute; top: 2px; bottom: 2px; width: 2px; margin-left: -1px; background: var(--muted); }
+.meter-status { margin: 0; font-weight: 600; }
+.meter-status.s-ok { color: var(--ok); } .meter-status.s-warn { color: var(--warn); } .meter-status.s-bad { color: var(--bad); }
+.equip-icons { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 12px; }
+.equip-icons li { display: grid; justify-items: center; gap: 4px; min-width: 96px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); text-align: center; font-size: var(--step--1); color: var(--slate); }
 table.retention td.ret-cell { text-align: center; font-variant-numeric: tabular-nums; }
 @media (max-width: 560px) { .funnel li { grid-template-columns: 1fr auto; } .funnel-track { grid-column: 1 / -1; grid-row: 2; } }
 /* NAP-062: legal documents */

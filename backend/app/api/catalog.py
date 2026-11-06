@@ -82,6 +82,7 @@ def app_card(db, app: App, locale: str, detail: bool = False, user_id=None, rati
                                 key=["headphones", "acoustic_3_0", "surround_5_1", "surround_7_1"].index)
         out["questionnaires"] = {"pre": v.questionnaire_pre, "post": v.questionnaire_post} if v else None
         out["dsp_profile"] = (v.manifest or {}).get("dsp") if v else None
+        out["signal"] = _signal(db, out["dsp_profile"])
         out["recommended_kit"] = None
         if app.recommended_kit_product_id:
             from ..models import Product
@@ -90,6 +91,20 @@ def app_card(db, app: App, locale: str, detail: bool = False, user_id=None, rati
         if user_id:
             out["access"] = billing.access_for(db, user_id, app.id)
     return out
+
+
+def _signal(db, dsp: dict | None) -> dict | None:
+    """NAP-094: the carriers of the app's DSP profile for the chart on the app page (L, R, difference over time)."""
+    if not dsp or not dsp.get("profile") or dsp["profile"] == "none":
+        return None
+    from ..models import DspProfile
+    prof = db.scalar(select(DspProfile).where(DspProfile.slug == dsp["profile"],
+                                              DspProfile.version == dsp.get("profile_version")))
+    if not prof or "carrier_center_hz" not in prof.params or "beat_hz" not in prof.params:
+        return None
+    pr = prof.params
+    return {"carrier_center_hz": float(pr["carrier_center_hz"]), "beat_hz": float(pr["beat_hz"]),
+            "beat_curve": [[float(a), float(b)] for a, b in pr.get("beat_curve") or []]}
 
 
 @router.get("/categories")

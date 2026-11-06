@@ -2,6 +2,23 @@
 # Run: python3 scripts/messages_src.py  -> writes messages/ru.json and messages/en.json
 import json, pathlib
 M = {
+"viz.signal_title": ("Несущие профиля: левый и правый канал", "Profile carriers: left and right channel"),
+"viz.left": ("Левый (L)", "Left (L)"), "viz.right": ("Правый (R)", "Right (R)"), "viz.beat": ("Разница", "Difference"),
+"viz.time": ("Время", "Time"),
+"viz.beat_title": ("Разница R − L, Гц", "Difference R − L, Hz"),
+"viz.signal_const": ("Левый канал {l} Гц, правый {r} Гц, разница {b} Гц — постоянно на всём сеансе.", "Left channel {l} Hz, right {r} Hz, difference {b} Hz — constant through the session."),
+"viz.signal_curve": ("Разница меняется плавно от {from} до {to} Гц по {points} точкам кривой; несущие расходятся симметрично от центра.", "The difference changes smoothly from {from} to {to} Hz over {points} curve points; the carriers move apart symmetrically around the centre."),
+"viz.signal_at": ("{time}: L {l} Гц, R {r} Гц, разница {b} Гц", "{time}: L {l} Hz, R {r} Hz, difference {b} Hz"),
+"viz.signal_note": ("Технические параметры сигнала, а не обещание состояния.", "Technical signal parameters, not a promise of any state."),
+"viz.tp": ("Истинный пик результата", "True peak of the result"),
+"viz.tp_ok": ("Ниже потолка {c} dBTP с запасом.", "Below the {c} dBTP ceiling with headroom."),
+"viz.hover_hint": ("Наведите на график, чтобы увидеть значения.", "Hover over the chart to see the values."),
+"viz.tp_warn": ("В пределах допуска у потолка {c} dBTP.", "Within tolerance at the {c} dBTP ceiling."),
+"viz.tp_bad": ("Выше потолка {c} dBTP — возможны искажения.", "Above the {c} dBTP ceiling — distortion is possible."),
+"viz.lufs": ("Громкость (интегральная)", "Loudness (integrated)"),
+"viz.lufs_change": ("Исходник {from} LUFS → результат {to} LUFS (тонкая метка — исходник).", "Source {from} LUFS → result {to} LUFS (the thin mark is the source)."),
+"viz.lufs_only": ("Результат {to} LUFS.", "Result {to} LUFS."),
+"viz.separation": ("каналы L/R раздельно", "separate L/R channels"),
 "nav.main": ("Основная навигация", "Main navigation"), "nav.apps": ("Приложения", "Apps"), "nav.devices": ("Устройства", "Devices"),
 "nav.kits": ("Комплекты", "Kits"), "nav.cart": ("Корзина ({count})", "Cart ({count})"), "nav.library": ("Библиотека", "Library"),
 "nav.account": ("Профиль", "Account"), "nav.orders": ("Заказы оборудования", "Hardware orders"), "nav.developer": ("Кабинет разработчика", "Developer dashboard"),

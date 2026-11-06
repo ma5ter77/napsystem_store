@@ -1,4 +1,25 @@
 {
+ "viz": {
+  "signal_title": "Profile carriers: left and right channel",
+  "left": "Left (L)",
+  "right": "Right (R)",
+  "beat": "Difference",
+  "time": "Time",
+  "beat_title": "Difference R − L, Hz",
+  "signal_const": "Left channel {l} Hz, right {r} Hz, difference {b} Hz — constant through the session.",
+  "signal_curve": "The difference changes smoothly from {from} to {to} Hz over {points} curve points; the carriers move apart symmetrically around the centre.",
+  "signal_at": "{time}: L {l} Hz, R {r} Hz, difference {b} Hz",
+  "signal_note": "Technical signal parameters, not a promise of any state.",
+  "tp": "True peak of the result",
+  "tp_ok": "Below the {c} dBTP ceiling with headroom.",
+  "hover_hint": "Hover over the chart to see the values.",
+  "tp_warn": "Within tolerance at the {c} dBTP ceiling.",
+  "tp_bad": "Above the {c} dBTP ceiling — distortion is possible.",
+  "lufs": "Loudness (integrated)",
+  "lufs_change": "Source {from} LUFS → result {to} LUFS (the thin mark is the source).",
+  "lufs_only": "Result {to} LUFS.",
+  "separation": "separate L/R channels"
+ },
  "nav": {
   "main": "Main navigation",
   "apps": "Apps",
