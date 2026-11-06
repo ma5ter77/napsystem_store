@@ -10,6 +10,7 @@ import { useApp } from "@/components/Providers";
 import { AppCover } from "@/components/Art";
 import { Term } from "@/components/Term";
 import { ChannelDiagram } from "@/components/ChannelDiagram";
+import { QaMeters, SignalChart } from "@/components/Infographics";
 import { ChangeList, VersionTrack } from "@/components/Changes";
 import { ErrorBox, errorFields, Loading, Price, RequireAuth, StatusBadge, useAction, useLoad } from "@/components/ui";
 import { api, apiBlob, sha256File, uid, uploadWithProgress } from "@/lib/api";
@@ -146,6 +147,7 @@ function LayoutQa({ job, detail }: { job: any; detail: any }) {
         <dt>{t("lay.check")}</dt><dd>{!qa.verification?.passed ? t("lay.check_bad") : qa.origin === "studio" ? t("lay.check_studio") : t("lay.check_ok")}</dd>
         <dt>{t("qa.duration")}</dt><dd>{duration(detail.params.output.duration_seconds, locale)} · {detail.params.output.channels} ch · 48 kHz / 24 bit</dd>
       </dl>
+      <QaMeters levels={qa.levels} />
       <details><summary>{t("dev.advanced")}</summary>
         <div className="row"><a href={detail.urls.master}>{t("dev.dl_master")}</a><a href={detail.urls.qa_report}>{t("dev.dl_report")}</a><a href={detail.urls.params}>{t("dev.dl_params")}</a></div>
       </details>
@@ -195,6 +197,8 @@ function JobCard({ job, onChange }: { job: any; onChange: () => void }) {
             <dt>{t("qa.gain")}<Term k="gain" /></dt><dd>{qa.levels.common_gain_db} dB</dd>
             <dt>{t("qa.duration")}</dt><dd>{duration(detail.params.output.duration_seconds, locale)} · {detail.params.output.frames} frames · 48 kHz / 24 bit</dd>
           </dl>
+          <QaMeters levels={qa.levels} />
+          {typeof qa.layer === "object" && detail.params.profile?.carrier_center_hz != null && <SignalChart signal={detail.params.profile} durationSeconds={detail.params.output.duration_seconds} />}
           <details><summary>{t("dev.advanced")}</summary>
             <dl className="kv hint">
               {Object.entries(detail.params.profile).map(([k, val]) => <Fragment key={k}><dt>{k}</dt><dd>{String(val)}</dd></Fragment>)}
@@ -415,6 +419,7 @@ function Audio({ app, onTrackReady }: { app: any; onTrackReady?: () => void }) {
         <label className="field">{t("dev.profile")}
           <select value={profile} onChange={(e) => setProfile(e.target.value)}>{profiles.data?.items.map((p: any) => <option key={p.id} value={p.id}>{p.name} · v{p.version}</option>)}</select></label>
         {prof && <p className="hint">{prof.description}</p>}
+        {prof?.params?.carrier_center_hz != null && <SignalChart signal={prof.params} />}
         <div className="layout-split">
           <ChannelDiagram layout="headphones" idPrefix="hp-track" />
           <div className="stack">
