@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { EquipmentIcons, SignalChart } from "@/components/Infographics";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppCover } from "@/components/Art";
@@ -54,6 +55,7 @@ export default async function AppPage({ params }: { params: P }) {
             })}
           </ol>
           {a.dsp_profile && <p className="hint">{t("app.dsp_note", { profile: a.dsp_profile.profile, v: a.dsp_profile.profile_version })}</p>}
+          {a.signal && <SignalChart signal={a.signal} durationSeconds={Math.max(0, ...a.program.map((s: any) => s.duration_seconds))} />}
         </div>
       </div>
       <div className="stack">
@@ -74,6 +76,7 @@ export default async function AppPage({ params }: { params: P }) {
           <dt>{t("app.price")}</dt><dd><strong>{priceLabel(a.prices, t, locale)}</strong></dd>
         </dl>
         {price?.kind === "subscription" && <p className="hint">{t("app.sub_terms")}</p>}
+        <EquipmentIcons layouts={a.layouts ?? ["headphones"]} separation={caps.includes("stereo_separation")} />
         <AppActions app={a} />
         <div className="panel flat">
           <h3>{t("app.equipment")}</h3>
