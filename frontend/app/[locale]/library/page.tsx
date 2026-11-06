@@ -6,6 +6,7 @@ import { AppCover, spreadTones } from "@/components/Art";
 import { useApp } from "@/components/Providers";
 import { Empty, ErrorBox, Loading, RequireAuth, useLoad } from "@/components/ui";
 import { date } from "@/lib/i18n";
+import { SavedPrograms } from "@/components/SavedPrograms";
 
 function Library() {
   const { t, locale } = useApp();
@@ -34,6 +35,7 @@ function Library() {
           )))(spreadTones(data.items.map((a: any) => a.cover_hue)))}
         </div>
       )}
+      <SavedPrograms />
     </div>
   );
 }

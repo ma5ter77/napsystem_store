@@ -39,6 +39,8 @@ type Opts = {
   onFatal: (code: "decode" | "channels" | "network" | "checksum") => void;
   /** NAP-101: the listener's calibration of their speakers / chair, in channel order (dB, ms) */
   calibration?: { gain_db: number; delay_ms: number }[];
+  /** NAP-104: the source is already on this device (decrypted protected copy): no second, unprotected copy is made */
+  local?: boolean;
 };
 
 export type ChannelTrim = { gain_db: number; delay_ms: number };
@@ -132,7 +134,8 @@ export class Playback {
     if (trims) connectTrims(this.ctx, this.node, this.gain, trims);   // the listener's level / delay per channel
     else this.node.connect(this.gain);
     this.gain.connect(dst);
-    this.saveOffline();
+    if (this.opts.local) { this.usingLocal = true; this.setOffline({ state: "ready", progress: 1 }); }
+    else this.saveOffline();
     return this.el.duration;
   }
 

@@ -12,6 +12,7 @@ import { api } from "@/lib/api";
 import { deleteSavedAddress, SavedAddressList, useSavedAddresses } from "@/components/SavedAddresses";
 import { date } from "@/lib/i18n";
 import { LegalText } from "@/components/LegalText";
+import { OfflineDevices } from "@/components/SavedPrograms";
 
 const TABS = ["purchases", "subscriptions", "devices", "history", "privacy", "notifications", "addresses"] as const;
 
@@ -174,7 +175,7 @@ function Account() {
       </div>
       {tab === "purchases" && <Purchases />}
       {tab === "subscriptions" && <Subs />}
-      {tab === "devices" && <Devices />}
+      {tab === "devices" && <><Devices /><OfflineDevices /></>}
       {tab === "history" && <History />}
       {tab === "privacy" && <Privacy />}
       {tab === "notifications" && <Notifications />}

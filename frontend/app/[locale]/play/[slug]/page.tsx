@@ -8,6 +8,7 @@ import { Empty, ErrorBox, Loading, RequireAuth, useAction, useLoad } from "@/com
 import { api, ApiError, uid } from "@/lib/api";
 import { detectOutput, Playback, trimsFor, type OfflineState } from "@/lib/playback";
 import { Calibration } from "@/components/Calibration";
+import { SaveOffline } from "@/components/SavedPrograms";
 import { duration } from "@/lib/i18n";
 
 type Phase = "setup" | "precheck" | "pre" | "loading" | "player" | "post" | "done";
@@ -307,6 +308,7 @@ function Player() {
             <button className="btn ghost small" onClick={() => addDevice("simulated", "sim-speakers")}>{t("player.add_speakers")}</button>
           </div>
           <button className="btn" disabled={!deviceId || act.pending} onClick={start}>{t("player.prepare")}</button>
+          <SaveOffline app={app} sessionKey={key} sessionTitle={app.program.find((s: any) => s.key === key)?.title ?? key} />
         </div>
       )}
       {phase === "precheck" && (
