@@ -132,6 +132,9 @@ jobs:
           # NAP-104: protected copy for listening without the internet — save, play with the network off, revoke
           node e2e/offline.cjs | tee -a ../e2e-run.txt
           grep -q '"offline":"passed"' ../e2e-run.txt
+          # NAP-064: subscription tiers — the author makes two plans, a buyer of the cheaper one gets only its sessions
+          node e2e/tiers.cjs | tee -a ../e2e-run.txt
+          grep -q '"tiers":"passed"' ../e2e-run.txt
           # NAP-043: WCAG 2.1 AA (axe-core) on every page/role + keyboard checks; fails on serious/critical issues
           node e2e/a11y.cjs --json ../a11y-report.json
       - uses: actions/upload-artifact@v4

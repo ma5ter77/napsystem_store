@@ -20,6 +20,7 @@ router = APIRouter(tags=["purchases/subscriptions/entitlements"])
 class CheckoutIn(BaseModel):
     app_id: str
     kind: str  # one_time / subscription / free  (price itself is defined by the server)
+    tier: str = ""  # NAP-064: which subscription tier
 
 
 @router.get("/checkout/trial/{app_id}")
@@ -38,7 +39,8 @@ def checkout(body: CheckoutIn, request: Request, p=P, db=DB, key=Depends(idem)):
     u = p.require_user()
     if body.kind not in ("one_time", "subscription", "free"):
         raise ApiError("validation_failed", 422, details={"field": "kind"})
-    return billing.start_checkout(db, db.merge(u), as_uuid(body.app_id, "app"), body.kind, locale_of(request), key)
+    return billing.start_checkout(db, db.merge(u), as_uuid(body.app_id, "app"), body.kind, locale_of(request), key,
+                                  body.tier)
 
 
 class PortalIn(BaseModel):

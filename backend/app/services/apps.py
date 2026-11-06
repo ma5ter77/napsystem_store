@@ -468,10 +468,38 @@ def withdraw_version(db: Session, app: App, v: AppVersion, actor_id: uuid.UUID) 
 TRIAL_MAX_DAYS = 90
 
 
+TIER_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
+
+
+def _tier_fields(db: Session, app: App, kind: str, tier: str, tier_names: dict | None,
+                 sessions: list | None) -> tuple[str, dict, list | None]:
+    """NAP-064: a subscription tier is a slug, names per locale and the program sessions it opens."""
+    tier = (tier or "").strip()
+    if kind != "subscription":
+        if tier or sessions is not None:
+            raise ApiError("validation_failed", 422, details={"field": "tier"})
+        return "", {}, None
+    if tier and not TIER_RE.match(tier):
+        raise ApiError("validation_failed", 422, details={"field": "tier"})
+    names = {k: str(v).strip()[:60] for k, v in (tier_names or {}).items() if k in ("ru", "en") and str(v).strip()}
+    if tier and not names:
+        raise ApiError("validation_failed", 422, details={"field": "tier_names"})
+    if sessions is not None:
+        keys = list(dict.fromkeys(str(k) for k in sessions))
+        v = latest_version(db, app.id)
+        known = {x.key for x in v.sessions} if v else set()
+        if not keys or any(k not in known for k in keys):
+            raise ApiError("validation_failed", 422, details={"field": "sessions"})
+        sessions = keys
+    return tier, names, sessions
+
+
 def set_price(db: Session, app: App, kind: str, amount_minor: int, currency: str, interval: str | None,
-              actor_id: uuid.UUID, trial_days: int = 0) -> Price:
+              actor_id: uuid.UUID, trial_days: int = 0, tier: str = "", tier_names: dict | None = None,
+              sessions: list | None = None) -> Price:
     if kind not in ("one_time", "subscription", "free"):
         raise ApiError("validation_failed", 422, details={"field": "kind"})
+    tier, tier_names, sessions = _tier_fields(db, app, kind, tier, tier_names, sessions)
     from .currency import supported
     if not re.match(r"^[A-Z]{3}$", currency) or (kind != "free" and currency not in supported()):
         raise ApiError("validation_failed", 422, details={"field": "currency"})
@@ -486,9 +514,14 @@ def set_price(db: Session, app: App, kind: str, amount_minor: int, currency: str
     if not 0 <= int(trial_days or 0) <= TRIAL_MAX_DAYS:
         raise ApiError("validation_failed", 422, details={"field": "trial_days"})
     # NAP-012: one active price per kind and currency — a USD price does not replace the EUR one
+    # NAP-064: and per subscription tier — the "basic" tier does not replace "full"
     for p in db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True), Price.kind == kind,
-                                            Price.currency == currency)):
+                                            Price.currency == currency, Price.tier == tier)):
         p.active = False
+    if kind == "subscription":  # a tier's name and program set are the same in every currency
+        for p in db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True), Price.kind == kind,
+                                                Price.tier == tier)):
+            p.tier_names, p.sessions = tier_names, sessions
     if kind == "subscription":  # one billing interval per app: switching month/year replaces it in every currency
         for p in db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True), Price.kind == kind,
                                                 Price.interval != interval)):
@@ -500,19 +533,32 @@ def set_price(db: Session, app: App, kind: str, amount_minor: int, currency: str
         for p in db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True), Price.kind == "free")):
             p.active = False
     price = Price(app_id=app.id, kind=kind, amount_minor=amount_minor, currency=currency, interval=interval,
-                  trial_days=int(trial_days or 0))
+                  trial_days=int(trial_days or 0), tier=tier, tier_names=tier_names, sessions=sessions)
     if kind == "subscription":  # NAP-064: one trial for the app, whatever currency the buyer pays in
         for p in db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True), Price.kind == kind)):
             p.trial_days = price.trial_days
     db.add(price)
     audit(db, actor_id, "price.set", "app", app.id, {"kind": kind, "amount_minor": amount_minor, "currency": currency,
-                                                      **({"trial_days": price.trial_days} if price.trial_days else {})})
+                                                      **({"trial_days": price.trial_days} if price.trial_days else {}),
+                                                      **({"tier": tier, "sessions": sessions} if tier else {})})
     db.flush()
     # NAP-083: an approved version that was only waiting for a price goes to the store now
     waiting = latest_version(db, app.id)
     if waiting and waiting.state == "approved" and waiting.auto_release:
         try_auto_release(db, app, waiting, actor_id)
     return price
+
+
+def remove_tier(db: Session, app: App, tier: str, actor_id: uuid.UUID) -> int:
+    """NAP-064: stop selling a tier. Current subscribers keep it until they cancel (their price stays on record)."""
+    rows = list(db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True),
+                                               Price.kind == "subscription", Price.tier == tier)))
+    if not rows:
+        raise ApiError("not_found", 404, entity="price")
+    for p in rows:
+        p.active = False
+    audit(db, actor_id, "price.tier_removed", "app", app.id, {"tier": tier})
+    return len(rows)
 
 
 def set_auto_release(db: Session, app: App, v: AppVersion, on: bool, actor_id: uuid.UUID) -> AppVersion:

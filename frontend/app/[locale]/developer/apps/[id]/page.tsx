@@ -8,6 +8,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useEffect, useRef, useState } from "react";
 import { useApp } from "@/components/Providers";
 import { AppCover } from "@/components/Art";
+import { tierName } from "@/components/cards";
 import { Term } from "@/components/Term";
 import { ChannelDiagram } from "@/components/ChannelDiagram";
 import { QaMeters, SignalChart } from "@/components/Infographics";
@@ -530,30 +531,76 @@ function Program({ app, v, reload, saved }: { app: any; v: any; reload: () => vo
 }
 
 function PriceTab({ app, reload, done }: { app: any; reload: () => void; done: (m: string) => void }) {
-  const { t } = useApp();
+  const { t, locale } = useApp();
   const cur = app.prices[0];
   const [kind, setKind] = useState(cur?.kind ?? "one_time");
   const [amount, setAmount] = useState(cur ? cur.amount_minor / 100 : 4.99);
   const [currency, setCurrency] = useState(cur?.currency ?? "EUR");
   const [interval, setInterval] = useState(cur?.interval ?? "month");
   const [trial, setTrial] = useState<number>(cur?.kind === "subscription" ? cur.trial_days ?? 0 : 0);
+  // NAP-064: subscription tiers — a name and the sessions it opens; an empty name keeps one plan for the whole app
+  const [tier, setTier] = useState<string>("");
+  const [names, setNames] = useState<{ ru: string; en: string }>({ ru: "", en: "" });
+  const [only, setOnly] = useState<string[] | null>(null);
+  const program: any[] = app.versions[0]?.sessions ?? [];
+  const tiers: any[] = Array.from(new Map(app.prices.filter((p: any) => p.tier).map((p: any) => [p.tier, p])).values());
+  const editTier = (p: any) => {
+    setKind("subscription"); setTier(p.tier); setNames({ ru: p.tier_names?.ru ?? "", en: p.tier_names?.en ?? "" });
+    setOnly(p.sessions ?? null); setAmount(p.amount_minor / 100); setCurrency(p.currency); setInterval(p.interval);
+  };
+  const slugOf = (n: string) => n.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32);
+  const tierSlug = tier || (names.en || names.ru ? slugOf(names.en || names.ru) || `tier-${tiers.length + 1}` : "");
   const act = useAction();
   return (
     <form className="panel stack" onSubmit={async (e) => {
       e.preventDefault();
-      if (await act.run(() => api(`/developer/apps/${app.id}/price`, { method: "PUT", body: { kind, amount_minor: Math.round(amount * 100), currency, interval: kind === "subscription" ? interval : null, trial_days: kind === "subscription" ? trial : 0 } }))) { const before = app.versions[0]?.state; const fresh = await api<any>(`/developer/apps/${app.id}`).catch(() => null); reload(); done(before === "approved" && fresh?.versions?.[0]?.state === "published" ? t("dev.saved_price_published") : t("dev.saved_price")); }
+      const sub = kind === "subscription";
+      const body = { kind, amount_minor: Math.round(amount * 100), currency, interval: sub ? interval : null, trial_days: sub ? trial : 0,
+        ...(sub && tierSlug ? { tier: tierSlug, tier_names: names, sessions: only } : {}) };
+      if (await act.run(() => api(`/developer/apps/${app.id}/price`, { method: "PUT", body }))) { if (tierSlug) { setTier(""); setNames({ ru: "", en: "" }); setOnly(null); } const before = app.versions[0]?.state; const fresh = await api<any>(`/developer/apps/${app.id}`).catch(() => null); reload(); done(before === "approved" && fresh?.versions?.[0]?.state === "published" ? t("dev.saved_price_published") : t("dev.saved_price")); }
     }}>
-      {cur && <p>{t("dev.current_price")}: {app.prices.map((p: any, i: number) => <span key={p.currency + p.kind}>{i > 0 && " · "}<Price minor={p.amount_minor} currency={p.currency} /> ({t(`kinds.${p.kind}`)}{p.interval ? `, ${t(`interval.${p.interval}`)}` : ""}{p.trial_days ? `, ${t("app.trial_days", { count: p.trial_days })}` : ""})</span>)}</p>}
+      {cur && <p>{t("dev.current_price")}: {app.prices.map((p: any, i: number) => <span key={p.currency + p.kind + (p.tier ?? "")}>{i > 0 && " · "}{p.tier ? `${tierName(p, locale)}: ` : ""}<Price minor={p.amount_minor} currency={p.currency} /> ({t(`kinds.${p.kind}`)}{p.interval ? `, ${t(`interval.${p.interval}`)}` : ""}{p.trial_days ? `, ${t("app.trial_days", { count: p.trial_days })}` : ""})</span>)}</p>}
+      {tiers.length > 0 && (
+        <div className="panel flat stack" data-testid="tier-list">
+          <h3>{t("tier.title")}</h3>
+          <ul className="plain">{tiers.map((p: any) => (
+            <li key={p.tier} className="spread">
+              <span><strong>{tierName(p, locale)}</strong> — {p.sessions ? p.sessions.map((k: string) => program.find((x) => x.key === k)?.titles?.[locale] ?? k).join(", ") : t("tier.all_sessions")}</span>
+              <span className="row">
+                <button type="button" className="btn ghost small" onClick={() => editTier(p)}>{t("tier.edit")}</button>
+                <button type="button" className="btn ghost small" onClick={async () => { if (await act.run(() => api(`/developer/apps/${app.id}/price/tiers/${p.tier}`, { method: "DELETE" }))) { reload(); done(t("tier.removed")); } }}>{t("tier.remove")}</button>
+              </span>
+            </li>))}</ul>
+          <p className="hint">{t("tier.remove_hint")}</p>
+        </div>)}
       <div className="form wide">
         <label className="field">{t("dev.price_kind")}<select value={kind} onChange={(e) => setKind(e.target.value)}><option value="one_time">{t("kinds.one_time")}</option><option value="subscription">{t("kinds.subscription")}</option><option value="free">{t("app.free")}</option></select></label>
         {kind !== "free" && <label className="field">{t("account.amount")}<input type="number" step="0.01" min="0.5" value={amount} onChange={(e) => setAmount(Number(e.target.value))} /></label>}
-        {kind !== "free" && <label className="field">{t("dev.currency")}<select value={currency} onChange={(e) => { setCurrency(e.target.value); const same = app.prices.find((p: any) => p.currency === e.target.value && p.kind === kind); if (same) setAmount(same.amount_minor / 100); }}><option>EUR</option><option>USD</option></select></label>}
+        {kind !== "free" && <label className="field">{t("dev.currency")}<select value={currency} onChange={(e) => { setCurrency(e.target.value); const same = app.prices.find((p: any) => p.currency === e.target.value && p.kind === kind && (p.tier ?? "") === tierSlug); if (same) setAmount(same.amount_minor / 100); }}><option>EUR</option><option>USD</option></select></label>}
         {kind === "subscription" && <label className="field">{t("dev.interval")}<select value={interval} onChange={(e) => setInterval(e.target.value)}><option value="month">{t("interval.month")}</option><option value="year">{t("interval.year")}</option></select></label>}
         {/* NAP-064: free days before the first charge, once per buyer */}
         {kind === "subscription" && <label className="field">{t("dev.trial_days")}<input type="number" min={0} max={90} step={1} value={trial}
           onChange={(e) => setTrial(Math.max(0, Math.min(90, Math.round(Number(e.target.value) || 0))))} aria-describedby="trial-hint" /></label>}
       </div>
       {kind === "subscription" && <p className="hint" id="trial-hint">{trial ? t("dev.trial_hint_on", { count: trial }) : t("dev.trial_hint_off")}</p>}
+      {kind === "subscription" && (
+        <fieldset className="panel flat stack" data-testid="tier-editor">
+          <legend>{tier ? t("tier.editing", { name: names[locale as "ru" | "en"] || tier }) : t("tier.new")}</legend>
+          <p className="hint">{t("tier.hint")}</p>
+          <div className="form wide">
+            <label className="field">{t("tier.name_ru")}<input value={names.ru} maxLength={60} onChange={(e) => setNames({ ...names, ru: e.target.value })} /></label>
+            <label className="field">{t("tier.name_en")}<input value={names.en} maxLength={60} onChange={(e) => setNames({ ...names, en: e.target.value })} /></label>
+          </div>
+          {(names.ru || names.en) && (
+            <div className="stack">
+              <label className="check"><input type="checkbox" checked={only === null} onChange={(e) => setOnly(e.target.checked ? null : program.map((x) => x.key))} /> {t("tier.all_sessions")}</label>
+              {only !== null && program.map((x) => (
+                <label key={x.key} className="check"><input type="checkbox" checked={only.includes(x.key)}
+                  onChange={(e) => setOnly(e.target.checked ? [...only, x.key] : only.filter((k) => k !== x.key))} /> {x.titles?.[locale] ?? Object.values(x.titles ?? {})[0] ?? x.key}</label>))}
+              {only !== null && !program.length && <p className="hint">{t("tier.no_program")}</p>}
+            </div>)}
+          {tier && <div><button type="button" className="btn ghost small" onClick={() => { setTier(""); setNames({ ru: "", en: "" }); setOnly(null); }}>{t("tier.new")}</button></div>}
+        </fieldset>)}
       <p className="hint">{t("dev.price_note")}</p>
       <p className="hint">{t("dev.price_currencies")}</p>
       <ErrorBox error={act.error} />

@@ -149,7 +149,9 @@ function Player() {
     window.addEventListener("online", u); window.addEventListener("offline", u);
     return () => { window.removeEventListener("online", u); window.removeEventListener("offline", u); };
   }, []);
-  useEffect(() => { if (app && !key && app.program?.[0]) setKey(app.program[0].key); }, [app, key]);
+  // NAP-064: a tier opens only some sessions — start with the first one the listener has
+  const allowed = (k: string) => !app?.access?.sessions || app.access.sessions.includes(k);
+  useEffect(() => { const first = app?.program?.find((s: any) => allowed(s.key)); if (app && !key && first) setKey(first.key); }, [app, key]);
   useEffect(() => { if (devices.data?.items?.length && !deviceId) setDeviceId(devices.data.items[0].id); }, [devices.data, deviceId]);
 
   const device = devices.data?.items?.find((d: any) => d.id === deviceId);
@@ -294,8 +296,9 @@ function Player() {
         <div className="panel stack">
           <label className="field">{t("player.session")}
             <select value={key} onChange={(e) => setKey(e.target.value)}>
-              {app.program.map((s: any) => <option key={s.key} value={s.key}>{s.title} — {duration(s.duration_seconds, locale)}</option>)}
+              {app.program.map((s: any) => <option key={s.key} value={s.key} disabled={!allowed(s.key)}>{s.title} — {duration(s.duration_seconds, locale)}{allowed(s.key) ? "" : ` (${t("tier.not_in_plan")})`}</option>)}
             </select></label>
+          {app.program.some((s: any) => !allowed(s.key)) && <p className="hint" data-testid="tier-locked">{t("tier.locked_hint")} <Link href={`/${locale}/apps/${slug}`}>{t("player.to_card")}</Link></p>}
           {devices.data?.items?.length ? (
             <label className="field">{t("player.device")}
               <select value={deviceId} onChange={(e) => setDeviceId(e.target.value)}>

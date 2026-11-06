@@ -28,7 +28,7 @@ from ..models import App, AppVersion, Asset, ContentPackage, LicenseDevice, Lice
 from ..secure import keys, napx
 from ..storage import get_storage
 from .assets import signed_url, store_generated
-from .billing import access_for
+from .billing import access_for, require_session
 from .common import audit
 from .sessions import LAYOUT_NAMES
 
@@ -155,10 +155,9 @@ def public_key() -> dict:
     return {"kid": kid, "alg": "EdDSA", "crv": "Ed25519", "x": napx.b64u(keys.public_raw(signer))}
 
 
-def _expiry(db: Session, user: User, app: App) -> datetime:
+def _expiry(db: Session, user: User, app: App, session_key: str) -> datetime:
     acc = access_for(db, user.id, app.id)
-    if not acc["has_access"]:
-        raise ApiError("no_entitlement", 403)
+    require_session(acc, session_key)  # NAP-064: the buyer's tier must include this session
     exp = utcnow() + timedelta(days=get_settings().license_offline_days)
     if acc["paid_until"]:  # a subscription: offline listening never outlives the paid period
         paid = datetime.fromisoformat(acc["paid_until"]) + timedelta(days=get_settings().subscription_grace_days)
@@ -174,7 +173,7 @@ def issue_lease(db: Session, user: User, device_id: uuid.UUID, app_id: uuid.UUID
     app = db.get(App, app_id)
     if not app or not app.published_version_id:
         raise ApiError("not_found", 404, entity="app")
-    exp = _expiry(db, user, app)
+    exp = _expiry(db, user, app, session_key)
     v = db.get(AppVersion, app.published_version_id)
     ps = next((s for s in v.sessions if s.key == session_key), None)
     if ps is None:
@@ -218,8 +217,12 @@ def lease_status(db: Session, user: User, lease_id: uuid.UUID) -> dict:
     if not lease or lease.user_id != user.id:
         raise ApiError("not_found", 404, entity="lease")
     now = utcnow()
-    if lease.revoked_at is None and not access_for(db, user.id, lease.app_id)["has_access"]:
-        lease.revoked_at, lease.revoke_reason = now, "no_entitlement"
+    if lease.revoked_at is None:
+        acc = access_for(db, user.id, lease.app_id)
+        if not acc["has_access"]:
+            lease.revoked_at, lease.revoke_reason = now, "no_entitlement"
+        elif acc.get("sessions") is not None and lease.session_key not in acc["sessions"]:
+            lease.revoked_at, lease.revoke_reason = now, "tier_required"  # NAP-064: a tier change drops the session
     if lease.revoked_at:
         status = "revoked"
     elif lease.expires_at <= now:

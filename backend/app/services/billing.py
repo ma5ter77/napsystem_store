@@ -43,9 +43,20 @@ def access_for(db: Session, user_id: uuid.UUID, app_id: uuid.UUID) -> dict:
             sub = db.get(Subscription, e.subscription_id)
             for p in sub.periods:
                 if p.status != "refunded" and p.period_start <= now < p.period_end + grace:
+                    price = db.get(Price, sub.price_id)  # NAP-064: the tier the buyer subscribed to
                     return {"has_access": True, "source": "subscription", "paid_until": sub.paid_until.isoformat()
-                            if sub.paid_until else None, "entitlement_id": str(e.id)}
+                            if sub.paid_until else None, "entitlement_id": str(e.id),
+                            "tier": price.tier if price else "", "tier_names": price.tier_names if price else {},
+                            "sessions": price.sessions if price else None}
     return {"has_access": False, "source": None, "paid_until": None, "entitlement_id": None}
+
+
+def require_session(acc: dict, session_key: str) -> None:
+    """NAP-064: access to the app is not enough when the buyer's tier does not include this program session."""
+    if not acc["has_access"]:
+        raise ApiError("no_entitlement", 403)
+    if acc.get("sessions") is not None and session_key not in acc["sessions"]:
+        raise ApiError("tier_required", 403, details={"tier": acc.get("tier") or ""})
 
 
 def _recompute_paid_until(sub: Subscription) -> None:
@@ -56,13 +67,14 @@ def _recompute_paid_until(sub: Subscription) -> None:
 # ------------------------------------------------------------------ checkout
 
 def start_checkout(db: Session, user: User, app_id: uuid.UUID, kind: str, locale: str,
-                   idempotency_key: str | None) -> dict:
+                   idempotency_key: str | None, tier: str = "") -> dict:
     app = db.get(App, app_id)
     if not app or not app.published_version_id or app.sales_status != "active":
         raise ApiError("not_for_sale", 409)
     from . import currency as cur  # NAP-012: pay in the buyer's currency when the author set a price in it
     chosen = cur.choose(list(db.scalars(select(Price).where(Price.app_id == app.id, Price.active.is_(True),
-                                                            Price.kind == kind))))
+                                                            Price.kind == kind,
+                                                            Price.tier == (tier if kind == "subscription" else "")))))
     price = chosen[0] if chosen else None
     if not price:
         raise ApiError("not_for_sale", 409)

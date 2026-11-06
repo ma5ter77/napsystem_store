@@ -69,6 +69,7 @@
     "shipping_required": "Choose a shipping option first.",
     "slug_taken": "This app address is already taken.",
     "synthetic_must_be_marked": "Simulator data must be marked as synthetic.",
+    "tier_required": "This program is not in your plan. Choose a plan that includes it.",
     "too_long": "The duration exceeds the limit.",
     "too_many_attempts": "Too many sign-in attempts. Try again later.",
     "too_many_channels": "Only mono and stereo are supported.",

@@ -5,9 +5,10 @@ import { LegalText } from "./LegalText";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, uid } from "@/lib/api";
-import { date } from "@/lib/i18n";
+import { date, money } from "@/lib/i18n";
 import { useApp } from "./Providers";
 import { ErrorBox, useAction } from "./ui";
+import { tierName } from "./cards";
 
 export function AppActions({ app }: { app: any }) {
   const { t, locale, me } = useApp();
@@ -23,10 +24,10 @@ export function AppActions({ app }: { app: any }) {
     if (me && offered) api<any>(`/checkout/trial/${app.id}`).then((r) => setTrial(r.trial_days)).catch(() => {});
   }, [me, app.id, offered]);
 
-  async function buy(kind: string) {
+  async function buy(kind: string, tier = "") {
     if (me === null) { router.push(`/${locale}/login?next=/${locale}/apps/${app.slug}`); return; }
     if (me === undefined) return;
-    const r = await act.run(() => api("/checkout/digital", { body: { app_id: app.id, kind }, headers: { "Idempotency-Key": uid() } }));
+    const r = await act.run(() => api("/checkout/digital", { body: { app_id: app.id, kind, tier }, headers: { "Idempotency-Key": uid() } }));
     if (!r) return;
     if (r.checkout_url) router.push(`/${locale}${r.checkout_url}`);
     else router.push(`/${locale}/library`);
@@ -44,12 +45,15 @@ export function AppActions({ app }: { app: any }) {
         <div className="row">
           <Link className="btn" href={`/${locale}/play/${app.slug}`}>{t("app.open_player")}</Link>
           {access.paid_until && <span className="muted">{t("app.paid_until", { date: date(access.paid_until, locale) })}</span>}
+          {access.tier && <span className="badge" data-testid="my-tier">{t("tier.mine", { name: tierName(access, locale) })}</span>}
         </div>
       ) : forSale ? (
         <div className="row">
           {app.prices.map((p: any) => (
-            <button key={p.id} className="btn" disabled={act.pending || me === undefined} onClick={() => buy(p.kind)}>
+            <button key={p.id} className="btn" disabled={act.pending || me === undefined} onClick={() => buy(p.kind, p.tier ?? "")}>
               {p.kind === "free" ? t("app.get_free") : p.kind === "subscription" ? (trial ? t("app.start_trial", { count: trial }) : t("app.subscribe")) : t("app.buy")}
+              {/* NAP-064: one button per tier, named with its price */}
+              {p.tier ? ` · ${tierName(p, locale)}, ${t(`app.per_${p.interval}`, { price: money(p.amount_minor, p.currency, locale) })}` : ""}
             </button>
           ))}
         </div>

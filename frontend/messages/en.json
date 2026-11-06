@@ -28,6 +28,25 @@
   "device_meta": "added {date} · {count, plural, one {# copy} other {# copies}}",
   "devices_hint": "A removed device can no longer open its saved copies: they are deleted once it goes online. Up to 5 devices per account."
  },
+ "tier": {
+  "from": "from {price}",
+  "mine": "Your plan: {name}",
+  "in": "in plans: {names}",
+  "not_in_plan": "not in your plan",
+  "locked_hint": "Part of the program is not in your plan. You can switch plans once the current subscription ends.",
+  "title": "Subscription plans",
+  "all_sessions": "Whole program",
+  "edit": "Edit",
+  "remove": "Stop selling",
+  "removed": "Plan removed from sale. Subscribers keep it until they cancel.",
+  "remove_hint": "A removed plan leaves the store in every currency. Current subscribers keep listening to their sessions.",
+  "new": "New plan",
+  "editing": "Plan “{name}”",
+  "hint": "Leave the name empty to sell one subscription for the whole app. For several levels, give the plan a name, pick its sessions and save. Set the price in another currency under the same name.",
+  "name_ru": "Plan name (Russian)",
+  "name_en": "Plan name (English)",
+  "no_program": "Add the program to the version first."
+ },
  "viz": {
   "signal_title": "Profile carriers: left and right channel",
   "left": "Left (L)",

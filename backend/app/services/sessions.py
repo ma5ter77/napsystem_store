@@ -21,7 +21,7 @@ from ..models import (App, AppVersion, Asset, Consent, Device, Measurement, Play
 from ..models.devices import SESSION_ACTIVE
 from ..security import generate_device_token
 from .assets import signed_url
-from .billing import access_for
+from .billing import access_for, require_session
 from .common import audit
 
 TRANSITIONS = {
@@ -92,8 +92,8 @@ def create_session(db: Session, user: User, app_id: uuid.UUID, session_key: str,
     app = db.get(App, app_id)
     if not app or not app.published_version_id:
         raise ApiError("not_found", 404, entity="app")
-    if not access_for(db, user.id, app.id)["has_access"]:
-        raise ApiError("no_entitlement", 403)
+    acc = access_for(db, user.id, app.id)
+    require_session(acc, session_key)
     dev = db.get(Device, device_id)
     if not dev or dev.owner_id != user.id or dev.status != "active":
         raise ApiError("not_found", 404, entity="device")

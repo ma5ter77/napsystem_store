@@ -128,7 +128,7 @@ def get_app(app_id: str, request: Request, p=P, db=DB):
             "versions": [version_view(db, v, locale_of(request)) for v in versions],
             "changes_vs_live": version_changes(live, versions[0]) if versions else [],
             "prices": [{"kind": x.kind, "amount_minor": x.amount_minor, "currency": x.currency, "interval": x.interval,
-                        "trial_days": x.trial_days}
+                        "trial_days": x.trial_days, "tier": x.tier, "tier_names": x.tier_names, "sessions": x.sessions}
                        for x in prices]}
 
 
@@ -242,16 +242,31 @@ class PriceIn(BaseModel):
     currency: str = "EUR"
     interval: str | None = None
     trial_days: int = 0          # NAP-064: free days before the first charge (subscriptions)
+    tier: str = ""               # NAP-064: subscription tier slug; "" = the whole app
+    tier_names: dict = {}        # {"ru": "...", "en": "..."}
+    sessions: list[str] | None = None  # program session keys the tier opens; None = all
 
 
 @router.put("/apps/{app_id}/price")
 def set_price(app_id: str, body: PriceIn, p=P, db=DB):
     u = dev(p, "apps:write")
     app = appsvc.own_app(db, as_uuid(app_id), u.id)
-    pr = appsvc.set_price(db, app, body.kind, body.amount_minor, body.currency, body.interval, u.id, body.trial_days)
+    pr = appsvc.set_price(db, app, body.kind, body.amount_minor, body.currency, body.interval, u.id, body.trial_days,
+                          body.tier, body.tier_names, body.sessions)
     db.commit()
     return {"id": str(pr.id), "kind": pr.kind, "amount_minor": pr.amount_minor, "currency": pr.currency,
-            "interval": pr.interval, "trial_days": pr.trial_days}
+            "interval": pr.interval, "trial_days": pr.trial_days, "tier": pr.tier, "tier_names": pr.tier_names,
+            "sessions": pr.sessions}
+
+
+@router.delete("/apps/{app_id}/price/tiers/{tier}")
+def remove_tier(app_id: str, tier: str, p=P, db=DB):
+    """NAP-064: stop selling one subscription tier (in every currency)."""
+    u = dev(p, "apps:write")
+    app = appsvc.own_app(db, as_uuid(app_id), u.id)
+    n = appsvc.remove_tier(db, app, tier, u.id)
+    db.commit()
+    return {"removed": n}
 
 
 class SalesIn(BaseModel):
