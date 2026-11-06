@@ -143,9 +143,10 @@ def regrant(session_id: str, max_channels: int = 2, p=P, db=DB):
     s = _load(db, p, session_id)
     if s.state not in ("created", "precheck", "ready", "running", "paused"):
         raise ApiError("invalid_state", 409)
-    from ..services.billing import access_for
-    if not access_for(db, s.user_id, s.app_id)["has_access"]:
-        raise ApiError("no_entitlement", 403)
+    from ..models.content import ProgramSession
+    from ..services.billing import access_for, require_session
+    ps = db.get(ProgramSession, s.program_session_id)
+    require_session(access_for(db, s.user_id, s.app_id), ps.key if ps else "")
     return svc.grant(db, s, max_channels)
 
 

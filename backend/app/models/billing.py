@@ -24,9 +24,14 @@ class Price(Base):
     currency: Mapped[str] = mapped_column(String(3))
     interval: Mapped[str | None] = mapped_column(String(8))  # month / year
     trial_days: Mapped[int] = mapped_column(Integer, default=0)
+    # NAP-064: subscription tiers. "" is the whole app; a named tier opens only `sessions` (None = every session)
+    tier: Mapped[str] = mapped_column(String(32), default="", server_default="")
+    tier_names: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
+    sessions: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = created_at()
     __table_args__ = (CheckConstraint("kind IN ('one_time','subscription','free')", name="kind"),
+                      CheckConstraint("kind = 'subscription' OR (tier = '' AND sessions IS NULL)", name="tier"),
                       CheckConstraint("amount_minor >= 0", name="amount"),
                       CheckConstraint("(kind = 'subscription') = (interval IS NOT NULL)", name="interval"))
 

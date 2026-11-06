@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppCover } from "@/components/Art";
-import { priceLabel } from "@/components/cards";
+import { priceLabel, tierName } from "@/components/cards";
 import { AppActions } from "@/components/AppActions";
 import { ViewBeacon } from "@/components/ViewBeacon";
 import { ReviewsSection, Stars } from "@/components/Reviews";
@@ -43,9 +43,15 @@ export default async function AppPage({ params }: { params: P }) {
         <div className="panel stack">
           <h2>{t("app.program")}</h2>
           <ol className="steps">
-            {a.program.map((s: any) => (
-              <li key={s.key}><span lang={s.title_lang}>{s.title}</span> <span className="muted">— {duration(s.duration_seconds, locale)}</span></li>
-            ))}
+            {a.program.map((s: any) => {
+              // NAP-064: with several tiers, each session says which of them include it
+              const tiers = a.prices.filter((p: any) => p.tier);
+              const inc = tiers.filter((p: any) => !p.sessions || p.sessions.includes(s.key));
+              return (
+                <li key={s.key}><span lang={s.title_lang}>{s.title}</span> <span className="muted">— {duration(s.duration_seconds, locale)}</span>
+                  {tiers.length > 1 && inc.length < tiers.length && <span className="hint" data-testid="tier-of-session"> · {t("tier.in", { names: inc.map((p: any) => tierName(p, locale)).join(", ") })}</span>}</li>
+              );
+            })}
           </ol>
           {a.dsp_profile && <p className="hint">{t("app.dsp_note", { profile: a.dsp_profile.profile, v: a.dsp_profile.profile_version })}</p>}
         </div>

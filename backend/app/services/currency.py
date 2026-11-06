@@ -32,12 +32,14 @@ def current() -> str:
 
 
 def choose(prices: list, currency: str | None = None) -> list:
-    """One price per kind: the buyer's currency if the author set it, else the oldest active price."""
+    """One price per kind (and subscription tier, NAP-064): the buyer's currency if the author set it, else the
+    oldest active price. Tiers come cheapest first."""
     currency = currency or current()
     by_kind: dict = {}
     for p in sorted(prices, key=lambda p: (p.created_at is None, p.created_at)):
-        cur = by_kind.get(p.kind)
+        k = (p.kind, getattr(p, "tier", "") or "")
+        cur = by_kind.get(k)
         if cur is None or (p.currency == currency and cur.currency != currency):
-            by_kind[p.kind] = p
+            by_kind[k] = p
     order = {"free": 0, "one_time": 1, "subscription": 2}
-    return sorted(by_kind.values(), key=lambda p: order.get(p.kind, 9))
+    return sorted(by_kind.values(), key=lambda p: (order.get(p.kind, 9), p.amount_minor))

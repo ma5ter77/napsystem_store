@@ -7,10 +7,18 @@ export function priceLabel(prices: any[], t: T, locale: Locale): string {
   const p = prices[0];
   if (p.kind === "free") return t("app.free");
   if (p.kind === "subscription") {
-    const per = t(`app.per_${p.interval}`, { price: money(p.amount_minor, p.currency, locale) });
+    let per = t(`app.per_${p.interval}`, { price: money(p.amount_minor, p.currency, locale) });
+    if (prices.filter((x) => x.kind === "subscription").length > 1) per = t("tier.from", { price: per });  // NAP-064: tiers
     return p.trial_days ? t("app.trial_then", { count: p.trial_days, price: per }) : per;   // NAP-064
   }
   return money(p.amount_minor, p.currency, locale);
+}
+
+/** NAP-064: a subscription tier's name in the reader's language ("" for an app without tiers). */
+export function tierName(p: any, locale: Locale): string {
+  if (!p?.tier) return "";
+  const n = p.tier_names ?? {};
+  return n[locale] || n.ru || n.en || p.tier;
 }
 
 export function AppCard({ a, locale, t, tone }: { a: any; locale: Locale; t: T; tone?: number }) {
